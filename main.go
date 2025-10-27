@@ -2,7 +2,6 @@ package main
 
 import (
 	_ "embed" // for embedding template
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
@@ -28,9 +27,13 @@ var (
 )
 
 func main() {
-	FRIGATE_URL = os.Getenv("FRIGATE_URL")
+	cfg := MustLoadConfig()
+	FRIGATE_URL = cfg.Frigate.Url
+	if override := os.Getenv("FRIGATE_URL"); override != "" {
+		FRIGATE_URL = override
+	}
 	if FRIGATE_URL == "" {
-		log.Fatal("FRIGATE_URL environment variable is required")
+		log.Fatal("frigate.url must be set in at2.yaml or FRIGATE_URL env var")
 	}
 	PORT = os.Getenv("LISTEN_PORT")
 	if PORT == "" {
@@ -57,25 +60,29 @@ func refreshImagesPeriodically() {
 }
 
 func updateCameraImages() {
-	resp, err := http.Get(FRIGATE_URL + "/api/config")
-	if err != nil {
-		log.Println("Error fetching config:", err)
-		return
-	}
-	defer resp.Body.Close()
-
-	var config struct {
-		Cameras map[string]map[string]interface{} `json:"cameras"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&config); err != nil {
-		log.Println("Error decoding config JSON:", err)
+	cfg := GetConfig()
+	if cfg == nil {
+		log.Println("Config not loaded yet")
 		return
 	}
 
-	for name, camConfig := range config.Cameras {
-		if disabled, ok := camConfig["disabled"].(bool); ok && disabled {
-			continue
+	// Collect unique camera names from config rooms
+	unique := map[string]struct{}{}
+	for _, room := range cfg.Rooms {
+		for _, cam := range room.Cameras {
+			if cam == "" {
+				continue
+			}
+			unique[cam] = struct{}{}
 		}
+	}
+
+	if len(unique) == 0 {
+		log.Println("No cameras defined in config rooms")
+		return
+	}
+
+	for name := range unique {
 		go fetchAndCacheImage(name)
 	}
 }
