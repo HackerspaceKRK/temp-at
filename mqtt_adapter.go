@@ -30,7 +30,7 @@ type VirtualDevice struct {
 	Name string `json:"name"`
 	// BaseName is the original physical device friendly_name from Zigbee2MQTT.
 	BaseName string `json:"base_name"`
-	// Type: "relay", "temperature", "humidity".
+	// Type: "relay", "temperature", "humidity", "person"
 	Type string `json:"type"`
 	// Endpoint identifier if applicable (e.g. "1", "2" for multi-channel relays).
 	Endpoint string `json:"endpoint,omitempty"`
@@ -62,6 +62,7 @@ type MQTTAdapter struct {
 	deviceSubscriptions map[string]bool
 
 	zigbee2MqttPrefix string
+	frigatePrefix     string
 }
 
 // atomicBool (simple mutex-backed boolean) avoids importing sync/atomic for minimal usage.
@@ -91,6 +92,7 @@ func NewMQTTAdapter(cfg *Config, logger *log.Logger) (*MQTTAdapter, error) {
 		config:              cfg,
 		deviceSubscriptions: make(map[string]bool),
 		zigbee2MqttPrefix:   "zigbee2mqtt/",
+		frigatePrefix:       "frigate/",
 	}
 
 	opts, err := a.buildClientOptions(cfg)
@@ -102,6 +104,24 @@ func NewMQTTAdapter(cfg *Config, logger *log.Logger) (*MQTTAdapter, error) {
 		a.logger.Printf("[mqtt] connected to %s", cfg.MQTT.Broker)
 		if err := a.subscribeDevicesTopic(); err != nil {
 			a.logger.Printf("[mqtt] failed to subscribe devices topic: %v", err)
+		}
+
+		frigateEnabledTopic := a.frigatePrefix + "+/enabled/state"
+		a.logger.Printf("[mqtt] subscribing to frigate camera enabled topics: %s", frigateEnabledTopic)
+		token := a.client.Subscribe(frigateEnabledTopic, 0, a.handleFrigateEnabledMessage)
+		if !token.WaitTimeout(5 * time.Second) {
+			a.logger.Printf("[mqtt] subscription timeout for %s", frigateEnabledTopic)
+		} else if err := token.Error(); err != nil {
+			a.logger.Printf("[mqtt] failed to subscribe to %s: %v", frigateEnabledTopic, err)
+		}
+
+		frigatePersonTopic := a.frigatePrefix + "+/person/active"
+		a.logger.Printf("[mqtt] subscribing to frigate camera person active topics: %s", frigatePersonTopic)
+		token = a.client.Subscribe(frigatePersonTopic, 0, a.handleFrigatePersonMessage)
+		if !token.WaitTimeout(5 * time.Second) {
+			a.logger.Printf("[mqtt] subscription timeout for %s", frigatePersonTopic)
+		} else if err := token.Error(); err != nil {
+			a.logger.Printf("[mqtt] failed to subscribe to %s: %v", frigatePersonTopic, err)
 		}
 	}
 
@@ -171,7 +191,8 @@ func (a *MQTTAdapter) handleDevicesMessage(_ mqtt.Client, msg mqtt.Message) {
 		return
 	}
 
-	var virtual []*VirtualDevice
+	a.virtualMu.Lock()
+	defer a.virtualMu.Unlock()
 
 	for i, raw := range rawDevices {
 		var devMap map[string]any
@@ -196,7 +217,6 @@ func (a *MQTTAdapter) handleDevicesMessage(_ mqtt.Client, msg mqtt.Message) {
 
 		for _, exp := range exposes {
 			exp := exp.(map[string]any)
-			// log.Printf("%#v", exp["type"])
 			if exp["type"] == "switch" {
 				relayExposes = append(relayExposes, exp)
 			}
@@ -226,7 +246,7 @@ func (a *MQTTAdapter) handleDevicesMessage(_ mqtt.Client, msg mqtt.Message) {
 					}
 				}
 			}
-			virtual = append(virtual, &VirtualDevice{
+			a.virtualDevices = append(a.virtualDevices, &VirtualDevice{
 				Name:        friendlyName + suffix,
 				BaseName:    friendlyName,
 				Type:        "relay",
@@ -241,12 +261,13 @@ func (a *MQTTAdapter) handleDevicesMessage(_ mqtt.Client, msg mqtt.Message) {
 			endpoint := extractEndpoint(ex)
 			nameSuffix := "/temperature"
 
-			virtual = append(virtual, &VirtualDevice{
+			a.virtualDevices = append(a.virtualDevices, &VirtualDevice{
 				Name:        friendlyName + nameSuffix,
 				BaseName:    friendlyName,
 				Type:        "temperature",
 				Endpoint:    endpoint,
 				IEEEAddress: ieee,
+				StateKey:    "temperature",
 			})
 		}
 
@@ -255,21 +276,18 @@ func (a *MQTTAdapter) handleDevicesMessage(_ mqtt.Client, msg mqtt.Message) {
 			endpoint := extractEndpoint(ex)
 			nameSuffix := "/humidity"
 
-			virtual = append(virtual, &VirtualDevice{
+			a.virtualDevices = append(a.virtualDevices, &VirtualDevice{
 				Name:        friendlyName + nameSuffix,
 				BaseName:    friendlyName,
 				Type:        "humidity",
 				Endpoint:    endpoint,
 				IEEEAddress: ieee,
+				StateKey:    "humidity",
 			})
 		}
 	}
 
-	a.virtualMu.Lock()
-	a.virtualDevices = virtual
-	a.virtualMu.Unlock()
-
-	for _, device := range virtual {
+	for _, device := range a.virtualDevices {
 		if _, ok := a.deviceSubscriptions[device.BaseName]; !ok {
 			a.deviceSubscriptions[device.BaseName] = true
 			topic := a.zigbee2MqttPrefix + device.BaseName
@@ -284,7 +302,6 @@ func (a *MQTTAdapter) handleDevicesMessage(_ mqtt.Client, msg mqtt.Message) {
 		}
 	}
 
-	a.logger.Printf("[mqtt] virtual devices updated (%d)", len(virtual))
 }
 
 func (a *MQTTAdapter) handleDeviceMessage(_ mqtt.Client, msg mqtt.Message) {
@@ -300,8 +317,59 @@ func (a *MQTTAdapter) handleDeviceMessage(_ mqtt.Client, msg mqtt.Message) {
 	defer a.virtualMu.Unlock()
 	for _, device := range a.virtualDevices {
 		if a.zigbee2MqttPrefix+device.BaseName == msg.Topic() {
-			a.logger.Printf("[mqtt] updating state for %s, stateKey %s", device.Name, device.StateKey)
+
 			device.State = parsed[device.StateKey]
+		}
+	}
+}
+
+// handleFrigateEnabledMessage handles messages on frigate/<camera>/enabled.
+// For now, just extracts camera name and logs receipt; no further action.
+func (a *MQTTAdapter) handleFrigateEnabledMessage(_ mqtt.Client, msg mqtt.Message) {
+	topic := msg.Topic()
+	if !strings.HasPrefix(topic, a.frigatePrefix) {
+		return
+	}
+	a.virtualMu.Lock()
+	defer a.virtualMu.Unlock()
+	rest := strings.TrimPrefix(topic, a.frigatePrefix) // e.g. "front_door/enabled"
+	parts := strings.Split(rest, "/")
+	if len(parts) >= 2 && parts[1] == "enabled" {
+		cameraName := parts[0]
+		a.logger.Printf("[mqtt] frigate enabled topic received for camera %s", cameraName)
+		virtName := fmt.Sprintf("person/%s", cameraName)
+
+		for _, dev := range a.virtualDevices {
+			if dev.BaseName == virtName {
+				return // Device already exists
+			}
+		}
+		// Create a virtual device called person/<cameraName>
+		personDevice := &VirtualDevice{
+			Name:     virtName,
+			BaseName: fmt.Sprintf("%s/person/active", cameraName),
+		}
+		a.logger.Printf("[mqtt] creating virtual device for person detection on camera %#v", personDevice)
+		a.virtualDevices = append(a.virtualDevices, personDevice)
+
+		a.logger.Printf("%+v", a.virtualDevices)
+	}
+}
+
+// handleFrigatePersonMessage handles frigate person messages.
+func (a *MQTTAdapter) handleFrigatePersonMessage(_ mqtt.Client, msg mqtt.Message) {
+	topic := msg.Topic()
+	if !strings.HasPrefix(topic, a.frigatePrefix) {
+		return
+	}
+	a.virtualMu.Lock()
+	defer a.virtualMu.Unlock()
+	a.logger.Printf("[mqtt] frigate person message received for topic %s, payload: %s", topic, string(msg.Payload()))
+	rest := strings.TrimPrefix(topic, a.frigatePrefix)
+	for _, dev := range a.virtualDevices {
+		if dev.BaseName == rest {
+			dev.State = string(msg.Payload()) == "1"
+			return
 		}
 	}
 }
