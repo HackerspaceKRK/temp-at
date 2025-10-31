@@ -291,7 +291,6 @@ func (a *MQTTAdapter) handleDevicesMessage(_ mqtt.Client, msg mqtt.Message) {
 		if _, ok := a.deviceSubscriptions[device.BaseName]; !ok {
 			a.deviceSubscriptions[device.BaseName] = true
 			topic := a.zigbee2MqttPrefix + device.BaseName
-			a.logger.Printf("[mqtt] subscribing to %s", topic)
 			token := a.client.Subscribe(topic, 0, a.handleDeviceMessage)
 			if !token.WaitTimeout(5 * time.Second) {
 				a.logger.Printf("[mqtt] failed to subscribe to %s", topic)
@@ -349,10 +348,10 @@ func (a *MQTTAdapter) handleFrigateEnabledMessage(_ mqtt.Client, msg mqtt.Messag
 			Name:     virtName,
 			BaseName: fmt.Sprintf("%s/person/active", cameraName),
 		}
-		a.logger.Printf("[mqtt] creating virtual device for person detection on camera %#v", personDevice)
+	
 		a.virtualDevices = append(a.virtualDevices, personDevice)
 
-		a.logger.Printf("%+v", a.virtualDevices)
+
 	}
 }
 
