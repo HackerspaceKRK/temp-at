@@ -7,11 +7,13 @@ import (
 	"html/template"
 	"io"
 	"log"
-	"net/http"
+	"net/http" // for http.TimeFormat
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 var FRIGATE_URL string
@@ -27,6 +29,11 @@ var (
 	mu           = sync.Mutex{}
 	mqttAdapter  *MQTTAdapter
 )
+
+//go:embed template.html
+var templateHTML string
+
+var tpl = template.Must(template.New("webpage").Parse(templateHTML))
 
 func main() {
 	cfg := MustLoadConfig()
@@ -48,17 +55,20 @@ func main() {
 		log.Fatalf("failed to initialize MQTT adapter: %v", err)
 	}
 
-	mqttAdapter = mqttAdapter
-
 	go refreshImagesPeriodically()
 
-	http.HandleFunc("/", serveWebpage)
-	http.HandleFunc("/image/", serveImage)
-	http.HandleFunc("/robots.txt", serveRobots)
-	http.HandleFunc("/devices", serveDevices)
+	app := fiber.New()
+
+	// Routes
+	app.Get("/", handleWebpage)
+	app.Get("/image/:name", handleImage)
+	app.Get("/robots.txt", handleRobots)
+	app.Get("/devices", handleDevices)
 
 	log.Printf("Serving on http://localhost%s", PORT)
-	log.Fatal(http.ListenAndServe(PORT, nil))
+	if err := app.Listen(PORT); err != nil {
+		log.Fatalf("Fiber server failed: %v", err)
+	}
 }
 
 func refreshImagesPeriodically() {
@@ -120,72 +130,63 @@ func fetchAndCacheImage(name string) {
 	})
 }
 
-func serveImage(w http.ResponseWriter, r *http.Request) {
-	name := strings.TrimPrefix(r.URL.Path, "/image/")
+func handleImage(c *fiber.Ctx) error {
+	name := c.Params("name")
 	if val, ok := cameraImages.Load(name); ok {
 		img := val.(CameraImage)
-		w.Header().Set("Content-Type", "image/webp")
-		w.Header().Set("Cache-Control", "no-cache")
-		w.Header().Set("Last-Modified", img.Timestamp.Format(http.TimeFormat))
-		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(img.Data)))
-		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write(img.Data); err != nil {
-			log.Printf("Error writing image for camera %s: %v", name, err)
-		}
-	} else {
-		http.NotFound(w, r)
+		c.Set("Content-Type", "image/webp")
+		c.Set("Cache-Control", "no-cache")
+		c.Set("Last-Modified", img.Timestamp.Format(http.TimeFormat))
+		c.Set("Content-Length", fmt.Sprintf("%d", len(img.Data)))
+		return c.Status(fiber.StatusOK).Send(img.Data)
 	}
+	return fiber.ErrNotFound
 }
 
 var robotsTxt = []byte(`User-agent: *
 Disallow: /`)
 
-func serveRobots(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.WriteHeader(http.StatusOK)
-	w.Write(robotsTxt)
+func handleRobots(c *fiber.Ctx) error {
+	c.Set("Content-Type", "text/plain")
+	c.Set("Cache-Control", "no-cache")
+	return c.Status(fiber.StatusOK).Send(robotsTxt)
 }
 
-//go:embed template.html
-var templateHTML string
-
-var tpl = template.Must(template.New("webpage").Parse(templateHTML))
-
-func serveWebpage(w http.ResponseWriter, r *http.Request) {
+func handleWebpage(c *fiber.Ctx) error {
 	names := make([]string, 0)
 	cameraImages.Range(func(key, value interface{}) bool {
 		names = append(names, key.(string))
 		return true
 	})
 
-	w.Header().Set("Content-Type", "text/html")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Last-Modified", time.Now().Format(http.TimeFormat))
-	w.WriteHeader(http.StatusOK)
-	if err := tpl.Execute(w, map[string]interface{}{
+	c.Set("Content-Type", "text/html")
+	c.Set("Cache-Control", "no-cache")
+	c.Set("Last-Modified", time.Now().Format(http.TimeFormat))
+
+	var buf strings.Builder
+	if err := tpl.Execute(&buf, map[string]interface{}{
 		"Cameras": names,
 	}); err != nil {
-		http.Error(w, "Error rendering template", http.StatusInternalServerError)
 		log.Println("Error rendering template:", err)
-		return
+		return c.Status(fiber.StatusInternalServerError).SendString("Error rendering template")
 	}
-
+	return c.Status(fiber.StatusOK).SendString(buf.String())
 }
 
-func serveDevices(w http.ResponseWriter, r *http.Request) {
+func handleDevices(c *fiber.Ctx) error {
 	if mqttAdapter == nil {
-		http.Error(w, "MQTT adapter not initialized", http.StatusServiceUnavailable)
-		return
+		return c.Status(fiber.StatusServiceUnavailable).SendString("MQTT adapter not initialized")
 	}
 	devices := mqttAdapter.VirtualDevices()
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "no-cache")
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(devices); err != nil {
-		http.Error(w, "Failed to encode devices", http.StatusInternalServerError)
+
+	// Preserve previous indentation behavior
+	out, err := json.MarshalIndent(devices, "", "  ")
+	if err != nil {
 		log.Printf("Error encoding devices: %v", err)
-		return
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to encode devices")
 	}
+
+	c.Set("Content-Type", "application/json")
+	c.Set("Cache-Control", "no-cache")
+	return c.Status(fiber.StatusOK).Send(out)
 }
