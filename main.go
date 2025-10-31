@@ -2,7 +2,6 @@ package main
 
 import (
 	_ "embed" // for embedding template
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
@@ -14,6 +13,8 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+
+	"github.com/gofiber/contrib/websocket"
 )
 
 var FRIGATE_URL string
@@ -63,7 +64,9 @@ func main() {
 	app.Get("/", handleWebpage)
 	app.Get("/image/:name", handleImage)
 	app.Get("/robots.txt", handleRobots)
-	app.Get("/devices", handleDevices)
+	app.Get("/api/v1/all-devices", handleDevices)
+	app.Get("/api/v1/live-ws", websocket.New(handleLiveWs))
+	app.Get("/api/v1/room-states", handleGetRoomStates)
 
 	log.Printf("Serving on http://localhost%s", PORT)
 	if err := app.Listen(PORT); err != nil {
@@ -76,36 +79,8 @@ func refreshImagesPeriodically() {
 	defer ticker.Stop()
 
 	for {
-		updateCameraImages()
+		// updateCameraImages()
 		<-ticker.C
-	}
-}
-
-func updateCameraImages() {
-	cfg := GetConfig()
-	if cfg == nil {
-		log.Println("Config not loaded yet")
-		return
-	}
-
-	// Collect unique camera names from config rooms
-	unique := map[string]struct{}{}
-	for _, room := range cfg.Rooms {
-		for _, cam := range room.Cameras {
-			if cam == "" {
-				continue
-			}
-			unique[cam] = struct{}{}
-		}
-	}
-
-	if len(unique) == 0 {
-		log.Println("No cameras defined in config rooms")
-		return
-	}
-
-	for name := range unique {
-		go fetchAndCacheImage(name)
 	}
 }
 
@@ -179,14 +154,6 @@ func handleDevices(c *fiber.Ctx) error {
 	}
 	devices := mqttAdapter.VirtualDevices()
 
-	// Preserve previous indentation behavior
-	out, err := json.MarshalIndent(devices, "", "  ")
-	if err != nil {
-		log.Printf("Error encoding devices: %v", err)
-		return c.Status(fiber.StatusInternalServerError).SendString("Failed to encode devices")
-	}
-
-	c.Set("Content-Type", "application/json")
 	c.Set("Cache-Control", "no-cache")
-	return c.Status(fiber.StatusOK).Send(out)
+	return c.Status(fiber.StatusOK).JSON(devices)
 }

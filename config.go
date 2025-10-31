@@ -16,9 +16,15 @@ type MQTTConfig struct {
 	Password string `yaml:"password"`
 }
 
+type EntityConfig struct {
+	// Name that identifies this entiti/device. Same value as .Name in VirtualDevice
+	Name string `yaml:"name"`
+
+	// How the device should be represented in the UI (light, fan, etc.)
+	Representation string `yaml:"representation"`
+}
+
 type RoomConfig struct {
-	Name    string   `yaml:"name"`
-	Cameras []string `yaml:"cameras"`
-	Relays  []string `yaml:"relays"`
-	Sensors []string `yaml:"sensors"`
+	Name     string         `yaml:"name"`
+	Entities []EntityConfig `yaml:"entities"`
 }

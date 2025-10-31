@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -18,13 +19,6 @@ func deviceStateTopic(base string) string    { return "zigbee2mqtt/" + base }
 
 // VirtualDevice represents a single controllable/readable capability broken out
 // from a physical Zigbee device (e.g. multi-relay or multi-sensor).
-//
-// Examples of Name generation:
-//
-//	Physical device friendly_name: lights/elelab
-//	Two relay endpoints -> lights/elelab/l1 and lights/elelab/l2
-//	Temperature sensor   -> sensor/desk/temperature
-//	Humidity sensor      -> sensor/desk/humidity
 type VirtualDevice struct {
 	// Name is the unique virtual name (base_name plus suffix).
 	Name string `json:"name"`
@@ -41,7 +35,7 @@ type VirtualDevice struct {
 	StateKey string `json:"state_key,omitempty"`
 
 	// Current state of the given device
-	// true/false for relays, float for temperature, humidity, etc.
+	// true/false for relays, float for temperature, humidity, int for person (count)
 	State any `json:"state,omitempty"`
 }
 
@@ -365,7 +359,9 @@ func (a *MQTTAdapter) handleFrigatePersonMessage(_ mqtt.Client, msg mqtt.Message
 	rest := strings.TrimPrefix(topic, a.frigatePrefix)
 	for _, dev := range a.virtualDevices {
 		if dev.BaseName == rest {
-			dev.State = string(msg.Payload()) == "1"
+
+			intVal, _ := strconv.Atoi(string(msg.Payload()))
+			dev.State = intVal
 			return
 		}
 	}
@@ -384,7 +380,11 @@ func (a *MQTTAdapter) VirtualDevices() []*VirtualDevice {
 	a.virtualMu.RLock()
 	defer a.virtualMu.RUnlock()
 	cp := make([]*VirtualDevice, len(a.virtualDevices))
-	copy(cp, a.virtualDevices)
+	for i, dev := range a.virtualDevices {
+		// deep copy
+		var newDev = *dev
+		cp[i] = &newDev
+	}
 	return cp
 }
 
