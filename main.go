@@ -2,6 +2,7 @@ package main
 
 import (
 	_ "embed" // for embedding template
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
@@ -24,6 +25,7 @@ type CameraImage struct {
 var (
 	cameraImages = sync.Map{} // map[string]CameraImage
 	mu           = sync.Mutex{}
+	mqttAdapter  *MQTTAdapter
 )
 
 func main() {
@@ -39,11 +41,21 @@ func main() {
 	if PORT == "" {
 		PORT = ":8080"
 	}
+
+	var err error
+	mqttAdapter, err = NewMQTTAdapter(cfg, log.Default())
+	if err != nil {
+		log.Fatalf("failed to initialize MQTT adapter: %v", err)
+	}
+
+	mqttAdapter = mqttAdapter
+
 	go refreshImagesPeriodically()
 
 	http.HandleFunc("/", serveWebpage)
 	http.HandleFunc("/image/", serveImage)
 	http.HandleFunc("/robots.txt", serveRobots)
+	http.HandleFunc("/devices", serveDevices)
 
 	log.Printf("Serving on http://localhost%s", PORT)
 	log.Fatal(http.ListenAndServe(PORT, nil))
@@ -159,4 +171,21 @@ func serveWebpage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+}
+
+func serveDevices(w http.ResponseWriter, r *http.Request) {
+	if mqttAdapter == nil {
+		http.Error(w, "MQTT adapter not initialized", http.StatusServiceUnavailable)
+		return
+	}
+	devices := mqttAdapter.VirtualDevices()
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-cache")
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(devices); err != nil {
+		http.Error(w, "Failed to encode devices", http.StatusInternalServerError)
+		log.Printf("Error encoding devices: %v", err)
+		return
+	}
 }
