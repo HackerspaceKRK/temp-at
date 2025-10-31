@@ -335,7 +335,6 @@ func (a *MQTTAdapter) handleFrigateEnabledMessage(_ mqtt.Client, msg mqtt.Messag
 	parts := strings.Split(rest, "/")
 	if len(parts) >= 2 && parts[1] == "enabled" {
 		cameraName := parts[0]
-		a.logger.Printf("[mqtt] frigate enabled topic received for camera %s", cameraName)
 		virtName := fmt.Sprintf("person/%s", cameraName)
 
 		for _, dev := range a.virtualDevices {
@@ -348,9 +347,8 @@ func (a *MQTTAdapter) handleFrigateEnabledMessage(_ mqtt.Client, msg mqtt.Messag
 			Name:     virtName,
 			BaseName: fmt.Sprintf("%s/person/active", cameraName),
 		}
-	
-		a.virtualDevices = append(a.virtualDevices, personDevice)
 
+		a.virtualDevices = append(a.virtualDevices, personDevice)
 
 	}
 }
