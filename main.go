@@ -55,6 +55,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to initialize MQTT adapter: %v", err)
 	}
+	mqttAdapter.OnVirtualDeviceUpdated = handleVirtualDeviceStateUpdate
 
 	go refreshImagesPeriodically()
 

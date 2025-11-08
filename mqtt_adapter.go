@@ -40,7 +40,6 @@ type VirtualDevice struct {
 }
 
 // MQTTAdapter manages connection and maintains a list of virtual devices.
-// It does NOT keep telemetry state caches; it only discovers structure/capabilities.
 type MQTTAdapter struct {
 	client mqtt.Client
 	logger *log.Logger
@@ -51,7 +50,7 @@ type MQTTAdapter struct {
 	virtualMu      sync.RWMutex
 	virtualDevices []*VirtualDevice
 
-	onVirtualDevicesUpdated func([]*VirtualDevice)
+	OnVirtualDeviceUpdated func(name string)
 
 	deviceSubscriptions map[string]bool
 
@@ -306,12 +305,22 @@ func (a *MQTTAdapter) handleDeviceMessage(_ mqtt.Client, msg mqtt.Message) {
 		return
 	}
 
-	a.virtualMu.Lock()
-	defer a.virtualMu.Unlock()
-	for _, device := range a.virtualDevices {
-		if a.zigbee2MqttPrefix+device.BaseName == msg.Topic() {
+	updatedDeviceNames := []string{}
+	func() {
 
-			device.State = parsed[device.StateKey]
+		a.virtualMu.Lock()
+		defer a.virtualMu.Unlock()
+		for _, device := range a.virtualDevices {
+			if a.zigbee2MqttPrefix+device.BaseName == msg.Topic() {
+				device.State = parsed[device.StateKey]
+				updatedDeviceNames = append(updatedDeviceNames, device.Name)
+
+			}
+		}
+	}()
+	for _, name := range updatedDeviceNames {
+		if a.OnVirtualDeviceUpdated != nil {
+			a.OnVirtualDeviceUpdated(name)
 		}
 	}
 }
@@ -354,14 +363,24 @@ func (a *MQTTAdapter) handleFrigatePersonMessage(_ mqtt.Client, msg mqtt.Message
 	if !strings.HasPrefix(topic, a.frigatePrefix) {
 		return
 	}
-	a.virtualMu.Lock()
-	defer a.virtualMu.Unlock()
-	rest := strings.TrimPrefix(topic, a.frigatePrefix)
-	for _, dev := range a.virtualDevices {
-		if dev.BaseName == rest {
-			intVal, _ := strconv.Atoi(string(msg.Payload()))
-			dev.State = intVal
-			return
+	updatedDeviceNames := []string{}
+	func() {
+		a.virtualMu.Lock()
+		defer a.virtualMu.Unlock()
+		rest := strings.TrimPrefix(topic, a.frigatePrefix)
+		for _, dev := range a.virtualDevices {
+			if dev.BaseName == rest {
+				intVal, _ := strconv.Atoi(string(msg.Payload()))
+				dev.State = intVal
+				updatedDeviceNames = append(updatedDeviceNames, dev.Name)
+
+				return
+			}
+		}
+	}()
+	if a.OnVirtualDeviceUpdated != nil {
+		for _, name := range updatedDeviceNames {
+			a.OnVirtualDeviceUpdated(name)
 		}
 	}
 }
