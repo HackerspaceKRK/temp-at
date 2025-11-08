@@ -20,11 +20,16 @@ type EntityConfig struct {
 	// Name that identifies this entiti/device. Same value as .Name in VirtualDevice
 	Name string `yaml:"name"`
 
+	// Friendly name that is used in the UI
+	FriendlyName string `yaml:"friendly_name"`
+
 	// How the device should be represented in the UI (light, fan, etc.)
 	Representation string `yaml:"representation"`
 }
 
 type RoomConfig struct {
-	Name     string         `yaml:"name"`
+	Name string `yaml:"name"`
+
+	Cameras  []string       `yaml:"cameras"`
 	Entities []EntityConfig `yaml:"entities"`
 }

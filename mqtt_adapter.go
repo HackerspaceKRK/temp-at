@@ -340,6 +340,7 @@ func (a *MQTTAdapter) handleFrigateEnabledMessage(_ mqtt.Client, msg mqtt.Messag
 		personDevice := &VirtualDevice{
 			Name:     virtName,
 			BaseName: fmt.Sprintf("%s/person/active", cameraName),
+			Type:     "person",
 		}
 
 		a.virtualDevices = append(a.virtualDevices, personDevice)
@@ -355,11 +356,9 @@ func (a *MQTTAdapter) handleFrigatePersonMessage(_ mqtt.Client, msg mqtt.Message
 	}
 	a.virtualMu.Lock()
 	defer a.virtualMu.Unlock()
-	a.logger.Printf("[mqtt] frigate person message received for topic %s, payload: %s", topic, string(msg.Payload()))
 	rest := strings.TrimPrefix(topic, a.frigatePrefix)
 	for _, dev := range a.virtualDevices {
 		if dev.BaseName == rest {
-
 			intVal, _ := strconv.Atoi(string(msg.Payload()))
 			dev.State = intVal
 			return
