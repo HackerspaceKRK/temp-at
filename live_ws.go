@@ -30,8 +30,9 @@ func buildRoomState(name string) *RoomState {
 				Name:     name,
 				Entities: []EntityState{},
 			}
-			virtDevices := mqttAdapter.VirtualDevices()
 
+			// Use VirtualDevices from mqtt to create entities
+			virtDevices := mqttAdapter.VirtualDevices()
 			for _, e := range r.Entities {
 				es := EntityState{
 					Name:           e.Name,
@@ -40,6 +41,7 @@ func buildRoomState(name string) *RoomState {
 
 				for _, v := range virtDevices {
 					if v.Name == e.Name {
+						// Use the maximum people count reported by any camera in the room
 						if v.Type == "person" && v.State != nil {
 							intVal, ok := v.State.(int)
 							if ok && intVal > rs.PeopleCount {
@@ -90,10 +92,8 @@ func handleVirtualDeviceStateUpdate(devName string) {
 	}
 
 	if room != nil {
-
 		socketChansMutex.Lock()
 		defer socketChansMutex.Unlock()
-
 		for _, ch := range socketChans {
 
 			select {

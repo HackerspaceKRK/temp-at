@@ -39,7 +39,7 @@ type VirtualDevice struct {
 	State any `json:"state,omitempty"`
 }
 
-// MQTTAdapter manages connection and maintains a list of virtual devices.
+// MQTTAdapter adapts mqtt messages coming from Zigbee2MQTT and frigate into virtual devices.
 type MQTTAdapter struct {
 	client mqtt.Client
 	logger *log.Logger
@@ -51,8 +51,6 @@ type MQTTAdapter struct {
 	virtualDevices []*VirtualDevice
 
 	OnVirtualDeviceUpdated func(name string)
-
-	deviceSubscriptions map[string]bool
 
 	zigbee2MqttPrefix string
 	frigatePrefix     string
@@ -81,11 +79,10 @@ func NewMQTTAdapter(cfg *Config, logger *log.Logger) (*MQTTAdapter, error) {
 		logger = log.Default()
 	}
 	a := &MQTTAdapter{
-		logger:              logger,
-		config:              cfg,
-		deviceSubscriptions: make(map[string]bool),
-		zigbee2MqttPrefix:   "zigbee2mqtt/",
-		frigatePrefix:       "frigate/",
+		logger:            logger,
+		config:            cfg,
+		zigbee2MqttPrefix: "zigbee2mqtt/",
+		frigatePrefix:     "frigate/",
 	}
 
 	opts, err := a.buildClientOptions(cfg)
@@ -97,6 +94,10 @@ func NewMQTTAdapter(cfg *Config, logger *log.Logger) (*MQTTAdapter, error) {
 		a.logger.Printf("[mqtt] connected to %s", cfg.MQTT.Broker)
 		if err := a.subscribeDevicesTopic(); err != nil {
 			a.logger.Printf("[mqtt] failed to subscribe devices topic: %v", err)
+		}
+
+		if err := a.subscribeDevicesWildcard(); err != nil {
+			a.logger.Printf("[mqtt] failed to subscribe devices wildcard: %v", err)
 		}
 
 		frigateEnabledTopic := a.frigatePrefix + "+/enabled/state"
@@ -172,6 +173,19 @@ func (a *MQTTAdapter) subscribeDevicesTopic() error {
 	token := a.client.Subscribe(a.zigbee2MqttPrefix+"bridge/devices", 0, a.handleDevicesMessage)
 	if !token.WaitTimeout(5 * time.Second) {
 		return fmt.Errorf("subscription timeout for %s", a.zigbee2MqttPrefix+"bridge/devices")
+	}
+	return token.Error()
+}
+
+func (a *MQTTAdapter) subscribeDevicesWildcard() error {
+	if a.client == nil {
+		return errors.New("mqtt client not initialized")
+	}
+	topic := a.zigbee2MqttPrefix + "#"
+
+	token := a.client.Subscribe(topic, 0, a.handleDeviceMessage)
+	if !token.WaitTimeout(5 * time.Second) {
+		return fmt.Errorf("subscription timeout for %s", topic)
 	}
 	return token.Error()
 }
@@ -279,31 +293,9 @@ func (a *MQTTAdapter) handleDevicesMessage(_ mqtt.Client, msg mqtt.Message) {
 			})
 		}
 	}
-
-	for _, device := range a.virtualDevices {
-		if _, ok := a.deviceSubscriptions[device.BaseName]; !ok {
-			a.deviceSubscriptions[device.BaseName] = true
-			topic := a.zigbee2MqttPrefix + device.BaseName
-			token := a.client.Subscribe(topic, 0, a.handleDeviceMessage)
-			if !token.WaitTimeout(5 * time.Second) {
-				a.logger.Printf("[mqtt] failed to subscribe to %s", topic)
-			}
-			if err := token.Error(); err != nil {
-				a.logger.Printf("[mqtt] failed to subscribe to %s: %v", topic, err)
-			}
-		}
-	}
-
 }
 
 func (a *MQTTAdapter) handleDeviceMessage(_ mqtt.Client, msg mqtt.Message) {
-
-	message := string(msg.Payload())
-	var parsed map[string]any
-	if err := json.Unmarshal([]byte(message), &parsed); err != nil {
-		a.logger.Printf("[mqtt] failed to parse message from %s: %v", msg.Topic(), err)
-		return
-	}
 
 	updatedDeviceNames := []string{}
 	func() {
@@ -312,6 +304,11 @@ func (a *MQTTAdapter) handleDeviceMessage(_ mqtt.Client, msg mqtt.Message) {
 		defer a.virtualMu.Unlock()
 		for _, device := range a.virtualDevices {
 			if a.zigbee2MqttPrefix+device.BaseName == msg.Topic() {
+				var parsed map[string]any
+				if err := json.Unmarshal(msg.Payload(), &parsed); err != nil {
+					a.logger.Printf("[mqtt] failed to parse message from %s: %v", msg.Topic(), err)
+					return
+				}
 				device.State = parsed[device.StateKey]
 				updatedDeviceNames = append(updatedDeviceNames, device.Name)
 
