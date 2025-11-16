@@ -35,7 +35,7 @@ func buildRoomState(id string) *RoomState {
 			}
 
 			// Use VirtualDevices from mqtt to create entities
-			virtDevices := mqttAdapter.VirtualDevices()
+			virtDevices := vdevManager.Devices()
 			for _, e := range r.Entities {
 				es := EntityState{
 					ID:             e.ID,

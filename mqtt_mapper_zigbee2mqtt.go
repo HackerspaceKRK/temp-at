@@ -17,7 +17,6 @@ type Zigbee2MQTTMapperData struct {
 // Zigbee2MQTTMapper implements MQTTMapper for zigbee2mqtt messages.
 type Zigbee2MQTTMapper struct {
 	prefix string
-	logger *log.Logger
 
 	mu sync.RWMutex
 	// devicesByBase stores discovered virtual devices keyed by their friendly base name.
@@ -25,19 +24,10 @@ type Zigbee2MQTTMapper struct {
 }
 
 // NewZigbee2MQTTMapper creates a new mapper with the given topic prefix (e.g. "zigbee2mqtt/").
-func NewZigbee2MQTTMapper(prefix string, logger *log.Logger) *Zigbee2MQTTMapper {
-	if logger == nil {
-		logger = log.Default()
-	}
-	if prefix == "" {
-		prefix = "zigbee2mqtt/"
-	}
-	if !strings.HasSuffix(prefix, "/") {
-		prefix = prefix + "/"
-	}
+func NewZigbee2MQTTMapper(prefix string) *Zigbee2MQTTMapper {
+
 	return &Zigbee2MQTTMapper{
 		prefix:        prefix,
-		logger:        logger,
 		devicesByBase: make(map[string][]*VirtualDevice),
 	}
 }
@@ -68,7 +58,7 @@ func (m *Zigbee2MQTTMapper) DiscoverDevicesFromMessage(topic string, payload []b
 		var devMap map[string]any
 		if err := json.Unmarshal(raw, &devMap); err != nil {
 			// Skip individual device errors but continue processing.
-			m.logger.Printf("[zigbee2mqtt] device entry unmarshal error: %v", err)
+			log.Printf("[zigbee2mqtt] device entry unmarshal error: %v", err)
 			continue
 		}
 

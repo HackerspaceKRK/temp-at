@@ -28,23 +28,13 @@ type FrigateMapperData struct {
 //	Produces VirtualDeviceUpdate for the corresponding Name.
 type FrigateMapper struct {
 	prefix string
-	logger *log.Logger
 }
 
 // NewFrigateMapper constructs a new FrigateMapper with the given prefix (e.g. "frigate/").
-func NewFrigateMapper(prefix string, logger *log.Logger) *FrigateMapper {
-	if logger == nil {
-		logger = log.Default()
-	}
-	if prefix == "" {
-		prefix = "frigate/"
-	}
-	if !strings.HasSuffix(prefix, "/") {
-		prefix = prefix + "/"
-	}
+func NewFrigateMapper(prefix string) *FrigateMapper {
+
 	return &FrigateMapper{
 		prefix: prefix,
-		logger: logger,
 	}
 }
 
@@ -97,7 +87,7 @@ func (m *FrigateMapper) UpdateDevicesFromMessage(topic string, payload []byte) (
 	count, err := strconv.Atoi(strings.TrimSpace(string(payload)))
 	if err != nil {
 		// Treat malformed payload as zero but log once.
-		m.logger.Printf("[frigate] invalid person count payload for camera %s: %q (%v)", camera, string(payload), err)
+		log.Printf("[frigate] invalid person count payload for camera %s: %q (%v)", camera, string(payload), err)
 		return nil, nil
 	}
 

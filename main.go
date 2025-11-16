@@ -25,7 +25,7 @@ type CameraImage struct {
 
 var (
 	cameraImages = sync.Map{} // map[string]CameraImage
-	mu           = sync.Mutex{}
+	vdevManager  *VdevManager
 	mqttAdapter  *MQTTAdapter
 )
 
@@ -43,12 +43,14 @@ func main() {
 		PORT = ":8080"
 	}
 
+	vdevManager = NewVdevManager()
+
 	var err error
-	mqttAdapter, err = NewMQTTAdapter(cfg, log.Default())
+	mqttAdapter, err = NewMQTTAdapter(cfg, vdevManager)
 	if err != nil {
 		log.Fatalf("failed to initialize MQTT adapter: %v", err)
 	}
-	mqttAdapter.OnVirtualDeviceUpdated = handleVirtualDeviceStateUpdate
+	vdevManager.OnVirtualDeviceUpdated = handleVirtualDeviceStateUpdate
 
 	go refreshImagesPeriodically()
 
@@ -124,7 +126,7 @@ func handleDevices(c *fiber.Ctx) error {
 	if mqttAdapter == nil {
 		return c.Status(fiber.StatusServiceUnavailable).SendString("MQTT adapter not initialized")
 	}
-	devices := mqttAdapter.VirtualDevices()
+	devices := vdevManager.Devices()
 
 	c.Set("Cache-Control", "no-cache")
 	return c.Status(fiber.StatusOK).JSON(devices)
