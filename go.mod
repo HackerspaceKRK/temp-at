@@ -3,15 +3,17 @@ module github.com/alufers/temp-at
 go 1.24.2
 
 require (
+	github.com/HugoSmits86/nativewebp v1.2.0
 	github.com/eclipse/paho.mqtt.golang v1.5.1
-	github.com/fasthttp/websocket v1.5.8
 	github.com/goccy/go-yaml v1.11.3
 	github.com/gofiber/contrib/websocket v1.3.4
 	github.com/gofiber/fiber/v2 v2.52.6
+	golang.org/x/image v0.24.0
 )
 
 require (
 	github.com/andybalholm/brotli v1.1.0 // indirect
+	github.com/fasthttp/websocket v1.5.8 // indirect
 	github.com/fatih/color v1.10.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect

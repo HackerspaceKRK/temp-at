@@ -24,9 +24,10 @@ type CameraImage struct {
 }
 
 var (
-	cameraImages = sync.Map{} // map[string]CameraImage
-	vdevManager  *VdevManager
-	mqttAdapter  *MQTTAdapter
+	cameraImages          = sync.Map{} // map[string]CameraImage
+	vdevManager           *VdevManager
+	mqttAdapter           *MQTTAdapter
+	frigateSnapshotMapper *FrigateSnapshotMapper
 )
 
 func main() {
@@ -50,9 +51,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to initialize MQTT adapter: %v", err)
 	}
-	vdevManager.OnVirtualDeviceUpdated = handleVirtualDeviceStateUpdate
 
-	go refreshImagesPeriodically()
+	frigateSnapshotMapper = NewFrigateSnapshotMapper(vdevManager, cfg)
+	err = frigateSnapshotMapper.Start()
+	if err != nil {
+		log.Fatalf("failed to start Frigate snapshot mapper: %v", err)
+	}
+
+	vdevManager.OnVirtualDeviceUpdated = handleVirtualDeviceStateUpdate
 
 	app := fiber.New()
 
@@ -62,20 +68,11 @@ func main() {
 	app.Get("/api/v1/all-devices", handleDevices)
 	app.Get("/api/v1/live-ws", websocket.New(handleLiveWs))
 	app.Get("/api/v1/room-states", handleGetRoomStates)
+	app.Get("/api/v1/camera-snapshot/:filename", frigateSnapshotMapper.HandleSnapshot)
 
 	log.Printf("Serving on http://localhost%s", PORT)
 	if err := app.Listen(PORT); err != nil {
 		log.Fatalf("Fiber server failed: %v", err)
-	}
-}
-
-func refreshImagesPeriodically() {
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
-
-	for {
-		// updateCameraImages()
-		<-ticker.C
 	}
 }
 
