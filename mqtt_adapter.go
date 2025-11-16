@@ -1,11 +1,9 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -13,33 +11,50 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
-// device base topics (without virtualization).
-func deviceStateSetTopic(base string) string { return "zigbee2mqtt/" + base + "/set" }
-func deviceStateTopic(base string) string    { return "zigbee2mqtt/" + base }
-
 // VirtualDevice represents a single controllable/readable capability broken out
 // from a physical Zigbee device (e.g. multi-relay or multi-sensor).
 type VirtualDevice struct {
 	// Name is the unique virtual name (base_name plus suffix).
 	Name string `json:"name"`
-	// BaseName is the original physical device friendly_name from Zigbee2MQTT.
+	// BaseName is the original physical device friendly_name from Zigbee2MQTT or logical base for other services.
 	BaseName string `json:"base_name"`
-	// Type: "relay", "temperature", "humidity", "person"
+	// Type: "relay", "temperature", "humidity", "person", etc.
 	Type string `json:"type"`
 	// Endpoint identifier if applicable (e.g. "1", "2" for multi-channel relays).
 	Endpoint string `json:"endpoint,omitempty"`
-	// IEEE address of the underlying device (for reference).
+	// IEEE address of the underlying device (for reference) if available.
 	IEEEAddress string `json:"ieee_address,omitempty"`
-
 	// StateKey is the JSON key used to extract the state for this virtual device from the message payload.
 	StateKey string `json:"state_key,omitempty"`
-
-	// Current state of the given device
-	// true/false for relays, float for temperature, humidity, int for person (count)
+	// Current state of the given device (bool, float64, int, etc).
 	State any `json:"state,omitempty"`
 }
 
-// MQTTAdapter adapts mqtt messages coming from Zigbee2MQTT and frigate into virtual devices.
+type VirtualDeviceUpdate struct {
+	Name  string `json:"name"`
+	State any    `json:"state,omitempty"`
+}
+
+// MQTTMapper defines the contract for mapping MQTT messages into virtual devices.
+//
+// Implementations should:
+// - Return the list of topics they need to subscribe to.
+// - Parse discovery style messages into VirtualDevice objects.
+// - Parse update messages into VirtualDeviceUpdate objects.
+//
+// A single incoming message may produce both newly discovered devices and updates.
+// If a mapper does not discover or update anything for a given message it should return nil slices.
+type MQTTMapper interface {
+	// SubscriptionTopics returns MQTT topics (wildcards allowed) to subscribe for this mapper.
+	SubscriptionTopics() []string
+	// DiscoverDevicesFromMessage attempts to discover new devices from an incoming message.
+	DiscoverDevicesFromMessage(topic string, payload []byte) ([]*VirtualDevice, error)
+	// UpdateDevicesFromMessage attempts to extract state updates from an incoming message.
+	UpdateDevicesFromMessage(topic string, payload []byte) ([]*VirtualDeviceUpdate, error)
+}
+
+// MQTTAdapter adapts mqtt messages coming from multiple sources (e.g. Zigbee2MQTT, Frigate)
+// into a unified list of VirtualDevice objects.
 type MQTTAdapter struct {
 	client mqtt.Client
 	logger *log.Logger
@@ -54,6 +69,8 @@ type MQTTAdapter struct {
 
 	zigbee2MqttPrefix string
 	frigatePrefix     string
+
+	mappers []MQTTMapper
 }
 
 // atomicBool (simple mutex-backed boolean) avoids importing sync/atomic for minimal usage.
@@ -73,7 +90,7 @@ func (b *atomicBool) Get() bool {
 	return b.val
 }
 
-// NewMQTTAdapter creates and connects the MQTT client; subscribes to the devices listing.
+// NewMQTTAdapter creates and connects the MQTT client; registers mapper subscriptions.
 func NewMQTTAdapter(cfg *Config, logger *log.Logger) (*MQTTAdapter, error) {
 	if logger == nil {
 		logger = log.Default()
@@ -85,37 +102,31 @@ func NewMQTTAdapter(cfg *Config, logger *log.Logger) (*MQTTAdapter, error) {
 		frigatePrefix:     "frigate/",
 	}
 
+	// Build client options first.
 	opts, err := a.buildClientOptions(cfg)
 	if err != nil {
 		return nil, err
 	}
 
+	// Instantiate mapper implementations.
+	// These constructors must be provided by:
+	// - mqtt_mapper_zigbee2mqtt.go
+	// - mqtt_mapper_frigate.go
+	a.mappers = []MQTTMapper{
+		NewZigbee2MQTTMapper(a.zigbee2MqttPrefix, a.logger),
+		NewFrigateMapper(a.frigatePrefix, a.logger),
+	}
+
 	opts.OnConnect = func(c mqtt.Client) {
 		a.logger.Printf("[mqtt] connected to %s", cfg.MQTT.Broker)
-		if err := a.subscribeDevicesTopic(); err != nil {
-			a.logger.Printf("[mqtt] failed to subscribe devices topic: %v", err)
-		}
+		a.subscribeAllMapperTopics()
+	}
 
-		if err := a.subscribeDevicesWildcard(); err != nil {
-			a.logger.Printf("[mqtt] failed to subscribe devices wildcard: %v", err)
-		}
-
-		frigateEnabledTopic := a.frigatePrefix + "+/enabled/state"
-		a.logger.Printf("[mqtt] subscribing to frigate camera enabled topics: %s", frigateEnabledTopic)
-		token := a.client.Subscribe(frigateEnabledTopic, 0, a.handleFrigateEnabledMessage)
-		if !token.WaitTimeout(5 * time.Second) {
-			a.logger.Printf("[mqtt] subscription timeout for %s", frigateEnabledTopic)
-		} else if err := token.Error(); err != nil {
-			a.logger.Printf("[mqtt] failed to subscribe to %s: %v", frigateEnabledTopic, err)
-		}
-
-		frigatePersonTopic := a.frigatePrefix + "+/person/active"
-		a.logger.Printf("[mqtt] subscribing to frigate camera person active topics: %s", frigatePersonTopic)
-		token = a.client.Subscribe(frigatePersonTopic, 0, a.handleFrigatePersonMessage)
-		if !token.WaitTimeout(5 * time.Second) {
-			a.logger.Printf("[mqtt] subscription timeout for %s", frigatePersonTopic)
-		} else if err := token.Error(); err != nil {
-			a.logger.Printf("[mqtt] failed to subscribe to %s: %v", frigatePersonTopic, err)
+	opts.OnConnectionLost = func(c mqtt.Client, err error) {
+		if err != nil {
+			a.logger.Printf("[mqtt] connection lost: %v", err)
+		} else {
+			a.logger.Printf("[mqtt] connection lost")
 		}
 	}
 
@@ -155,239 +166,100 @@ func (a *MQTTAdapter) buildClientOptions(cfg *Config) (*mqtt.ClientOptions, erro
 	if cfg.MQTT.Password != "" {
 		opts.SetPassword(cfg.MQTT.Password)
 	}
-
-	opts.OnConnectionLost = func(c mqtt.Client, err error) {
-		if err != nil {
-			a.logger.Printf("[mqtt] connection lost: %v", err)
-		} else {
-			a.logger.Printf("[mqtt] connection lost")
-		}
-	}
 	return opts, nil
 }
 
-func (a *MQTTAdapter) subscribeDevicesTopic() error {
+// subscribeAllMapperTopics subscribes to all topics declared by each mapper implementation.
+func (a *MQTTAdapter) subscribeAllMapperTopics() {
 	if a.client == nil {
-		return errors.New("mqtt client not initialized")
-	}
-	token := a.client.Subscribe(a.zigbee2MqttPrefix+"bridge/devices", 0, a.handleDevicesMessage)
-	if !token.WaitTimeout(5 * time.Second) {
-		return fmt.Errorf("subscription timeout for %s", a.zigbee2MqttPrefix+"bridge/devices")
-	}
-	return token.Error()
-}
-
-func (a *MQTTAdapter) subscribeDevicesWildcard() error {
-	if a.client == nil {
-		return errors.New("mqtt client not initialized")
-	}
-	topic := a.zigbee2MqttPrefix + "#"
-
-	token := a.client.Subscribe(topic, 0, a.handleDeviceMessage)
-	if !token.WaitTimeout(5 * time.Second) {
-		return fmt.Errorf("subscription timeout for %s", topic)
-	}
-	return token.Error()
-}
-
-// handleDevicesMessage parses the devices payload and builds virtual devices.
-func (a *MQTTAdapter) handleDevicesMessage(_ mqtt.Client, msg mqtt.Message) {
-	var rawDevices []json.RawMessage
-	if err := json.Unmarshal(msg.Payload(), &rawDevices); err != nil {
-		a.logger.Printf("[mqtt] devices payload unmarshal error: %v", err)
+		a.logger.Printf("[mqtt] client is nil, cannot subscribe")
 		return
 	}
 
-	a.virtualMu.Lock()
-	defer a.virtualMu.Unlock()
-
-	for i, raw := range rawDevices {
-		var devMap map[string]any
-		if err := json.Unmarshal(raw, &devMap); err != nil {
-			a.logger.Printf("[mqtt] device[%d] map unmarshal error: %v", i, err)
-			continue
-		}
-
-		friendlyName, _ := devMap["friendly_name"].(string)
-		if friendlyName == "" {
-			continue
-		}
-		ieee, _ := devMap["ieee_address"].(string)
-
-		defMap, _ := devMap["definition"].(map[string]any)
-		exposes, _ := defMap["exposes"].([]any)
-
-		// Collect exposures of interest.
-		var relayExposes []map[string]any
-		var tempExposes []map[string]any
-		var humidExposes []map[string]any
-
-		for _, exp := range exposes {
-			exp := exp.(map[string]any)
-			if exp["type"] == "switch" {
-				relayExposes = append(relayExposes, exp)
-			}
-
-			if exp["type"] == "numeric" && exp["property"] == "temperature" {
-				tempExposes = append(tempExposes, exp)
-			}
-
-			if exp["type"] == "numeric" && exp["property"] == "humidity" {
-				humidExposes = append(humidExposes, exp)
-			}
-		}
-
-		// Build virtual relay devices.
-		for _, ex := range relayExposes {
-			endpoint := extractEndpoint(ex)
-			suffix := endpoint
-			if suffix != "" {
-				suffix = "/" + suffix
-			}
-			stateKey := ""
-			if features, ok := ex["features"]; ok {
-				for _, feature := range features.([]any) {
-					feature := feature.(map[string]any)
-					if prop, ok := feature["property"]; ok {
-						stateKey = prop.(string)
-					}
-				}
-			}
-			a.virtualDevices = append(a.virtualDevices, &VirtualDevice{
-				Name:        friendlyName + suffix,
-				BaseName:    friendlyName,
-				Type:        "relay",
-				Endpoint:    endpoint,
-				IEEEAddress: ieee,
-				StateKey:    stateKey,
+	for _, mapper := range a.mappers {
+		for _, topic := range mapper.SubscriptionTopics() {
+			topic := topic // capture loop variable
+			a.logger.Printf("[mqtt] subscribing to %s", topic)
+			token := a.client.Subscribe(topic, 0, func(_ mqtt.Client, msg mqtt.Message) {
+				a.handleMapperMessage(mapper, msg.Topic(), msg.Payload())
 			})
-		}
-
-		// Build temperature virtual devices.
-		for _, ex := range tempExposes {
-			endpoint := extractEndpoint(ex)
-			nameSuffix := "/temperature"
-
-			a.virtualDevices = append(a.virtualDevices, &VirtualDevice{
-				Name:        friendlyName + nameSuffix,
-				BaseName:    friendlyName,
-				Type:        "temperature",
-				Endpoint:    endpoint,
-				IEEEAddress: ieee,
-				StateKey:    "temperature",
-			})
-		}
-
-		// Build humidity virtual devices.
-		for _, ex := range humidExposes {
-			endpoint := extractEndpoint(ex)
-			nameSuffix := "/humidity"
-
-			a.virtualDevices = append(a.virtualDevices, &VirtualDevice{
-				Name:        friendlyName + nameSuffix,
-				BaseName:    friendlyName,
-				Type:        "humidity",
-				Endpoint:    endpoint,
-				IEEEAddress: ieee,
-				StateKey:    "humidity",
-			})
+			if !token.WaitTimeout(5 * time.Second) {
+				a.logger.Printf("[mqtt] subscription timeout for %s", topic)
+			} else if err := token.Error(); err != nil {
+				a.logger.Printf("[mqtt] failed to subscribe to %s: %v", topic, err)
+			}
 		}
 	}
 }
 
-func (a *MQTTAdapter) handleDeviceMessage(_ mqtt.Client, msg mqtt.Message) {
+// handleMapperMessage invokes discovery and update logic on a mapper and mutates virtual devices accordingly.
+func (a *MQTTAdapter) handleMapperMessage(mapper MQTTMapper, topic string, payload []byte) {
+	// Discovery
+	discovered, derr := mapper.DiscoverDevicesFromMessage(topic, payload)
+	if derr != nil {
+		a.logger.Printf("[mqtt] discovery error on topic %s: %v", topic, derr)
+	}
+	if len(discovered) > 0 {
+		a.addVirtualDevices(discovered)
+	}
 
-	updatedDeviceNames := []string{}
-	func() {
-
-		a.virtualMu.Lock()
-		defer a.virtualMu.Unlock()
-		for _, device := range a.virtualDevices {
-			if a.zigbee2MqttPrefix+device.BaseName == msg.Topic() {
-				var parsed map[string]any
-				if err := json.Unmarshal(msg.Payload(), &parsed); err != nil {
-					a.logger.Printf("[mqtt] failed to parse message from %s: %v", msg.Topic(), err)
-					return
-				}
-				device.State = parsed[device.StateKey]
-				updatedDeviceNames = append(updatedDeviceNames, device.Name)
-
-			}
-		}
-	}()
-	for _, name := range updatedDeviceNames {
+	// Updates
+	updates, uerr := mapper.UpdateDevicesFromMessage(topic, payload)
+	if uerr != nil {
+		a.logger.Printf("[mqtt] update error on topic %s: %v", topic, uerr)
+	}
+	if len(updates) > 0 {
+		updatedNames := a.applyUpdates(updates)
 		if a.OnVirtualDeviceUpdated != nil {
-			a.OnVirtualDeviceUpdated(name)
+			for _, name := range updatedNames {
+				a.OnVirtualDeviceUpdated(name)
+			}
 		}
 	}
 }
 
-// handleFrigateEnabledMessage handles messages on frigate/<camera>/enabled.
-// For now, just extracts camera name and logs receipt; no further action.
-func (a *MQTTAdapter) handleFrigateEnabledMessage(_ mqtt.Client, msg mqtt.Message) {
-	topic := msg.Topic()
-	if !strings.HasPrefix(topic, a.frigatePrefix) {
-		return
-	}
+// addVirtualDevices adds new devices if their Name is not already present.
+func (a *MQTTAdapter) addVirtualDevices(devs []*VirtualDevice) {
 	a.virtualMu.Lock()
 	defer a.virtualMu.Unlock()
-	rest := strings.TrimPrefix(topic, a.frigatePrefix) // e.g. "front_door/enabled"
-	parts := strings.Split(rest, "/")
-	if len(parts) >= 2 && parts[1] == "enabled" {
-		cameraName := parts[0]
-		virtName := fmt.Sprintf("person/%s", cameraName)
 
-		for _, dev := range a.virtualDevices {
-			if dev.BaseName == virtName {
-				return // Device already exists
-			}
+	existing := make(map[string]struct{}, len(a.virtualDevices))
+	for _, d := range a.virtualDevices {
+		existing[d.Name] = struct{}{}
+	}
+	for _, d := range devs {
+		if d == nil || d.Name == "" {
+			continue
 		}
-		// Create a virtual device called person/<cameraName>
-		personDevice := &VirtualDevice{
-			Name:     virtName,
-			BaseName: fmt.Sprintf("%s/person/active", cameraName),
-			Type:     "person",
+		if _, found := existing[d.Name]; found {
+			continue
 		}
-
-		a.virtualDevices = append(a.virtualDevices, personDevice)
-
+		a.virtualDevices = append(a.virtualDevices, d)
 	}
 }
 
-// handleFrigatePersonMessage handles frigate person messages.
-func (a *MQTTAdapter) handleFrigatePersonMessage(_ mqtt.Client, msg mqtt.Message) {
-	topic := msg.Topic()
-	if !strings.HasPrefix(topic, a.frigatePrefix) {
-		return
-	}
-	updatedDeviceNames := []string{}
-	func() {
-		a.virtualMu.Lock()
-		defer a.virtualMu.Unlock()
-		rest := strings.TrimPrefix(topic, a.frigatePrefix)
-		for _, dev := range a.virtualDevices {
-			if dev.BaseName == rest {
-				intVal, _ := strconv.Atoi(string(msg.Payload()))
-				dev.State = intVal
-				updatedDeviceNames = append(updatedDeviceNames, dev.Name)
+// applyUpdates applies state updates and returns the list of device names that changed.
+func (a *MQTTAdapter) applyUpdates(updates []*VirtualDeviceUpdate) []string {
+	updatedNames := []string{}
+	a.virtualMu.Lock()
+	defer a.virtualMu.Unlock()
 
-				return
-			}
+	// Build index by name for O(1) lookups.
+	index := make(map[string]*VirtualDevice, len(a.virtualDevices))
+	for _, d := range a.virtualDevices {
+		index[d.Name] = d
+	}
+
+	for _, upd := range updates {
+		if upd == nil || upd.Name == "" {
+			continue
 		}
-	}()
-	if a.OnVirtualDeviceUpdated != nil {
-		for _, name := range updatedDeviceNames {
-			a.OnVirtualDeviceUpdated(name)
+		if dev, ok := index[upd.Name]; ok {
+			dev.State = upd.State
+			updatedNames = append(updatedNames, dev.Name)
 		}
 	}
-}
-
-// extractEndpoint attempts to read the endpoint field from an exposure map.
-func extractEndpoint(ex map[string]any) string {
-	if ep, ok := ex["endpoint"].(string); ok {
-		return ep
-	}
-	return ""
+	return updatedNames
 }
 
 // VirtualDevices returns a snapshot list of current virtual devices.
@@ -396,7 +268,6 @@ func (a *MQTTAdapter) VirtualDevices() []*VirtualDevice {
 	defer a.virtualMu.RUnlock()
 	cp := make([]*VirtualDevice, len(a.virtualDevices))
 	for i, dev := range a.virtualDevices {
-		// deep copy
 		var newDev = *dev
 		cp[i] = &newDev
 	}

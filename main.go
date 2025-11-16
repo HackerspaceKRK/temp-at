@@ -3,12 +3,10 @@ package main
 import (
 	_ "embed" // for embedding template
 	"fmt"
-	"html/template"
 	"io"
 	"log"
 	"net/http" // for http.TimeFormat
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -30,11 +28,6 @@ var (
 	mu           = sync.Mutex{}
 	mqttAdapter  *MQTTAdapter
 )
-
-//go:embed template.html
-var templateHTML string
-
-var tpl = template.Must(template.New("webpage").Parse(templateHTML))
 
 func main() {
 	cfg := MustLoadConfig()
@@ -62,7 +55,6 @@ func main() {
 	app := fiber.New()
 
 	// Routes
-	app.Get("/", handleWebpage)
 	app.Get("/image/:name", handleImage)
 	app.Get("/robots.txt", handleRobots)
 	app.Get("/api/v1/all-devices", handleDevices)
@@ -126,27 +118,6 @@ func handleRobots(c *fiber.Ctx) error {
 	c.Set("Content-Type", "text/plain")
 	c.Set("Cache-Control", "no-cache")
 	return c.Status(fiber.StatusOK).Send(robotsTxt)
-}
-
-func handleWebpage(c *fiber.Ctx) error {
-	names := make([]string, 0)
-	cameraImages.Range(func(key, value interface{}) bool {
-		names = append(names, key.(string))
-		return true
-	})
-
-	c.Set("Content-Type", "text/html")
-	c.Set("Cache-Control", "no-cache")
-	c.Set("Last-Modified", time.Now().Format(http.TimeFormat))
-
-	var buf strings.Builder
-	if err := tpl.Execute(&buf, map[string]interface{}{
-		"Cameras": names,
-	}); err != nil {
-		log.Println("Error rendering template:", err)
-		return c.Status(fiber.StatusInternalServerError).SendString("Error rendering template")
-	}
-	return c.Status(fiber.StatusOK).SendString(buf.String())
 }
 
 func handleDevices(c *fiber.Ctx) error {
