@@ -7,6 +7,13 @@ import (
 	"sync"
 )
 
+type Zigbee2MQTTMapperData struct {
+	IEEEAddress string `json:"ieee_address"`
+	StateKey    string `json:"state_key"`
+	BaseTopic   string `json:"base_topic"`
+	Endpoint    string `json:"endpoint"`
+}
+
 // Zigbee2MQTTMapper implements MQTTMapper for zigbee2mqtt messages.
 type Zigbee2MQTTMapper struct {
 	prefix string
@@ -122,12 +129,14 @@ func (m *Zigbee2MQTTMapper) DiscoverDevicesFromMessage(topic string, payload []b
 				}
 			}
 			discovered = append(discovered, &VirtualDevice{
-				Name:        friendlyName + suffix,
-				BaseName:    friendlyName,
-				Type:        "relay",
-				Endpoint:    endpoint,
-				IEEEAddress: ieee,
-				StateKey:    stateKey,
+				ID:   friendlyName + suffix,
+				Type: "relay",
+				MapperData: &Zigbee2MQTTMapperData{
+					BaseTopic:   friendlyName,
+					Endpoint:    endpoint,
+					IEEEAddress: ieee,
+					StateKey:    stateKey,
+				},
 			})
 		}
 
@@ -135,12 +144,14 @@ func (m *Zigbee2MQTTMapper) DiscoverDevicesFromMessage(topic string, payload []b
 		for _, ex := range tempExposes {
 			endpoint := extractEndpointZigbee(ex)
 			discovered = append(discovered, &VirtualDevice{
-				Name:        friendlyName + "/temperature",
-				BaseName:    friendlyName,
-				Type:        "temperature",
-				Endpoint:    endpoint,
-				IEEEAddress: ieee,
-				StateKey:    "temperature",
+				ID:   friendlyName + "/temperature",
+				Type: "temperature",
+				MapperData: &Zigbee2MQTTMapperData{
+					BaseTopic:   friendlyName,
+					Endpoint:    endpoint,
+					IEEEAddress: ieee,
+					StateKey:    "temperature",
+				},
 			})
 		}
 
@@ -148,12 +159,14 @@ func (m *Zigbee2MQTTMapper) DiscoverDevicesFromMessage(topic string, payload []b
 		for _, ex := range humidExposes {
 			endpoint := extractEndpointZigbee(ex)
 			discovered = append(discovered, &VirtualDevice{
-				Name:        friendlyName + "/humidity",
-				BaseName:    friendlyName,
-				Type:        "humidity",
-				Endpoint:    endpoint,
-				IEEEAddress: ieee,
-				StateKey:    "humidity",
+				ID:   friendlyName + "/humidity",
+				Type: "humidity",
+				MapperData: &Zigbee2MQTTMapperData{
+					BaseTopic:   friendlyName,
+					Endpoint:    endpoint,
+					IEEEAddress: ieee,
+					StateKey:    "humidity",
+				},
 			})
 		}
 	}
@@ -162,12 +175,12 @@ func (m *Zigbee2MQTTMapper) DiscoverDevicesFromMessage(topic string, payload []b
 	if len(discovered) > 0 {
 		m.mu.Lock()
 		for _, d := range discovered {
-			base := d.BaseName
+			base := d.MapperData.(*Zigbee2MQTTMapperData).BaseTopic
 			// Ensure uniqueness by name.
 			existingList := m.devicesByBase[base]
 			exists := false
 			for _, e := range existingList {
-				if e.Name == d.Name {
+				if e.ID == d.ID {
 					exists = true
 					break
 				}
@@ -208,13 +221,13 @@ func (m *Zigbee2MQTTMapper) UpdateDevicesFromMessage(topic string, payload []byt
 
 	updates := []*VirtualDeviceUpdate{}
 	for _, d := range devs {
-		if d.StateKey == "" {
+		if d.MapperData == nil {
 			continue
 		}
-		if val, ok := parsed[d.StateKey]; ok {
+		if val, ok := d.MapperData.(*Zigbee2MQTTMapperData); ok && val.StateKey != "" {
 			updates = append(updates, &VirtualDeviceUpdate{
-				Name:  d.Name,
-				State: val,
+				Name:  d.ID,
+				State: parsed[val.StateKey],
 			})
 		} else {
 			// Some devices (e.g. relay) might represent state as uppercase "state"

@@ -14,20 +14,14 @@ import (
 // VirtualDevice represents a single controllable/readable capability broken out
 // from a physical Zigbee device (e.g. multi-relay or multi-sensor).
 type VirtualDevice struct {
-	// Name is the unique virtual name (base_name plus suffix).
-	Name string `json:"name"`
-	// BaseName is the original physical device friendly_name from Zigbee2MQTT or logical base for other services.
-	BaseName string `json:"base_name"`
+	// ID is a string which uniquely identifies this virtual device.
+	ID string `json:"id"`
 	// Type: "relay", "temperature", "humidity", "person", etc.
 	Type string `json:"type"`
-	// Endpoint identifier if applicable (e.g. "1", "2" for multi-channel relays).
-	Endpoint string `json:"endpoint,omitempty"`
-	// IEEE address of the underlying device (for reference) if available.
-	IEEEAddress string `json:"ieee_address,omitempty"`
-	// StateKey is the JSON key used to extract the state for this virtual device from the message payload.
-	StateKey string `json:"state_key,omitempty"`
 	// Current state of the given device (bool, float64, int, etc).
-	State any `json:"state,omitempty"`
+	State any `json:"state"`
+	// MapperData stores any mapper-specific metadata.
+	MapperData any `json:"mapper_data"`
 }
 
 type VirtualDeviceUpdate struct {
@@ -225,13 +219,13 @@ func (a *MQTTAdapter) addVirtualDevices(devs []*VirtualDevice) {
 
 	existing := make(map[string]struct{}, len(a.virtualDevices))
 	for _, d := range a.virtualDevices {
-		existing[d.Name] = struct{}{}
+		existing[d.ID] = struct{}{}
 	}
 	for _, d := range devs {
-		if d == nil || d.Name == "" {
+		if d == nil || d.ID == "" {
 			continue
 		}
-		if _, found := existing[d.Name]; found {
+		if _, found := existing[d.ID]; found {
 			continue
 		}
 		a.virtualDevices = append(a.virtualDevices, d)
@@ -247,7 +241,7 @@ func (a *MQTTAdapter) applyUpdates(updates []*VirtualDeviceUpdate) []string {
 	// Build index by name for O(1) lookups.
 	index := make(map[string]*VirtualDevice, len(a.virtualDevices))
 	for _, d := range a.virtualDevices {
-		index[d.Name] = d
+		index[d.ID] = d
 	}
 
 	for _, upd := range updates {
@@ -256,7 +250,7 @@ func (a *MQTTAdapter) applyUpdates(updates []*VirtualDeviceUpdate) []string {
 		}
 		if dev, ok := index[upd.Name]; ok {
 			dev.State = upd.State
-			updatedNames = append(updatedNames, dev.Name)
+			updatedNames = append(updatedNames, dev.ID)
 		}
 	}
 	return updatedNames

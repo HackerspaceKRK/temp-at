@@ -4,8 +4,12 @@ import (
 	"log"
 	"strconv"
 	"strings"
-	"sync"
 )
+
+// FrigateMapperData is stored in the MapperData field of VirtualDevice for FrigateMapper devices.
+type FrigateMapperData struct {
+	CameraName string `json:"camera_name"`
+}
 
 // FrigateMapper implements MQTTMapper for Frigate camera person detection.
 //
@@ -25,9 +29,6 @@ import (
 type FrigateMapper struct {
 	prefix string
 	logger *log.Logger
-
-	mu      sync.RWMutex
-	cameras map[string]*VirtualDevice // cameraName -> person VirtualDevice
 }
 
 // NewFrigateMapper constructs a new FrigateMapper with the given prefix (e.g. "frigate/").
@@ -42,9 +43,8 @@ func NewFrigateMapper(prefix string, logger *log.Logger) *FrigateMapper {
 		prefix = prefix + "/"
 	}
 	return &FrigateMapper{
-		prefix:  prefix,
-		logger:  logger,
-		cameras: make(map[string]*VirtualDevice),
+		prefix: prefix,
+		logger: logger,
 	}
 }
 
@@ -69,22 +69,14 @@ func (m *FrigateMapper) DiscoverDevicesFromMessage(topic string, payload []byte)
 	}
 	camera := parts[0]
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	// Already discovered?
-	if _, exists := m.cameras[camera]; exists {
-		return nil, nil
-	}
-
 	dev := &VirtualDevice{
-		Name:     "person/" + camera,
-		BaseName: camera + "/person/active", // Used to match update topic suffix
-		Type:     "person",
-		// StateKey intentionally left empty; updates come as plain integer payloads.
+		ID:   m.prefix + "person/" + camera,
+		Type: "person",
+		MapperData: &FrigateMapperData{
+			CameraName: camera,
+		},
 	}
 
-	m.cameras[camera] = dev
 	return []*VirtualDevice{dev}, nil
 }
 
@@ -101,15 +93,6 @@ func (m *FrigateMapper) UpdateDevicesFromMessage(topic string, payload []byte) (
 	}
 	camera := parts[0]
 
-	m.mu.RLock()
-	dev, exists := m.cameras[camera]
-	m.mu.RUnlock()
-	if !exists {
-		// If updates arrive before discovery, we can ignore or optionally create.
-		// For now ignore; discovery should come via enabled/state.
-		return nil, nil
-	}
-
 	// Payload expected to be ASCII integer.
 	count, err := strconv.Atoi(strings.TrimSpace(string(payload)))
 	if err != nil {
@@ -119,7 +102,7 @@ func (m *FrigateMapper) UpdateDevicesFromMessage(topic string, payload []byte) (
 	}
 
 	update := &VirtualDeviceUpdate{
-		Name:  dev.Name,
+		Name:  m.prefix + "person/" + camera,
 		State: count,
 	}
 	return []*VirtualDeviceUpdate{update}, nil

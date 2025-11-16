@@ -9,38 +9,42 @@ import (
 )
 
 type EntityState struct {
-	Name           string `json:"name"`
-	State          any    `json:"state"`
-	Type           string `json:"type"`
-	Representation string `json:"representation"`
+	ID             string          `json:"id"`
+	LocalizedName  LocalizedString `json:"localized_name"`
+	State          any             `json:"state"`
+	Type           string          `json:"type"`
+	Representation string          `json:"representation"`
 }
 
 type RoomState struct {
-	Name string `json:"name"`
+	ID            string          `json:"id"`
+	LocalizedName LocalizedString `json:"localized_name"`
 	// PeopleCount is the number of people in the room
 	// (it is calculated by taking the maximum as reported by each camera)
 	PeopleCount int           `json:"people_count"`
 	Entities    []EntityState `json:"entities"`
 }
 
-func buildRoomState(name string) *RoomState {
+func buildRoomState(id string) *RoomState {
 	for _, r := range ConfigInstance.Rooms {
-		if r.Name == name {
+		if r.ID == id {
 			rs := &RoomState{
-				Name:     name,
-				Entities: []EntityState{},
+				ID:            id,
+				LocalizedName: r.LocalizedName,
+				Entities:      []EntityState{},
 			}
 
 			// Use VirtualDevices from mqtt to create entities
 			virtDevices := mqttAdapter.VirtualDevices()
 			for _, e := range r.Entities {
 				es := EntityState{
-					Name:           e.Name,
+					ID:             e.ID,
 					Representation: e.Representation,
+					LocalizedName:  e.LocalizedName,
 				}
 
 				for _, v := range virtDevices {
-					if v.Name == e.Name {
+					if v.ID == e.ID {
 						// Use the maximum people count reported by any camera in the room
 						if v.Type == "person" && v.State != nil {
 							intVal, ok := v.State.(int)
@@ -68,7 +72,7 @@ func buildRoomStates() []*RoomState {
 	states := []*RoomState{}
 
 	for _, room := range ConfigInstance.Rooms {
-		states = append(states, buildRoomState(room.Name))
+		states = append(states, buildRoomState(room.ID))
 	}
 
 	return states
@@ -84,7 +88,7 @@ func handleVirtualDeviceStateUpdate(devName string) {
 	var room *RoomConfig
 	for _, r := range ConfigInstance.Rooms {
 		for _, ent := range r.Entities {
-			if ent.Name == devName {
+			if ent.ID == devName {
 				room = &r
 				break
 			}
@@ -97,7 +101,7 @@ func handleVirtualDeviceStateUpdate(devName string) {
 		for _, ch := range socketChans {
 
 			select {
-			case ch <- buildRoomState(room.Name):
+			case ch <- buildRoomState(room.ID):
 			default:
 			}
 		}
@@ -111,7 +115,7 @@ func handleLiveWs(c *websocket.Conn) {
 
 	// First of all send all room states as an initial message
 	for _, room := range ConfigInstance.Rooms {
-		rs := buildRoomState(room.Name)
+		rs := buildRoomState(room.ID)
 		log.Printf("BEFORE WRITE JSON")
 		err := c.WriteJSON(rs)
 		if err != nil {
@@ -137,7 +141,7 @@ func handleLiveWs(c *websocket.Conn) {
 		}
 	}()
 	for r := range recvChan {
-		log.Printf("Received updated room state from recvChan: %s", r.Name)
+		log.Printf("Received updated room state from recvChan: %s", r.ID)
 		err := c.WriteJSON(r)
 		if err != nil {
 			log.Printf("Failed to send updated room state to WS: %v", err)

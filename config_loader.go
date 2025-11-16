@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 
@@ -70,22 +69,16 @@ func validateConfig(cfg *Config, path string) {
 	}
 	nameSeen := map[string]struct{}{}
 	for i, room := range cfg.Rooms {
-		if room.Name == "" {
-			log.Printf("warning: rooms[%d] has empty name in %s", i, path)
-		} else if _, dup := nameSeen[room.Name]; dup {
-			log.Printf("warning: duplicate room name %q in %s", room.Name, path)
+		if room.ID == "" {
+			log.Printf("warning: rooms[%d] has empty ID in %s", i, path)
+		} else if _, dup := nameSeen[room.ID]; dup {
+			log.Fatalf("error: duplicate room ID %q in %s", room.ID, path)
 		} else {
-			nameSeen[room.Name] = struct{}{}
+			nameSeen[room.ID] = struct{}{}
 		}
 	}
 	// Example of a hard check (uncomment if desired):
 	// if len(cfg.Rooms) == 0 {
 	//	log.Fatalf("No rooms defined in %s", path)
 	// }
-}
-
-// String returns a human-readable summary (optional helper).
-func (c *Config) String() string {
-	return fmt.Sprintf("Frigate(url=%s) MQTT(broker=%s user=%s) Rooms(%d)",
-		c.Frigate.Url, c.MQTT.Broker, c.MQTT.Username, len(c.Rooms))
 }

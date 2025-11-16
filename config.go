@@ -6,6 +6,10 @@ type Config struct {
 	Rooms   []RoomConfig  `yaml:"rooms"`
 }
 
+// LocalizedString represents a string localized into multiple languages.
+// The keys are language codes (e.g. "en", "de"), and the values are the localized strings.
+type LocalizedString map[string]string
+
 type FrigateConfig struct {
 	Url string `yaml:"url"`
 }
@@ -17,18 +21,18 @@ type MQTTConfig struct {
 }
 
 type EntityConfig struct {
-	// Name that identifies this entiti/device. Same value as .Name in VirtualDevice
-	Name string `yaml:"name"`
+	// ID that identifies this entity/device. Same value as .ID in VirtualDevice
+	ID string `yaml:"id"`
 
-	// Friendly name that is used in the UI
-	FriendlyName string `yaml:"friendly_name"`
+	LocalizedName LocalizedString `yaml:"localized_name"`
 
 	// How the device should be represented in the UI (light, fan, etc.)
 	Representation string `yaml:"representation"`
 }
 
 type RoomConfig struct {
-	Name string `yaml:"name"`
+	ID            string          `yaml:"id"`
+	LocalizedName LocalizedString `yaml:"localized_name"`
 
 	Cameras  []string       `yaml:"cameras"`
 	Entities []EntityConfig `yaml:"entities"`
