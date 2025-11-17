@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+/* =========================================
+   Dark mode manual toggle configuration
+   -----------------------------------------
+   We override Tailwind's dark variant to be driven by
+   the presence of a `.dark` class anywhere earlier in
+   the DOM tree (commonly placed on <html>).
+
+   Usage:
+     <html class="dark"> ... </html>
+   or toggle the class dynamically via JS (ThemeProvider).
+
+   Any utility like:
+     bg-white dark:bg-black
+   will switch when `.dark` is present.
+
+   This replaces the previous explicit override strategy
+   and removes the legacy dark theme overrides.
+   ========================================= */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* (Optional) You can add global transitions for theme changes.
+   Keep minimal to avoid jank on large pages. Uncomment if desired.
+
+:root, .dark {
+  --theme-transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}
+
+body, body * {
+  transition: var(--theme-transition);
+}
+*/
+
+/* No legacy dark-mode overrides retained; relying solely on dark: utilities now. */

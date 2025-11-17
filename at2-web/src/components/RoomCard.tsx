@@ -1,9 +1,10 @@
 import type { FunctionalComponent } from "preact";
 import { useState } from "preact/hooks";
-import { Lightbulb, Fan, Thermometer, Droplets, User } from "lucide-preact";
+import { Thermometer, Droplets, User } from "lucide-preact";
 import type { RoomState, CameraSnapshotEntity } from "../schema";
 import { useLocale } from "../locale";
 import { resolveImageUrl } from "../config";
+import RelayGroupControl from "./RelayGroupControl";
 
 /**
  * Minimal numeric sensor item.
@@ -49,34 +50,7 @@ const PeopleCountBarItem: FunctionalComponent<{
   );
 };
 
-/**
- * Relay (light / fan) icon.
- * Hidden when state is neither ON nor OFF (unknown).
- */
-const RelayBarItem: FunctionalComponent<{
-  representation: "light" | "fan";
-  on: boolean | null;
-  title: string;
-}> = ({ representation, on, title }) => {
-  if (on === null) return null;
-  if (representation === "light") {
-    return (
-      <Lightbulb
-        className={`w-5 h-5 ${on ? "text-yellow-400" : "text-neutral-400"}`}
-        title={title}
-      />
-    );
-  }
-  if (representation === "fan") {
-    return (
-      <Fan
-        className={`w-5 h-5 ${on ? "text-sky-400 spin-slow" : "text-neutral-400"}`}
-        title={title}
-      />
-    );
-  }
-  return null;
-};
+/* Removed unused RelayBarItem component (was causing TS warning) */
 
 /**
  * Camera snapshot: renders nothing if no images.
@@ -125,47 +99,17 @@ export const RoomCard: FunctionalComponent<{ room: RoomState }> = ({
   );
 
   return (
-    <div className="rounded-lg border border-neutral-300 bg-neutral-50 shadow-sm overflow-hidden flex flex-col">
-      {/* Header */}
-      <div className="border-b border-neutral-200 bg-neutral-100">
-        <div className="flex items-center justify-between px-3 py-2">
-          <h2 className="font-semibold text-neutral-800">
+    <div className="flex flex-col">
+      {/* Main card */}
+      <div className="rounded-lg border border-neutral-300 bg-neutral-50 dark:bg-neutral-800 dark:border-neutral-700 shadow-sm flex flex-col">
+        {/* Room title */}
+        <div className="px-3 py-2 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800">
+          <h2 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">
             {getName(room.localized_name, room.id)}
           </h2>
         </div>
-        {cameraEntities.length > 1 && (
-          <div className="flex gap-1 px-2 pb-2">
-            {cameraEntities.map((cam, idx) => (
-              <button
-                key={cam.id}
-                onClick={() => setActiveCameraIdx(idx)}
-                className={`text-xs px-2 py-1 rounded border transition-colors ${
-                  idx === activeCameraIdx
-                    ? "bg-neutral-800 text-white border-neutral-800"
-                    : "bg-white hover:bg-neutral-200 text-neutral-700 border-neutral-300"
-                }`}
-              >
-                {getName(cam.localized_name, cam.id)}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Snapshot area */}
-      <div className="relative aspect-video bg-neutral-900 flex items-center justify-center">
-        <CameraSnapshot
-          camera={activeCamera}
-          alt={
-            activeCamera
-              ? getName(activeCamera.localized_name, activeCamera.id)
-              : "Camera snapshot"
-          }
-        />
-
-        {/* Overlay bar at top */}
-        <div className="absolute top-0 left-0 right-0 bg-black/50 backdrop-blur-sm text-white text-xs flex items-center justify-between px-3 py-1">
-          {/* Environment metrics: map directly */}
+        {/* Metrics bar above snapshot */}
+        <div className="flex items-center justify-between px-3 py-2 text-xs bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
           <div className="flex items-center gap-3">
             {hasPresence && (
               <PeopleCountBarItem
@@ -197,22 +141,61 @@ export const RoomCard: FunctionalComponent<{ room: RoomState }> = ({
               ) : null,
             )}
           </div>
-
-          {/* Relays */}
           <div className="flex items-center gap-3">
-            {room.entities.map((e) =>
-              e.representation === "light" || e.representation === "fan" ? (
-                <RelayBarItem
-                  key={e.id}
-                  representation={e.representation}
-                  on={
-                    e.state === "ON" ? true : e.state === "OFF" ? false : null
-                  }
-                  title={getName(e.localized_name, e.id)}
-                />
-              ) : null,
-            )}
+            <RelayGroupControl
+              entities={
+                room.entities.filter(
+                  (e): e is any =>
+                    e.representation === "light" || e.representation === "fan",
+                ) as any
+              }
+              kind="light"
+              roomId={room.id}
+            />
+            <RelayGroupControl
+              entities={
+                room.entities.filter(
+                  (e): e is any =>
+                    e.representation === "light" || e.representation === "fan",
+                ) as any
+              }
+              kind="fan"
+              roomId={room.id}
+            />
           </div>
+        </div>
+        {/* Snapshot area */}
+        <div className="aspect-video bg-neutral-900 dark:bg-neutral-900 flex items-center justify-center">
+          <CameraSnapshot
+            camera={activeCamera}
+            alt={
+              activeCamera
+                ? getName(activeCamera.localized_name, activeCamera.id)
+                : "Camera snapshot"
+            }
+          />
+        </div>
+        {/* Camera tabs inside card */}
+        <div className="flex gap-2 px-3 py-2 border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800">
+          {cameraEntities.length === 0 && (
+            <div className="text-xs text-neutral-500 italic">Brak kamery</div>
+          )}
+          {cameraEntities.map((cam, idx) => {
+            const active = idx === activeCameraIdx;
+            return (
+              <button
+                key={cam.id}
+                onClick={() => setActiveCameraIdx(idx)}
+                className={`text-xs px-2 py-1 rounded border transition-colors ${
+                  active
+                    ? "bg-neutral-800 text-white border-neutral-800 dark:bg-neutral-600 dark:border-neutral-600"
+                    : "bg-white hover:bg-neutral-200 text-neutral-700 border-neutral-300 dark:bg-neutral-700 dark:text-neutral-200 dark:border-neutral-600 dark:hover:bg-neutral-600"
+                }`}
+              >
+                {getName(cam.localized_name, cam.id)}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>
