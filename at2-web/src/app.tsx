@@ -14,6 +14,7 @@ import RoomCard from "./components/RoomCard";
 import { API_URL } from "./config";
 import { Sun, Moon } from "lucide-preact";
 import { ThemeProvider, useTheme } from "./theme";
+import Button from "./components/ui/Button";
 
 export function App() {
   return (
@@ -80,28 +81,19 @@ const AppContent: FunctionalComponent = () => {
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
             Status przestrzeni
           </h1>
-          <button
-            type="button"
+          <Button
+            variant="neutral"
+            size="sm"
             onClick={toggleTheme}
-            className="flex items-center gap-2 text-sm px-3 py-2 rounded border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-600 text-neutral-900 dark:text-neutral-100 transition-colors"
-            title={
+            icon={theme === "dark" ? Sun : Moon}
+            aria-label={
               theme === "dark"
                 ? "Przełącz na jasny motyw"
                 : "Przełącz na ciemny motyw"
             }
           >
-            {theme === "dark" ? (
-              <>
-                <Sun className="w-4 h-4" />
-                <span>Jasny</span>
-              </>
-            ) : (
-              <>
-                <Moon className="w-4 h-4" />
-                <span>Ciemny</span>
-              </>
-            )}
-          </button>
+            {theme === "dark" ? "Jasny" : "Ciemny"}
+          </Button>
         </header>
         <main className="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 pb-10">
           {rooms.length === 0 && (

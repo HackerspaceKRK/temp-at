@@ -101,7 +101,7 @@ export const RoomCard: FunctionalComponent<{ room: RoomState }> = ({
   return (
     <div className="flex flex-col">
       {/* Main card */}
-      <div className="rounded-lg border border-neutral-300 bg-neutral-50 dark:bg-neutral-800 dark:border-neutral-700 shadow-sm flex flex-col">
+      <div className="rounded-lg border border-neutral-300 bg-neutral-50 dark:bg-neutral-800 dark:border-neutral-700 shadow-sm overflow-hidden flex flex-col">
         {/* Room title */}
         <div className="px-3 py-2 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800">
           <h2 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">

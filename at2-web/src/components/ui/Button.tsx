@@ -73,6 +73,10 @@ interface BaseProps {
    * Rel (only if as="a").
    */
   rel?: string;
+  /**
+   * Accent color overriding border, icon, and text (hex or CSS color).
+   */
+  accentColor?: string;
 }
 
 /**
@@ -94,11 +98,11 @@ const variantClasses: Record<ButtonVariant, string> = {
   danger:
     "bg-red-600 hover:bg-red-700 text-white dark:bg-red-500 dark:hover:bg-red-600 focus-visible:ring-red-500",
   neutral:
-    "bg-white hover:bg-neutral-100 text-neutral-900 border border-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-neutral-100 dark:border-neutral-600 focus-visible:ring-neutral-400",
+    "bg-white hover:bg-neutral-100 text-neutral-700 border border-current dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-neutral-100 dark:border-current focus-visible:ring-neutral-400",
   ghost:
     "bg-transparent hover:bg-neutral-200 text-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700 focus-visible:ring-neutral-500",
   outline:
-    "bg-transparent border border-neutral-300 text-neutral-800 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-100 dark:hover:bg-neutral-700 focus-visible:ring-neutral-500",
+    "bg-transparent border border-current text-neutral-700 hover:bg-neutral-100 dark:border-current dark:text-neutral-100 dark:hover:bg-neutral-700 focus-visible:ring-neutral-500",
 };
 
 /**
@@ -114,7 +118,7 @@ const sizeClasses: Record<ButtonSize, string> = {
  * Badge styling.
  */
 const badgeBase =
-  "absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-red-600 text-white text-[0.65rem] font-semibold flex items-center justify-center shadow-sm";
+  "absolute -top-2 -right-2 min-w-[0.9rem] h-[0.9rem] px-0.5 rounded-full text-[0.55rem] font-semibold flex items-center justify-center shadow-sm";
 
 interface ButtonProps extends BaseProps {}
 
@@ -149,6 +153,7 @@ export const Button = forwardRef<
     href,
     target,
     rel,
+    accentColor,
     ...rest
   } = props;
 
@@ -163,10 +168,25 @@ export const Button = forwardRef<
 
   // Content assembly
   const iconEl = Icon ? (
-    <span className="relative inline-flex">
-      <Icon className={cx(size === "lg" ? "w-5 h-5" : "w-4 h-4")} />
+    <span
+      className={cx(
+        "relative inline-flex items-center justify-center rounded-full",
+        size === "lg" ? "w-6 h-6" : "w-5 h-5",
+      )}
+      style={accentColor ? { color: accentColor } : undefined}
+    >
+      <Icon
+        className={cx(size === "lg" ? "w-5 h-5" : "w-4 h-4")}
+        style={accentColor ? { color: accentColor } : undefined}
+      />
       {typeof badgeCount === "number" && badgeCount > 0 && (
-        <span className={badgeBase}>
+        <span
+          className={cx(
+            badgeBase,
+            accentColor ? "text-white" : "bg-red-600 text-white",
+          )}
+          style={accentColor ? { backgroundColor: accentColor } : undefined}
+        >
           {badgeCount > 99 ? "99+" : badgeCount}
         </span>
       )}
@@ -193,7 +213,7 @@ export const Button = forwardRef<
     );
 
   const baseClasses =
-    "inline-flex items-center justify-center font-medium rounded transition-colors select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed relative";
+    "inline-flex items-center justify-center font-bold rounded transition-colors select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed relative cursor-pointer";
 
   const finalClassName = cx(
     baseClasses,
@@ -219,6 +239,11 @@ export const Button = forwardRef<
         }}
         aria-disabled={disabled || undefined}
         className={finalClassName}
+        style={
+          accentColor
+            ? { borderColor: accentColor, color: accentColor }
+            : undefined
+        }
         {...rest}
       >
         {content}
@@ -236,6 +261,11 @@ export const Button = forwardRef<
         onClick?.(e as any);
       }}
       className={finalClassName}
+      style={
+        accentColor
+          ? { borderColor: accentColor, color: accentColor }
+          : undefined
+      }
       {...rest}
     >
       {content}

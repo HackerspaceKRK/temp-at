@@ -63,25 +63,22 @@ export const RelayGroupControl: FunctionalComponent<RelayGroupControlProps> = ({
 
   const icon =
     kind === "light" ? (
-      <Lightbulb
-        className={
-          onCount > 0
-            ? `${iconCommon} text-yellow-400`
-            : `${iconCommon} text-neutral-400 dark:text-neutral-500`
-        }
-      />
+      <Lightbulb className={iconCommon} />
     ) : (
-      <Fan
-        className={
-          onCount > 0
-            ? `${iconCommon} text-sky-400 spin-slow`
-            : `${iconCommon} text-neutral-400 dark:text-neutral-500`
-        }
-      />
+      <Fan className={`${iconCommon} ${onCount > 0 ? "spin-slow" : ""}`} />
     );
 
   const ariaLabel =
     kind === "light" ? "Sterowanie światłami" : "Sterowanie wentylatorami";
+
+  // Accent color logic: apply explicit hex accent when any relay is ON
+  const accentColor =
+    onCount > 0 ? (kind === "light" ? "#facc15" : "#0ea5e9") : undefined;
+
+  // Keep minimal extra classes (cursor + bold already handled by Button base)
+  const buttonAccentClasses = "cursor-pointer font-bold";
+
+  // NOTE: Badge (orb) color is fixed in Button component; to recolor it we would need to modify Button.tsx.
 
   return (
     <div className={className}>
@@ -95,13 +92,15 @@ export const RelayGroupControl: FunctionalComponent<RelayGroupControlProps> = ({
             aria-label={ariaLabel}
             icon={() => icon}
             badgeCount={onCount > 0 ? onCount : undefined}
+            accentColor={accentColor}
+            className={buttonAccentClasses}
           >
             {/* Text label could be omitted; keep for clarity */}
             {kind === "light" ? "Światła" : "Wentylatory"}
           </Button>
         )}
         placement="bottom-start"
-        portal={false}
+        portal={true}
         panelClassName="flex flex-col gap-2"
         autoFocus={false}
       >
@@ -124,6 +123,7 @@ export const RelayGroupControl: FunctionalComponent<RelayGroupControlProps> = ({
                     // Read-only for now; no action.
                   }}
                   ariaLabel={name}
+                  className="cursor-pointer"
                 />
               </div>
             );
@@ -134,9 +134,7 @@ export const RelayGroupControl: FunctionalComponent<RelayGroupControlProps> = ({
             </div>
           )}
         </div>
-        <div className="px-2 pt-1 text-[0.6rem] text-neutral-400 dark:text-neutral-500">
-          {roomId ? `Room: ${roomId}` : null}
-        </div>
+        {/* room id footer removed */}
       </Dropdown>
     </div>
   );

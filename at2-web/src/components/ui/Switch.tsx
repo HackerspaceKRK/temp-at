@@ -175,6 +175,7 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
           className={cx(
             "focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-full",
             "transition-shadow",
+            !disabled && "cursor-pointer",
             disabled && "pointer-events-none",
           )}
         >
