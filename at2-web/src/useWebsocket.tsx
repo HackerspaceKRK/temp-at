@@ -1,12 +1,14 @@
 import { useEffect, useState } from "preact/hooks";
 
-export const enum ReadyState {
-  UNINSTANTIATED = -1,
-  CONNECTING = 0,
-  OPEN = 1,
-  CLOSING = 2,
-  CLOSED = 3,
-}
+export const ReadyState = {
+  UNINSTANTIATED: -1,
+  CONNECTING: 0,
+  OPEN: 1,
+  CLOSING: 2,
+  CLOSED: 3,
+} as const;
+
+export type ReadyState = (typeof ReadyState)[keyof typeof ReadyState];
 
 export interface UseWebsocketOptions {
   binaryType: BinaryType;
@@ -14,13 +16,13 @@ export interface UseWebsocketOptions {
 
 export default function useWebsocket(
   webSocketUrl: string | null,
-  options?: UseWebsocketOptions
+  options?: UseWebsocketOptions,
 ) {
   const [readyState, setReadyState] = useState<ReadyState>(
-    ReadyState.UNINSTANTIATED
+    ReadyState.UNINSTANTIATED,
   );
   const [lastMessage, setLastMessage] = useState<MessageEvent<any> | null>(
-    null
+    null,
   );
   const [webSocket, setWebSocket] = useState<WebSocket | null>(null);
 
@@ -61,7 +63,7 @@ export default function useWebsocket(
     };
   }, [webSocketUrl]);
   const sendMessage = (
-    message: string | ArrayBuffer | Blob | ArrayBufferView
+    message: string | ArrayBuffer | Blob | ArrayBufferView,
   ) => {
     if (webSocket && readyState === ReadyState.OPEN) {
       webSocket.send(message);
