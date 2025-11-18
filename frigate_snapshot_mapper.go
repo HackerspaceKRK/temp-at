@@ -114,9 +114,8 @@ func (s *FrigateSnapshotMapper) fetchCameraSnapshot(cameraName string) ([]Snapsh
 	// 1. Fetch snapshot ONCE as JPEG from Frigate.
 	// 2. Decode locally using stdlib image/jpeg.
 	// 3. Resize to widths 300, 600, 900 (maintain aspect ratio) + original.
-	// 4. Encode each variant as JPEG (stdlib only).
+	// 4. Encode each variant as JPEG
 	// 5. Store in s.imagesCache and return metadata with cache-busting URL.
-	// NOTE: Without external libraries we cannot handle WebP; only JPEG variants will be produced.
 	base := strings.TrimRight(s.cfg.Frigate.Url, "/")
 	if base == "" {
 		return nil, fmt.Errorf("frigate url empty")
