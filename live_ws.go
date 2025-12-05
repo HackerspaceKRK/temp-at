@@ -141,7 +141,6 @@ func handleLiveWs(c *websocket.Conn) {
 		}
 	}()
 	for r := range recvChan {
-		log.Printf("Received updated room state from recvChan: %s", r.ID)
 		err := c.WriteJSON(r)
 		if err != nil {
 			log.Printf("Failed to send updated room state to WS: %v", err)

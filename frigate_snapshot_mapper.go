@@ -215,7 +215,6 @@ func (s *FrigateSnapshotMapper) GetCachedSnapshot(filename string) ([]byte, stri
 // HandleSnapshot is an HTTP handler for Fiber that serves a cached snapshot variant.
 func (s *FrigateSnapshotMapper) HandleSnapshot(c *fiber.Ctx) error {
 	filename := c.Params("filename")
-	log.Printf("[frigate snapshot mapper] serving snapshot request for %s", filename)
 	data, mediaType, err := s.GetCachedSnapshot(filename)
 	if err != nil || len(data) == 0 {
 		return fiber.ErrNotFound
