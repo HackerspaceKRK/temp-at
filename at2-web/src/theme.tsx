@@ -1,6 +1,6 @@
-import { createContext } from "preact";
-import type { FunctionalComponent, ComponentChildren } from "preact";
-import { useContext, useEffect, useState, useCallback } from "preact/hooks";
+import { createContext } from "react";
+import type { FunctionalComponent, ComponentChildren } from "react";
+import { useContext, useEffect, useState, useCallback } from "react";
 
 /**
  * Theme (color scheme) modes supported.

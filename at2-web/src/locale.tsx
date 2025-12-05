@@ -1,5 +1,5 @@
-import { createContext } from "preact";
-import { useContext } from "preact/hooks";
+import { createContext } from "react";
+import { useContext } from "react";
 import type { LocalizedName } from "./schema";
 
 /**
@@ -54,7 +54,7 @@ export function LocaleProvider({
   children,
   locale = "pl",
 }: {
-  children: preact.ComponentChildren;
+  children: React.ReactNode;
   locale?: string;
 }) {
   const value: LocaleContextValue = {

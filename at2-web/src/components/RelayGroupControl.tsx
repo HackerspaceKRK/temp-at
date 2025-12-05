@@ -1,10 +1,19 @@
-import type { FunctionalComponent } from "preact";
-import { Lightbulb, Fan } from "lucide-preact";
+import type { FC } from "react";
+import { Lightbulb, Fan } from "lucide-react";
 import { useLocale } from "../locale";
 import type { RelayEntity } from "../schema";
-import Button from "./ui/Button";
-import Dropdown from "./ui/Dropdown";
-import Switch from "./ui/Switch";
+import { Button } from "./ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+} from "./ui/dropdown-menu";
+import { Switch } from "./ui/switch";
+
+import { Label } from "./ui/label";
+import { DropdownMenuSeparator } from "@radix-ui/react-dropdown-menu";
 
 /**
  * RelayGroupControl
@@ -41,7 +50,7 @@ interface RelayGroupControlProps {
   roomId?: string;
 }
 
-export const RelayGroupControl: FunctionalComponent<RelayGroupControlProps> = ({
+export const RelayGroupControl: FC<RelayGroupControlProps> = ({
   entities,
   kind,
   className,
@@ -56,7 +65,7 @@ export const RelayGroupControl: FunctionalComponent<RelayGroupControlProps> = ({
 
   const onCount = filtered.reduce(
     (acc, e) => (e.state === "ON" ? acc + 1 : acc),
-    0,
+    0
   );
 
   const iconCommon = "w-5 h-5";
@@ -72,8 +81,8 @@ export const RelayGroupControl: FunctionalComponent<RelayGroupControlProps> = ({
     kind === "light" ? "Sterowanie światłami" : "Sterowanie wentylatorami";
 
   // Accent color logic: apply explicit hex accent when any relay is ON
-  const accentColor =
-    onCount > 0 ? (kind === "light" ? "#facc15" : "#0ea5e9") : undefined;
+  const variant =
+    onCount > 0 ? "outlinePrimary" : "outline";
 
   // Keep minimal extra classes (cursor + bold already handled by Button base)
   const buttonAccentClasses = "cursor-pointer font-bold";
@@ -82,60 +91,45 @@ export const RelayGroupControl: FunctionalComponent<RelayGroupControlProps> = ({
 
   return (
     <div className={className}>
-      <Dropdown
-        trigger={({ toggle, open, ref }) => (
+      <DropdownMenu modal={true}>
+        <DropdownMenuTrigger asChild>
           <Button
-            ref={ref as any}
-            variant="neutral"
+            variant={variant}
             size="sm"
-            onClick={toggle}
             aria-label={ariaLabel}
-            icon={() => icon}
-            badgeCount={onCount > 0 ? onCount : undefined}
-            accentColor={accentColor}
-            className={buttonAccentClasses}
+            aria-haspopup="menu"
+            aria-expanded="false"
+            aria-controls={`${roomId ?? "room"}-${kind}-relay-menu`}
+
           >
-            {/* Text label could be omitted; keep for clarity */}
-            {kind === "light" ? "Światła" : "Wentylatory"}
+            {icon}
           </Button>
-        )}
-        placement="bottom-start"
-        portal={true}
-        panelClassName="flex flex-col gap-2"
-        autoFocus={false}
-      >
-        <div className="flex flex-col gap-2">
-          {filtered.map((relay) => {
-            const name = getName(relay.localized_name, relay.id);
-            const isOn = relay.state === "ON";
-            return (
-              <div
-                key={relay.id}
-                className="flex items-center justify-between gap-3 px-2 py-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
-              >
-                <span className="text-xs text-neutral-700 dark:text-neutral-200 truncate">
-                  {name}
-                </span>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          id={`${roomId ?? "room"}-${kind}-relay-menu`}
+          role="menu"
+        >
+          <DropdownMenuLabel>{ariaLabel}</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {filtered.map((entity) => (
+            <DropdownMenuItem key={entity.id} role="menuitem">
+              <div className="flex items-center space-x-2 justify-between w-full">
+                <Label
+                  htmlFor={"switch-" + entity.id}
+                  className="cursor-pointer font-normal"
+                >
+                  {getName(entity.localized_name) || entity.id}
+                </Label>
                 <Switch
-                  size="sm"
-                  checked={isOn}
-                  onChange={() => {
-                    // Read-only for now; no action.
-                  }}
-                  ariaLabel={name}
-                  className="cursor-pointer"
+                  id={"switch-" + entity.id}
+                  checked={entity.state === "ON"}
                 />
               </div>
-            );
-          })}
-          {filtered.length === 0 && (
-            <div className="text-xs italic text-neutral-500">
-              Brak elementów
-            </div>
-          )}
-        </div>
-        {/* room id footer removed */}
-      </Dropdown>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 };

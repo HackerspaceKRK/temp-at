@@ -4,17 +4,17 @@
  * - Provides locale context (hardcoded "pl")
  * - Renders responsive grid of RoomCards
  */
-import { useEffect, useState } from "preact/hooks";
-import type { FunctionalComponent } from "preact";
+import { useEffect, useState } from "react";
+import type { FunctionalComponent } from "react";
 import "./app.css";
 import useWebsocket from "./useWebsocket";
 import type { RoomState } from "./schema";
 import { LocaleProvider } from "./locale";
 import RoomCard from "./components/RoomCard";
 import { API_URL } from "./config";
-import { Sun, Moon } from "lucide-preact";
+import { Sun, Moon } from "lucide-react";
 import { ThemeProvider, useTheme } from "./theme";
-import Button from "./components/ui/Button";
+import { Button } from "./components/ui/button";
 
 export function App() {
   return (
@@ -27,31 +27,32 @@ export function App() {
 }
 
 const AppContent: FunctionalComponent = () => {
-  const { lastMessage } = useWebsocket(
-    `${API_URL.replace(/\/$/, "")}/api/v1/live-ws`,
-  );
   const [roomStates, setRoomStates] = useState<{ [key: string]: RoomState }>(
-    {},
+    {}
   );
-
-  useEffect(() => {
-    if (lastMessage?.data) {
-      try {
-        const data = JSON.parse(lastMessage.data);
-        setRoomStates((prev) => ({ ...prev, [data.id]: data }));
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn("Bad message payload", err);
+  const {} = useWebsocket(`${API_URL.replace(/\/$/, "")}/api/v1/live-ws`, {
+    binaryType: "arraybuffer",
+    onMessage: (msgEvt) => {
+      if (msgEvt.data) {
+        try {
+          const data = JSON.parse(msgEvt.data);
+          setRoomStates((prev) => ({ ...prev, [data.id]: data }));
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn("Bad message payload", err);
+        }
       }
-    }
-  }, [lastMessage]);
+    },
+  });
+
+ 
 
   const rooms = Object.values(roomStates).sort((a, b) => {
     const snapCountA = a.entities.filter(
-      (e) => e.representation === "camera_snapshot",
+      (e) => e.representation === "camera_snapshot"
     ).length;
     const snapCountB = b.entities.filter(
-      (e) => e.representation === "camera_snapshot",
+      (e) => e.representation === "camera_snapshot"
     ).length;
     if (snapCountB !== snapCountA) return snapCountB - snapCountA;
 
@@ -82,10 +83,9 @@ const AppContent: FunctionalComponent = () => {
             Status przestrzeni
           </h1>
           <Button
-            variant="neutral"
+            variant="outline"
             size="sm"
             onClick={toggleTheme}
-            icon={theme === "dark" ? Sun : Moon}
             aria-label={
               theme === "dark"
                 ? "Przełącz na jasny motyw"

@@ -1,6 +1,7 @@
-import type { FunctionalComponent } from "preact";
+import type { FunctionalComponent } from "react";
 import type { SnapshotImage } from "../schema";
 import { resolveImageUrl } from "../config";
+import React from "react";
 
 /**
  * CameraSnapshot component
@@ -44,7 +45,7 @@ export interface CameraSnapshotProps {
   /**
    * Optional placeholder node rendered when there are no images.
    */
-  placeholder?: preact.ComponentChildren;
+  placeholder?: JSX.Element;
   /**
    * Whether to constrain aspect ratio using the first image dimensions.
    * If true and first image exists, creates a padded box to prevent layout shift.
@@ -105,7 +106,7 @@ export const CameraSnapshot: FunctionalComponent<CameraSnapshotProps> = ({
   const srcSet = hasImages ? buildSrcSet(validImages) : undefined;
 
   // Aspect ratio lock using padding-top trick
-  let aspectWrapperStyle: preact.JSX.CSSProperties | undefined;
+  let aspectWrapperStyle: React.CSSProperties = {};
   if (lockAspectRatio && hasImages) {
     const first = validImages[0];
     if (first?.width && first?.height) {

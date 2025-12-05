@@ -1,10 +1,12 @@
-import type { FunctionalComponent } from "preact";
-import { useState } from "preact/hooks";
-import { Thermometer, Droplets, User } from "lucide-preact";
+import type { FunctionalComponent } from "react";
+import { useState } from "react";
+import { Thermometer, Droplets, User } from "lucide-react";
 import type { RoomState, CameraSnapshotEntity } from "../schema";
 import { useLocale } from "../locale";
 import { resolveImageUrl } from "../config";
 import RelayGroupControl from "./RelayGroupControl";
+import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
+
 
 /**
  * Minimal numeric sensor item.
@@ -91,11 +93,11 @@ export const RoomCard: FunctionalComponent<{ room: RoomState }> = ({
 
   // Collect camera entities only for tab selection / active camera logic.
   const cameraEntities = room.entities.filter(
-    (e) => e.representation === "camera_snapshot",
+    (e) => e.representation === "camera_snapshot"
   ) as CameraSnapshotEntity[];
   const activeCamera = cameraEntities[activeCameraIdx];
   const hasPresence = room.entities.some(
-    (e) => e.representation === "presence",
+    (e) => e.representation === "presence"
   );
 
   return (
@@ -138,7 +140,7 @@ export const RoomCard: FunctionalComponent<{ room: RoomState }> = ({
                   precision={0}
                   title={getName(e.localized_name, e.id)}
                 />
-              ) : null,
+              ) : null
             )}
           </div>
           <div className="flex items-center gap-3">
@@ -146,7 +148,7 @@ export const RoomCard: FunctionalComponent<{ room: RoomState }> = ({
               entities={
                 room.entities.filter(
                   (e): e is any =>
-                    e.representation === "light" || e.representation === "fan",
+                    e.representation === "light" || e.representation === "fan"
                 ) as any
               }
               kind="light"
@@ -156,7 +158,7 @@ export const RoomCard: FunctionalComponent<{ room: RoomState }> = ({
               entities={
                 room.entities.filter(
                   (e): e is any =>
-                    e.representation === "light" || e.representation === "fan",
+                    e.representation === "light" || e.representation === "fan"
                 ) as any
               }
               kind="fan"
@@ -180,22 +182,26 @@ export const RoomCard: FunctionalComponent<{ room: RoomState }> = ({
           {cameraEntities.length === 0 && (
             <div className="text-xs text-neutral-500 italic">Brak kamery</div>
           )}
-          {cameraEntities.map((cam, idx) => {
-            const active = idx === activeCameraIdx;
+          <Tabs>
+            <TabsList>
+          
+              
+            
+            {cameraEntities.map((cam, idx) => {
+            
             return (
-              <button
+              <TabsTrigger
                 key={cam.id}
+                value={cam.id}
                 onClick={() => setActiveCameraIdx(idx)}
-                className={`text-xs px-2 py-1 rounded border transition-colors ${
-                  active
-                    ? "bg-neutral-800 text-white border-neutral-800 dark:bg-neutral-600 dark:border-neutral-600"
-                    : "bg-white hover:bg-neutral-200 text-neutral-700 border-neutral-300 dark:bg-neutral-700 dark:text-neutral-200 dark:border-neutral-600 dark:hover:bg-neutral-600"
-                }`}
               >
                 {getName(cam.localized_name, cam.id)}
-              </button>
+              </TabsTrigger>
             );
           })}
+          </TabsList>
+          </Tabs>
+          
         </div>
       </div>
     </div>

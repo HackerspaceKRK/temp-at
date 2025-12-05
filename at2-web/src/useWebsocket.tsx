@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useState } from "react";
 
 export const ReadyState = {
   UNINSTANTIATED: -1,
@@ -12,6 +12,7 @@ export type ReadyState = (typeof ReadyState)[keyof typeof ReadyState];
 
 export interface UseWebsocketOptions {
   binaryType: BinaryType;
+  onMessage?: (message: MessageEvent) => void;
 }
 
 export default function useWebsocket(
@@ -21,9 +22,7 @@ export default function useWebsocket(
   const [readyState, setReadyState] = useState<ReadyState>(
     ReadyState.UNINSTANTIATED,
   );
-  const [lastMessage, setLastMessage] = useState<MessageEvent<any> | null>(
-    null,
-  );
+  
   const [webSocket, setWebSocket] = useState<WebSocket | null>(null);
 
   useEffect(() => {
@@ -53,7 +52,8 @@ export default function useWebsocket(
       setReadyState(ReadyState.CLOSED);
     });
     ws.addEventListener("message", (message) => {
-      setLastMessage(message);
+      options?.onMessage?.(message);
+       
     });
 
     return () => {
@@ -69,5 +69,5 @@ export default function useWebsocket(
       webSocket.send(message);
     }
   };
-  return { sendMessage, lastMessage, readyState };
+  return { sendMessage,  readyState };
 }
