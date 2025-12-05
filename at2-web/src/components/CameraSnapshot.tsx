@@ -73,8 +73,7 @@ function buildSrcSet(images: SnapshotImage[]): string {
 
 /**
  * Pick a default src:
- * - Prefer the median (middle) width for a balanced choice.
- * - Fallback to first item if only one.
+ * - Choose largest image.
  */
 function pickDefaultSrc(images: SnapshotImage[]): string | null {
   if (images.length === 0) return null;
@@ -82,7 +81,7 @@ function pickDefaultSrc(images: SnapshotImage[]): string | null {
     .filter((i) => i.width)
     .sort((a, b) => a.width - b.width);
   if (sorted.length === 0) return null;
-  const mid = sorted[Math.floor(sorted.length / 2)];
+  const mid = sorted[sorted.length - 1];
   return resolveImageUrl(mid.url);
 }
 

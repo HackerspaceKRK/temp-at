@@ -387,9 +387,9 @@ export const Dropdown: FunctionalComponent<DropdownProps> = ({
         "border-neutral-300 dark:border-neutral-700",
         // Remove interior borders depending on orientation to prevent leaking into panel.
         placement.startsWith("bottom") &&
-          "border-b-transparent border-r-transparent",
+          "border-b-transparent border-r-transparent dark:border-b-transparent dark:border-r-transparent",
         placement.startsWith("top") &&
-          "border-t-transparent border-l-transparent",
+          "border-t-transparent border-l-transparent dark:border-t-transparent dark:border-l-transparent",
       )}
       style={{
         ...(placement.startsWith("bottom") && { top: -6 }),
