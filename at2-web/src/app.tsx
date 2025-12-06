@@ -5,7 +5,7 @@
  * - Renders responsive grid of RoomCards
  */
 import { useEffect, useState } from "react";
-import type { FunctionalComponent } from "react";
+import type { FC } from "react";
 import "./app.css";
 import useWebsocket from "./useWebsocket";
 import type { RoomState } from "./schema";
@@ -15,6 +15,7 @@ import { API_URL } from "./config";
 import { Sun, Moon } from "lucide-react";
 import { ThemeProvider, useTheme } from "./theme";
 import { Button } from "./components/ui/button";
+import { ModeToggle } from "./components/ModeToggle";
 
 export function App() {
   return (
@@ -26,7 +27,7 @@ export function App() {
   );
 }
 
-const AppContent: FunctionalComponent = () => {
+const AppContent: FC = () => {
   const [roomStates, setRoomStates] = useState<{ [key: string]: RoomState }>(
     {}
   );
@@ -44,8 +45,6 @@ const AppContent: FunctionalComponent = () => {
       }
     },
   });
-
- 
 
   const rooms = Object.values(roomStates).sort((a, b) => {
     const snapCountA = a.entities.filter(
@@ -73,7 +72,7 @@ const AppContent: FunctionalComponent = () => {
     return 0;
   });
 
-  const { theme, toggleTheme } = useTheme();
+
 
   return (
     <div className="min-h-screen bg-neutral-200 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100">
@@ -82,18 +81,7 @@ const AppContent: FunctionalComponent = () => {
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
             Status przestrzeni
           </h1>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={toggleTheme}
-            aria-label={
-              theme === "dark"
-                ? "Przełącz na jasny motyw"
-                : "Przełącz na ciemny motyw"
-            }
-          >
-            {theme === "dark" ? "Jasny" : "Ciemny"}
-          </Button>
+          <ModeToggle />
         </header>
         <main className="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 pb-10">
           {rooms.length === 0 && (

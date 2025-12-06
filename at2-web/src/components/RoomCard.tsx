@@ -1,4 +1,4 @@
-import type { FunctionalComponent } from "react";
+import type { FC } from "react";
 import { useState } from "react";
 import { Thermometer, Droplets, User } from "lucide-react";
 import type { RoomState, CameraSnapshotEntity } from "../schema";
@@ -12,8 +12,8 @@ import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
  * Minimal numeric sensor item.
  * Renders nothing if value is missing.
  */
-const NumericSensorBarItem: FunctionalComponent<{
-  icon: FunctionalComponent<any>;
+const NumericSensorBarItem: FC<{
+  icon: FC<any>;
   value: number | null;
   unit: string;
   title: string;
@@ -35,7 +35,7 @@ const NumericSensorBarItem: FunctionalComponent<{
  * People count item.
  * Always renders (since count is always present); red when count > 0.
  */
-const PeopleCountBarItem: FunctionalComponent<{
+const PeopleCountBarItem: FC<{
   count: number;
   title: string;
 }> = ({ count, title }) => {
@@ -57,7 +57,7 @@ const PeopleCountBarItem: FunctionalComponent<{
 /**
  * Camera snapshot: renders nothing if no images.
  */
-const CameraSnapshot: FunctionalComponent<{
+const CameraSnapshot: FC<{
   camera: CameraSnapshotEntity | undefined;
   alt: string;
 }> = ({ camera, alt }) => {
@@ -85,7 +85,7 @@ const CameraSnapshot: FunctionalComponent<{
  * Directly maps entities to bar items; no intermediate arrays.
  * No placeholders are shown for missing data.
  */
-export const RoomCard: FunctionalComponent<{ room: RoomState }> = ({
+export const RoomCard: FC<{ room: RoomState }> = ({
   room,
 }) => {
   const { getName } = useLocale();

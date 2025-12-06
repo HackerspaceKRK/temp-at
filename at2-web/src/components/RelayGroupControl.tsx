@@ -14,6 +14,7 @@ import { Switch } from "./ui/switch";
 
 import { Label } from "./ui/label";
 import { DropdownMenuSeparator } from "@radix-ui/react-dropdown-menu";
+import { Badge } from "./ui/badge";
 
 /**
  * RelayGroupControl
@@ -81,11 +82,9 @@ export const RelayGroupControl: FC<RelayGroupControlProps> = ({
     kind === "light" ? "Sterowanie światłami" : "Sterowanie wentylatorami";
 
   // Accent color logic: apply explicit hex accent when any relay is ON
-  const variant =
-    onCount > 0 ? "outlinePrimary" : "outline";
+  const variant = onCount > 0 ? "outlinePrimary" : "outline";
 
-  // Keep minimal extra classes (cursor + bold already handled by Button base)
-  const buttonAccentClasses = "cursor-pointer font-bold";
+ 
 
   // NOTE: Badge (orb) color is fixed in Button component; to recolor it we would need to modify Button.tsx.
 
@@ -100,9 +99,18 @@ export const RelayGroupControl: FC<RelayGroupControlProps> = ({
             aria-haspopup="menu"
             aria-expanded="false"
             aria-controls={`${roomId ?? "room"}-${kind}-relay-menu`}
-
+            className="relative"
           >
             {icon}
+         
+            {onCount > 0 && (
+              <Badge
+                variant="default"
+                className="absolute -top-2.5 -right-2.5 h-5 min-w-5 px-1 tabular-nums"
+              >
+                {onCount}
+              </Badge>
+            )}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
