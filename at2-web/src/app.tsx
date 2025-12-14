@@ -73,10 +73,10 @@ const AppContent: FC = () => {
   });
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto">
         <header className="px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
+          <h1 className="text-2xl font-bold">
             Siedziba
           </h1>
           <ModeToggle />
