@@ -118,7 +118,7 @@ export const RelayGroupControl: FC<RelayGroupControlProps> = ({
           id={`${roomId ?? "room"}-${kind}-relay-menu`}
           role="menu"
         >
-          <DropdownMenuLabel>{ariaLabel}</DropdownMenuLabel>
+          <DropdownMenuLabel className="font-semibold">{ariaLabel}</DropdownMenuLabel>
           <DropdownMenuSeparator />
           {filtered.map((entity) => (
             <DropdownMenuItem key={entity.id} role="menuitem">
