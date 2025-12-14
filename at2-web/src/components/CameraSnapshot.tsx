@@ -1,7 +1,7 @@
-import type { FunctionalComponent } from "react";
+import type { FunctionComponent, JSX } from "react";
 import type { SnapshotImage } from "../schema";
 import { resolveImageUrl } from "../config";
-import React from "react";
+
 
 /**
  * CameraSnapshot component
@@ -86,7 +86,7 @@ function pickDefaultSrc(images: SnapshotImage[]): string | null {
   return resolveImageUrl(mid.url);
 }
 
-export const CameraSnapshot: FunctionalComponent<CameraSnapshotProps> = ({
+export const CameraSnapshot: FunctionComponent<CameraSnapshotProps> = ({
   images,
   alt = "Camera snapshot",
   className,

@@ -1,12 +1,20 @@
 import type { FC } from "react";
-import { useState } from "react";
 import { Thermometer, Droplets, User } from "lucide-react";
 import type { RoomState, CameraSnapshotEntity } from "../schema";
 import { useLocale } from "../locale";
 import { resolveImageUrl } from "../config";
 import RelayGroupControl from "./RelayGroupControl";
-import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 
 /**
  * Minimal numeric sensor item.
@@ -85,126 +93,109 @@ const CameraSnapshot: FC<{
  * Directly maps entities to bar items; no intermediate arrays.
  * No placeholders are shown for missing data.
  */
-export const RoomCard: FC<{ room: RoomState }> = ({
-  room,
-}) => {
+export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
   const { getName } = useLocale();
-  const [activeCameraIdx, setActiveCameraIdx] = useState(0);
 
-  // Collect camera entities only for tab selection / active camera logic.
   const cameraEntities = room.entities.filter(
     (e) => e.representation === "camera_snapshot"
   ) as CameraSnapshotEntity[];
-  const activeCamera = cameraEntities[activeCameraIdx];
   const hasPresence = room.entities.some(
     (e) => e.representation === "presence"
   );
 
   return (
-    <div className="flex flex-col">
-      {/* Main card */}
-      <div className="rounded-lg border border-neutral-300 bg-neutral-50 dark:bg-neutral-800 dark:border-neutral-700 shadow-sm overflow-hidden flex flex-col">
-        {/* Room title */}
-        <div className="px-3 py-2 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800">
-          <h2 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">
-            {getName(room.localized_name, room.id)}
-          </h2>
-        </div>
-        {/* Metrics bar above snapshot */}
-        <div className="flex items-center justify-between px-3 py-2 text-xs bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
-          <div className="flex items-center gap-3">
-            {hasPresence && (
-              <PeopleCountBarItem
-                count={room.people_count}
-                title="People count"
+    <Card className="gap-4 py-4">
+      <CardHeader>
+        <CardTitle>{getName(room.localized_name, room.id)}</CardTitle>
+      </CardHeader>
+      {/* Metrics bar above snapshot */}
+      <div className="flex items-center justify-between px-3  text-xs">
+        <div className="flex items-center gap-3">
+          {hasPresence && (
+            <PeopleCountBarItem
+              count={room.people_count}
+              title="People count"
+            />
+          )}
+          {room.entities.map((e) =>
+            e.representation === "temperature" &&
+            typeof e.state === "number" ? (
+              <NumericSensorBarItem
+                key={e.id}
+                icon={Thermometer}
+                value={e.state}
+                unit="°C"
+                precision={1}
+                title={getName(e.localized_name, e.id)}
               />
-            )}
-            {room.entities.map((e) =>
-              e.representation === "temperature" &&
+            ) : e.representation === "humidity" &&
               typeof e.state === "number" ? (
-                <NumericSensorBarItem
-                  key={e.id}
-                  icon={Thermometer}
-                  value={e.state}
-                  unit="°C"
-                  precision={1}
-                  title={getName(e.localized_name, e.id)}
-                />
-              ) : e.representation === "humidity" &&
-                typeof e.state === "number" ? (
-                <NumericSensorBarItem
-                  key={e.id}
-                  icon={Droplets}
-                  value={e.state}
-                  unit="%"
-                  precision={0}
-                  title={getName(e.localized_name, e.id)}
-                />
-              ) : null
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <RelayGroupControl
-              entities={
-                room.entities.filter(
-                  (e): e is any =>
-                    e.representation === "light" || e.representation === "fan"
-                ) as any
-              }
-              kind="light"
-              roomId={room.id}
-            />
-            <RelayGroupControl
-              entities={
-                room.entities.filter(
-                  (e): e is any =>
-                    e.representation === "light" || e.representation === "fan"
-                ) as any
-              }
-              kind="fan"
-              roomId={room.id}
-            />
-          </div>
+              <NumericSensorBarItem
+                key={e.id}
+                icon={Droplets}
+                value={e.state}
+                unit="%"
+                precision={0}
+                title={getName(e.localized_name, e.id)}
+              />
+            ) : null
+          )}
         </div>
-        {/* Snapshot area */}
-        <div className="aspect-video bg-neutral-900 dark:bg-neutral-900 flex items-center justify-center">
-          <CameraSnapshot
-            camera={activeCamera}
-            alt={
-              activeCamera
-                ? getName(activeCamera.localized_name, activeCamera.id)
-                : "Camera snapshot"
+        <div className="flex items-center gap-3">
+          <RelayGroupControl
+            entities={
+              room.entities.filter(
+                (e): e is any =>
+                  e.representation === "light" || e.representation === "fan"
+              ) as any
             }
+            kind="light"
+            roomId={room.id}
+          />
+          <RelayGroupControl
+            entities={
+              room.entities.filter(
+                (e): e is any =>
+                  e.representation === "light" || e.representation === "fan"
+              ) as any
+            }
+            kind="fan"
+            roomId={room.id}
           />
         </div>
-        {/* Camera tabs inside card */}
-        <div className="flex gap-2 px-3 py-2 border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800">
-          {cameraEntities.length === 0 && (
-            <div className="text-xs text-neutral-500 italic">Brak kamery</div>
-          )}
-          <Tabs>
-            <TabsList>
-          
-              
-            
-            {cameraEntities.map((cam, idx) => {
-            
-            return (
-              <TabsTrigger
-                key={cam.id}
-                value={cam.id}
-                onClick={() => setActiveCameraIdx(idx)}
-              >
-                {getName(cam.localized_name, cam.id)}
-              </TabsTrigger>
-            );
-          })}
-          </TabsList>
-          </Tabs>
-          
-        </div>
       </div>
-    </div>
+      <Tabs
+        defaultValue={cameraEntities[0]?.id}
+      >
+        {/* Snapshot area */}
+        <div className="aspect-video bg-neutral-900 dark:bg-neutral-900 flex items-center justify-center">
+          {cameraEntities.map((cam) => (
+            <TabsContent
+              key={cam.id}
+              value={cam.id}
+              className="w-full h-full p-0 m-0"
+            >
+              <CameraSnapshot
+                camera={cam}
+                alt={getName(cam.localized_name, cam.id)}
+              />
+            </TabsContent>
+          ))}
+        </div>
+        {/* Camera tabs inside card */}
+        <div className="flex px-3">
+          {cameraEntities.length > 1 && (
+            <TabsList>
+              {cameraEntities.map((cam) => (
+                <TabsTrigger key={cam.id} value={cam.id}>
+                  {getName(cam.localized_name, cam.id)}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          )}
+        </div>
+      </Tabs>
+    </Card>
   );
 };
 

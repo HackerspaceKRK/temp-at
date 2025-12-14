@@ -4,7 +4,7 @@
  * - Provides locale context (hardcoded "pl")
  * - Renders responsive grid of RoomCards
  */
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { FC } from "react";
 import "./app.css";
 import useWebsocket from "./useWebsocket";
@@ -12,9 +12,9 @@ import type { RoomState } from "./schema";
 import { LocaleProvider } from "./locale";
 import RoomCard from "./components/RoomCard";
 import { API_URL } from "./config";
-import { Sun, Moon } from "lucide-react";
-import { ThemeProvider, useTheme } from "./theme";
-import { Button } from "./components/ui/button";
+
+import { ThemeProvider } from "./theme";
+
 import { ModeToggle } from "./components/ModeToggle";
 
 export function App() {
@@ -72,18 +72,16 @@ const AppContent: FC = () => {
     return 0;
   });
 
-
-
   return (
-    <div className="min-h-screen bg-neutral-200 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-background">
+      <div className="mx-auto">
         <header className="px-4 py-4 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
-            Status przestrzeni
+            Siedziba
           </h1>
           <ModeToggle />
         </header>
-        <main className="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 pb-10">
+        <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 px-4 pb-10">
           {rooms.length === 0 && (
             <div className="col-span-full text-center py-10 text-neutral-600">
               Oczekiwanie na dane…
