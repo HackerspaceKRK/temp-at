@@ -4,7 +4,7 @@
  * - Provides locale context (hardcoded "pl")
  * - Renders responsive grid of RoomCards
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FC } from "react";
 import "./app.css";
 import useWebsocket from "./useWebsocket";
@@ -31,6 +31,7 @@ const AppContent: FC = () => {
   const [roomStates, setRoomStates] = useState<{ [key: string]: RoomState }>(
     {}
   );
+  const [roomScores, setRoomScores] = useState<{ [key: string]: number }>({});
   const {} = useWebsocket(`${API_URL.replace(/\/$/, "")}/api/v1/live-ws`, {
     binaryType: "arraybuffer",
     onMessage: (msgEvt) => {
@@ -46,30 +47,32 @@ const AppContent: FC = () => {
     },
   });
 
-  const rooms = Object.values(roomStates).sort((a, b) => {
-    const snapCountA = a.entities.filter(
-      (e) => e.representation === "camera_snapshot"
-    ).length;
-    const snapCountB = b.entities.filter(
-      (e) => e.representation === "camera_snapshot"
-    ).length;
-    if (snapCountB !== snapCountA) return snapCountB - snapCountA;
+  useEffect(() => {
+    for (const roomId in roomStates) {
+      if(!(roomId in roomScores)) {
+        const room = roomStates[roomId];
+        let score = 0;
+        const snapCount = room.entities.filter(
+          (e) => e.representation === "camera_snapshot"
+        ).length;
+        score += snapCount * 20;
+        
+        score += room.people_count * 200;
+        const lights = room.entities.filter((e) => e.representation === "light");
+        const lightsOn = lights.filter((e) => (e as any).state === "ON").length;
+        score += lightsOn * 50;
+        score += lights.length * 10;
 
-    if (b.people_count !== a.people_count) {
-      return b.people_count - a.people_count;
+        setRoomScores((prev) => ({ ...prev, [roomId]: score }) );
+      }
     }
+  }, [roomStates]);
 
-    const lightsA = a.entities.filter((e) => e.representation === "light");
-    const lightsB = b.entities.filter((e) => e.representation === "light");
 
-    const lightsOnA = lightsA.filter((e) => (e as any).state === "ON").length;
-    const lightsOnB = lightsB.filter((e) => (e as any).state === "ON").length;
-    if (lightsOnB !== lightsOnA) return lightsOnB - lightsOnA;
-
-    if (lightsB.length !== lightsA.length)
-      return lightsB.length - lightsA.length;
-
-    return 0;
+  const rooms = Object.values(roomStates).sort((a, b) => {
+    const scoreA = roomScores[a.id] || 0;
+    const scoreB = roomScores[b.id] || 0;
+    return scoreB - scoreA;
   });
 
   return (
@@ -81,7 +84,7 @@ const AppContent: FC = () => {
           </h1>
           <ModeToggle />
         </header>
-        <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 px-4 pb-10">
+        <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4 pb-10">
           {rooms.length === 0 && (
             <div className="col-span-full text-center py-10 text-neutral-600">
               Oczekiwanie na dane…

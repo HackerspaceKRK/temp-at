@@ -104,7 +104,7 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
   );
 
   return (
-    <Card className="gap-4 py-4">
+    <Card className="gap-4 pb-0">
       <CardHeader>
         <CardTitle>{getName(room.localized_name, room.id)}</CardTitle>
       </CardHeader>
