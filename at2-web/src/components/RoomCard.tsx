@@ -1,5 +1,5 @@
-import type { FC } from "react";
-import { Thermometer, Droplets, User } from "lucide-react";
+import { useState, type FC } from "react";
+import { Thermometer, Droplets, User, SwitchCamera } from "lucide-react";
 import type { RoomState, CameraSnapshotEntity } from "../schema";
 import { useLocale } from "../locale";
 import { resolveImageUrl } from "../config";
@@ -14,7 +14,8 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
+} from "@/components/ui/card";
+import { Button } from "./ui/button";
 
 /**
  * Minimal numeric sensor item.
@@ -82,17 +83,13 @@ const CameraSnapshot: FC<{
       srcSet={srcSet}
       sizes="(max-width: 768px) 100vw, 50vw"
       alt={alt}
-      className="object-cover w-full h-full"
+      className="object-cover max-h-full w-full rounded-b-md"
       loading="lazy"
     />
   );
 };
 
-/**
- * Room card.
- * Directly maps entities to bar items; no intermediate arrays.
- * No placeholders are shown for missing data.
- */
+
 export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
   const { getName } = useLocale();
 
@@ -103,45 +100,48 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
     (e) => e.representation === "presence"
   );
 
+  const [currentCameraIndex, setCurrentCameraIndex] = useState(0);
+
   return (
     <Card className="gap-4 pb-0">
-      <CardHeader>
-        <CardTitle>{getName(room.localized_name, room.id)}</CardTitle>
-      </CardHeader>
-      {/* Metrics bar above snapshot */}
-      <div className="flex items-center justify-between px-3  text-xs">
-        <div className="flex items-center gap-3">
-          {hasPresence && (
-            <PeopleCountBarItem
-              count={room.people_count}
-              title="People count"
-            />
-          )}
-          {room.entities.map((e) =>
-            e.representation === "temperature" &&
-            typeof e.state === "number" ? (
-              <NumericSensorBarItem
-                key={e.id}
-                icon={Thermometer}
-                value={e.state}
-                unit="°C"
-                precision={1}
-                title={getName(e.localized_name, e.id)}
+      <CardHeader className="items-baseline ">
+        <CardTitle className="block  self-center">
+          {getName(room.localized_name, room.id)}
+        </CardTitle>
+        <CardDescription>
+          <div className="flex items-center gap-3">
+            {hasPresence && (
+              <PeopleCountBarItem
+                count={room.people_count}
+                title="People count"
               />
-            ) : e.representation === "humidity" &&
+            )}
+            {room.entities.map((e) =>
+              e.representation === "temperature" &&
               typeof e.state === "number" ? (
-              <NumericSensorBarItem
-                key={e.id}
-                icon={Droplets}
-                value={e.state}
-                unit="%"
-                precision={0}
-                title={getName(e.localized_name, e.id)}
-              />
-            ) : null
-          )}
-        </div>
-        <div className="flex items-center gap-3">
+                <NumericSensorBarItem
+                  key={e.id}
+                  icon={Thermometer}
+                  value={e.state}
+                  unit="°C"
+                  precision={1}
+                  title={getName(e.localized_name, e.id)}
+                />
+              ) : e.representation === "humidity" &&
+                typeof e.state === "number" ? (
+                <NumericSensorBarItem
+                  key={e.id}
+                  icon={Droplets}
+                  value={e.state}
+                  unit="%"
+                  precision={0}
+                  title={getName(e.localized_name, e.id)}
+                />
+              ) : null
+            )}
+          </div>
+        </CardDescription>
+        <CardAction className="flex gap-2 self-center">
           <RelayGroupControl
             entities={
               room.entities.filter(
@@ -162,39 +162,28 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
             kind="fan"
             roomId={room.id}
           />
-        </div>
+        </CardAction>
+      </CardHeader>
+      <div className="relative">
+        <CameraSnapshot
+          camera={cameraEntities[currentCameraIndex]}
+          alt={`Camera snapshot for room ${getName(room.localized_name, room.id)}`}
+        />
+        {cameraEntities.length > 1 && (
+          <Button
+            className="absolute bottom-4 right-4"
+            variant={"outline"}
+            size={"icon"}
+            onClick={() => {
+              setCurrentCameraIndex(
+                (currentCameraIndex + 1) % cameraEntities.length
+              );
+            }}
+          >
+            <SwitchCamera></SwitchCamera>
+          </Button>
+        )}
       </div>
-      <Tabs
-        defaultValue={cameraEntities[0]?.id}
-      >
-        {/* Snapshot area */}
-        <div className="aspect-video bg-neutral-900 dark:bg-neutral-900 flex items-center justify-center">
-          {cameraEntities.map((cam) => (
-            <TabsContent
-              key={cam.id}
-              value={cam.id}
-              className="w-full h-full p-0 m-0"
-            >
-              <CameraSnapshot
-                camera={cam}
-                alt={getName(cam.localized_name, cam.id)}
-              />
-            </TabsContent>
-          ))}
-        </div>
-        {/* Camera tabs inside card */}
-        <div className="flex px-3">
-          {cameraEntities.length > 1 && (
-            <TabsList>
-              {cameraEntities.map((cam) => (
-                <TabsTrigger key={cam.id} value={cam.id}>
-                  {getName(cam.localized_name, cam.id)}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          )}
-        </div>
-      </Tabs>
     </Card>
   );
 };

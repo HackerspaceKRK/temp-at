@@ -56,6 +56,9 @@ const AppContent: FC = () => {
           (e) => e.representation === "camera_snapshot"
         ).length;
         score += snapCount * 20;
+        if(snapCount == 0 ) {
+          score -= 1000;
+        }
         
         score += room.people_count * 200;
         const lights = room.entities.filter((e) => e.representation === "light");
