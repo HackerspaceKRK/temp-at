@@ -8,7 +8,9 @@ require (
 	github.com/goccy/go-yaml v1.11.3
 	github.com/gofiber/contrib/websocket v1.3.4
 	github.com/gofiber/fiber/v2 v2.52.6
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	golang.org/x/image v0.24.0
+	golang.org/x/oauth2 v0.28.0
 )
 
 require (
@@ -28,7 +30,6 @@ require (
 	github.com/valyala/fasthttp v1.52.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	golang.org/x/net v0.44.0 // indirect
-	golang.org/x/oauth2 v0.28.0 // indirect
 	golang.org/x/sync v0.17.0 // indirect
 	golang.org/x/sys v0.36.0 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect

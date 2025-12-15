@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/oauth2"
 )
 
@@ -41,6 +43,10 @@ func initAuth() error {
 	return nil
 }
 
+const (
+	CookieName = "access_token"
+)
+
 func handleLoginRequest(c *fiber.Ctx) error {
 	if oauth2Config == nil {
 		return c.Status(fiber.StatusUnauthorized).SendString("OIDC not configured")
@@ -61,17 +67,93 @@ func handleAuthCallback(c *fiber.Ctx) error {
 	}
 
 	ctx := context.Background()
-	token, err := oauth2Config.Exchange(ctx, code)
+	oauth2Token, err := oauth2Config.Exchange(ctx, code)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString("Failed to exchange token: " + err.Error())
 	}
 
-	// Here you can extract user info from the token if needed.
-	// For simplicity, we just return the access token.
+	// Extract the ID Token from OAuth2 token.
+	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
+	if !ok {
+		return c.Status(fiber.StatusInternalServerError).SendString("No id_token field in oauth2 token.")
+	}
+
+	// Verify the ID Token signature and expiration.
+	provider, err := oidc.NewProvider(ctx, ConfigInstance.Oidc.IssuerURL)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to get provider: " + err.Error())
+	}
+	verifier := provider.Verifier(&oidc.Config{ClientID: ConfigInstance.Oidc.ClientID})
+	idToken, err := verifier.Verify(ctx, rawIDToken)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to verify ID Token: " + err.Error())
+	}
+
+	// Get the claims
+	var claims struct {
+		PreferredUsername string `json:"preferred_username"`
+		Email             string `json:"email"`
+	}
+	if err := idToken.Claims(&claims); err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to parse claims: " + err.Error())
+	}
+
+	// Generate a JWT for our session
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"username": claims.PreferredUsername,
+		"exp":      time.Now().Add(30 * 24 * time.Hour).Unix(),
+	})
+
+	tokenString, err := token.SignedString([]byte(ConfigInstance.Web.JWTSecret))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to sign token: " + err.Error())
+	}
+
+	// Set the cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     CookieName,
+		Value:    tokenString,
+		Expires:  time.Now().Add(30 * 24 * time.Hour),
+		HTTPOnly: true,
+		Secure:   false, // set to true if using HTTPS
+		SameSite: "Lax",
+	})
+
+	return c.Redirect("/")
+}
+
+func handleLogout(c *fiber.Ctx) error {
+	c.Cookie(&fiber.Cookie{
+		Name:    CookieName,
+		Value:   "",
+		Expires: time.Now().Add(-1 * time.Hour),
+	})
+	return c.SendStatus(fiber.StatusOK)
+}
+
+func handleMe(c *fiber.Ctx) error {
+	cookie := c.Cookies(CookieName)
+	if cookie == "" {
+		return c.Status(fiber.StatusUnauthorized).SendString("Not logged in")
+	}
+
+	token, err := jwt.Parse(cookie, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(ConfigInstance.Web.JWTSecret), nil
+	})
+
+	if err != nil || !token.Valid {
+		return c.Status(fiber.StatusUnauthorized).SendString("Invalid token")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return c.Status(fiber.StatusInternalServerError).SendString("Invalid claims")
+	}
+
 	return c.JSON(fiber.Map{
-		"access_token":  token.AccessToken,
-		"token_type":    token.TokenType,
-		"refresh_token": token.RefreshToken,
-		"expiry":        token.Expiry,
+		"username": claims["username"],
 	})
 }

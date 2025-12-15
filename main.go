@@ -71,6 +71,8 @@ func main() {
 	app.Get("/api/v1/camera-snapshot/:filename", frigateSnapshotMapper.HandleSnapshot)
 	app.Get("/api/v1/auth/login", handleLoginRequest)
 	app.Get("/api/v1/auth/callback", handleAuthCallback)
+	app.Get("/api/v1/auth/me", handleMe)
+	app.Post("/api/v1/auth/logout", handleLogout)
 
 	if *devFrontend {
 		log.Println("Starting frontend in dev mode...")
