@@ -150,8 +150,6 @@ func (s *FrigateSnapshotMapper) fetchCameraSnapshot(cameraName string) ([]Snapsh
 	origW := origBounds.Dx()
 	origH := origBounds.Dy()
 
-	log.Printf("[frigate snapshot mapper] fetched snapshot for camera %s: %dx%d", cameraName, origW, origH)
-
 	images := []SnapshotImage{}
 
 	storeVariant := func(width, height int, ext string, data []byte) {
