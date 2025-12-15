@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"sync"
+	"time"
 
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
@@ -21,8 +22,11 @@ type RoomState struct {
 	LocalizedName LocalizedString `json:"localized_name"`
 	// PeopleCount is the number of people in the room
 	// (it is calculated by taking the maximum as reported by each camera)
-	PeopleCount int           `json:"people_count"`
-	Entities    []EntityState `json:"entities"`
+	PeopleCount int `json:"people_count"`
+	// LatestPersonDetectedAt is the timestamp (Unix milliseconds) when a person was last
+	// detected in this room. Only set when PeopleCount is 0.
+	LatestPersonDetectedAt *time.Time    `json:"latest_person_detected_at"`
+	Entities               []EntityState `json:"entities"`
 }
 
 func buildRoomState(id string) *RoomState {
@@ -36,6 +40,8 @@ func buildRoomState(id string) *RoomState {
 
 			// Use VirtualDevices from mqtt to create entities
 			virtDevices := vdevManager.Devices()
+			var personDevices []string // Track person device IDs in this room
+
 			for _, e := range r.Entities {
 				es := EntityState{
 					ID:             e.ID,
@@ -47,6 +53,7 @@ func buildRoomState(id string) *RoomState {
 					if v.ID == e.ID {
 						// Use the maximum people count reported by any camera in the room
 						if v.Type == VdevTypePerson && v.State != nil {
+							personDevices = append(personDevices, v.ID)
 							intVal, ok := v.State.(int)
 							if ok && intVal > rs.PeopleCount {
 								rs.PeopleCount = intVal
@@ -60,6 +67,27 @@ func buildRoomState(id string) *RoomState {
 				}
 
 				rs.Entities = append(rs.Entities, es)
+			}
+
+			// If room is empty, find the latest person detection time
+			if rs.PeopleCount == 0 && len(personDevices) > 0 && vdevHistoryRepo != nil {
+				log.Printf("Room %s is empty, finding latest person detection time", id)
+				var latestTimestamp *int64
+				for _, deviceID := range personDevices {
+					ts, err := vdevHistoryRepo.GetLatestPersonDetectionTime(deviceID)
+					if err != nil {
+						log.Printf("Failed to get latest person detection time for %s: %v", deviceID, err)
+						continue
+					}
+					if ts != nil && (latestTimestamp == nil || *ts > *latestTimestamp) {
+						latestTimestamp = ts
+					}
+				}
+				if latestTimestamp != nil {
+					parsed := time.Unix((*latestTimestamp)/1000, 0)
+					log.Printf("Latest person detection time for room %s: %v, %v", id, latestTimestamp, parsed)
+					rs.LatestPersonDetectedAt = &parsed
+				}
 			}
 
 			return rs

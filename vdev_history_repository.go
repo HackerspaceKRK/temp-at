@@ -92,3 +92,63 @@ func (r *VirtualDeviceHistoryRepository) getOrCreateDeviceID(name string, device
 	r.deviceIDs[name] = device.ID
 	return device.ID, nil
 }
+
+// GetLatestPersonDetectionTime returns the timestamp (in milliseconds) when a person was last detected
+// for the given device. It finds the most recent transition from a positive count to zero.
+// Returns nil if the person is still detected (current state is positive) or if no history exists.
+func (r *VirtualDeviceHistoryRepository) GetLatestPersonDetectionTime(deviceName string) (*int64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// Get device ID
+	var device VirtualDeviceModel
+	if err := r.db.Where("name = ?", deviceName).First(&device).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil // No history for this device
+		}
+		return nil, err
+	}
+
+	// Query recent state history (last 100 records should be sufficient)
+	var states []VirtualDeviceStateModel
+	if err := r.db.Where("virtual_device_id = ?", device.ID).
+		Order("timestamp DESC").
+		Limit(100).
+		Find(&states).Error; err != nil {
+		return nil, err
+	}
+
+	if len(states) == 0 {
+		return nil, nil // No state history
+	}
+
+	// Parse states and find transition from positive to zero
+	// States are ordered DESC by timestamp, so we iterate from most recent to oldest
+	for i := 0; i < len(states); i++ {
+		var currentCount int
+		if err := json.Unmarshal([]byte(states[i].State), &currentCount); err != nil {
+			continue // Skip malformed states
+		}
+
+		// If current (most recent) state is positive, person is still present
+		if i == 0 && currentCount > 0 {
+			return nil, nil
+		}
+
+		// Look for transition: current state is 0, previous state (older) was positive
+		if currentCount == 0 && i+1 < len(states) {
+			var previousCount int
+			if err := json.Unmarshal([]byte(states[i+1].State), &previousCount); err != nil {
+				continue
+			}
+
+			if previousCount > 0 {
+				// Found transition from positive to zero
+				// Return the timestamp of the zero state (when person left)
+				return &states[i].Timestamp, nil
+			}
+		}
+	}
+
+	return nil, nil // No transition found
+}

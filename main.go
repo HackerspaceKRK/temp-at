@@ -33,6 +33,7 @@ var (
 	vdevManager           *VdevManager
 	mqttAdapter           *MQTTAdapter
 	frigateSnapshotMapper *FrigateSnapshotMapper
+	vdevHistoryRepo       *VirtualDeviceHistoryRepository
 )
 
 func main() {
@@ -59,7 +60,7 @@ func main() {
 	log.Printf("Database initialized at %s", cfg.Database.Path)
 
 	// Create history repository (registers itself as listener)
-	_ = NewVirtualDeviceHistoryRepository(db, vdevManager)
+	vdevHistoryRepo = NewVirtualDeviceHistoryRepository(db, vdevManager)
 
 	mqttAdapter, err = NewMQTTAdapter(cfg, vdevManager)
 	if err != nil {
