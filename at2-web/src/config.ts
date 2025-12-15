@@ -3,7 +3,7 @@
 // Base HTTP(S) API URL (no trailing slash). Customize for deployment.
 // Can be overridden at runtime by calling setApiUrl or defining global __AT2_API_URL__ prior to bundle execution.
 export const API_URL =
-  (globalThis as any).__AT2_API_URL__ || "http://localhost:8080";
+  (globalThis as any).__AT2_API_URL__ || "";
 
 /**
  * Build full API path for REST endpoints.

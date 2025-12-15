@@ -2,8 +2,8 @@ import { useState, type FC } from "react";
 import { Thermometer, Droplets, User, SwitchCamera } from "lucide-react";
 import type { RoomState, CameraSnapshotEntity } from "../schema";
 import { useLocale } from "../locale";
-import { resolveImageUrl } from "../config";
 import RelayGroupControl from "./RelayGroupControl";
+import CameraSnapshot from "./CameraSnapshot";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 
 import {
@@ -50,9 +50,8 @@ const PeopleCountBarItem: FC<{
 }> = ({ count, title }) => {
   return (
     <div
-      className={`flex items-center gap-1 ${
-        count > 0 ? "text-red-400" : "text-neutral-300"
-      }`}
+      className={`flex items-center gap-1 ${count > 0 ? "text-red-400" : "text-neutral-300"
+        }`}
       title={title}
     >
       <User className="w-4 h-4" />
@@ -62,32 +61,6 @@ const PeopleCountBarItem: FC<{
 };
 
 /* Removed unused RelayBarItem component (was causing TS warning) */
-
-/**
- * Camera snapshot: renders nothing if no images.
- */
-const CameraSnapshot: FC<{
-  camera: CameraSnapshotEntity | undefined;
-  alt: string;
-}> = ({ camera, alt }) => {
-  const images = camera?.state?.images;
-  if (!images || images.length === 0) return null;
-  const sorted = [...images].sort((a, b) => a.width - b.width);
-  const srcSet = sorted
-    .map((i) => `${resolveImageUrl(i.url)} ${i.width}w`)
-    .join(", ");
-  const largest = sorted[sorted.length - 1];
-  return (
-    <img
-      src={resolveImageUrl(largest.url)}
-      srcSet={srcSet}
-      sizes="(max-width: 768px) 100vw, 50vw"
-      alt={alt}
-      className="object-cover max-h-full w-full rounded-b-md"
-      loading="lazy"
-    />
-  );
-};
 
 
 export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
@@ -118,7 +91,7 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
             )}
             {room.entities.map((e) =>
               e.representation === "temperature" &&
-              typeof e.state === "number" ? (
+                typeof e.state === "number" ? (
                 <NumericSensorBarItem
                   key={e.id}
                   icon={Thermometer}
@@ -166,8 +139,9 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
       </CardHeader>
       <div className="relative">
         <CameraSnapshot
-          camera={cameraEntities[currentCameraIndex]}
+          images={cameraEntities[currentCameraIndex]?.state?.images}
           alt={`Camera snapshot for room ${getName(room.localized_name, room.id)}`}
+          className="rounded-b-md"
         />
         {cameraEntities.length > 1 && (
           <Button
