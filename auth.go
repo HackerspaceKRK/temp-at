@@ -157,3 +157,31 @@ func handleMe(c *fiber.Ctx) error {
 		"username": claims["username"],
 	})
 }
+
+func AuthMiddleware(c *fiber.Ctx) error {
+	cookie := c.Cookies(CookieName)
+	if cookie == "" {
+		return c.Status(fiber.StatusUnauthorized).SendString("Not logged in")
+	}
+
+	token, err := jwt.Parse(cookie, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(ConfigInstance.Web.JWTSecret), nil
+	})
+
+	if err != nil || !token.Valid {
+		return c.Status(fiber.StatusUnauthorized).SendString("Invalid token")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return c.Status(fiber.StatusInternalServerError).SendString("Invalid claims")
+	}
+
+	// Store user info in context for downstream handlers
+	c.Locals("username", claims["username"])
+
+	return c.Next()
+}

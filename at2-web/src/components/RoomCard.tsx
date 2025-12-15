@@ -162,6 +162,7 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
             }
             kind="light"
             roomId={room.id}
+            roomName={getName(room.localized_name, room.id)}
           />
           <RelayGroupControl
             entities={
@@ -172,6 +173,7 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
             }
             kind="fan"
             roomId={room.id}
+            roomName={getName(room.localized_name, room.id)}
           />
         </CardAction>
       </CardHeader>

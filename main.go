@@ -103,6 +103,7 @@ func main() {
 	app.Get("/api/v1/auth/callback", handleAuthCallback)
 	app.Get("/api/v1/auth/me", handleMe)
 	app.Post("/api/v1/auth/logout", handleLogout)
+	app.Post("/api/v1/control-relay", AuthMiddleware, handleControlRelay)
 
 	if *devFrontend {
 		log.Println("Starting frontend in dev mode...")
@@ -132,6 +133,24 @@ func main() {
 	if err := app.Listen(cfg.Web.ListenAddress); err != nil {
 		log.Fatalf("Fiber server failed: %v", err)
 	}
+}
+
+type ControlRelayRequest struct {
+	ID    string `json:"id"`
+	State string `json:"state"` // "ON" or "OFF"
+}
+
+func handleControlRelay(c *fiber.Ctx) error {
+	var req ControlRelayRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+
+	// "For now ... do nothing" - User request.
+	// I will log it though so we can see it working.
+	log.Printf("User %s requested to turn %s relay %s", c.Locals("username"), req.State, req.ID)
+
+	return c.SendStatus(fiber.StatusOK)
 }
 
 func fetchAndCacheImage(name string) {
