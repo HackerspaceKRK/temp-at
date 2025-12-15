@@ -116,7 +116,6 @@ func handleLiveWs(c *websocket.Conn) {
 	// First of all send all room states as an initial message
 	for _, room := range ConfigInstance.Rooms {
 		rs := buildRoomState(room.ID)
-		log.Printf("BEFORE WRITE JSON")
 		err := c.WriteJSON(rs)
 		if err != nil {
 			log.Printf("Failed to send initial room state to WS: %v", err)

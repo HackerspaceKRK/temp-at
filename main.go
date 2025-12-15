@@ -2,14 +2,19 @@ package main
 
 import (
 	_ "embed" // for embedding template
+	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net/http" // for http.TimeFormat
+	"os"
+	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/proxy"
 
 	"github.com/gofiber/contrib/websocket"
 )
@@ -30,6 +35,9 @@ var (
 )
 
 func main() {
+	devFrontend := flag.Bool("dev-frontend", false, "Start frontend in dev mode")
+	flag.Parse()
+
 	cfg := MustLoadConfig()
 
 	err := initAuth()
@@ -63,7 +71,30 @@ func main() {
 	app.Get("/api/v1/camera-snapshot/:filename", frigateSnapshotMapper.HandleSnapshot)
 	app.Get("/api/v1/auth/login", handleLoginRequest)
 	app.Get("/api/v1/auth/callback", handleAuthCallback)
-	
+
+	if *devFrontend {
+		log.Println("Starting frontend in dev mode...")
+		cmd := exec.Command("pnpm", "dev", "--host", "0.0.0.0")
+		cmd.Dir = "./at2-web"
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Start(); err != nil {
+			log.Fatalf("Failed to start frontend: %v", err)
+		}
+		defer func() {
+			if cmd.Process != nil {
+				cmd.Process.Kill()
+			}
+		}()
+
+		app.All("*", func(c *fiber.Ctx) error {
+			if strings.HasPrefix(c.Path(), "/api") {
+				return c.Next()
+			}
+			proxyUrl := "http://localhost:5173" + c.Path()
+			return proxy.Do(c, proxyUrl)
+		})
+	}
 
 	log.Printf("Starting Fiber server on %s", cfg.Web.ListenAddress)
 	if err := app.Listen(cfg.Web.ListenAddress); err != nil {
