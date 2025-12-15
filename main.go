@@ -78,6 +78,9 @@ func main() {
 		handleVirtualDeviceStateUpdate,
 	)
 
+	// Wire up the state provider for persistence restoration
+	vdevManager.SetStateProvider(vdevHistoryRepo)
+
 	app := fiber.New()
 
 	// Routes

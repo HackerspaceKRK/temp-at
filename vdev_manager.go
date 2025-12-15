@@ -28,6 +28,13 @@ type VirtualDevice struct {
 	State any `json:"state"`
 	// MapperData stores any mapper-specific metadata.
 	MapperData any `json:"mapper_data"`
+	// Fresh indicates if the state is from a live update (true) or restored/initial (false).
+	Fresh bool `json:"fresh"`
+}
+
+// DeviceStateProvider defines the interface for retrieving persisted device state.
+type DeviceStateProvider interface {
+	GetLatestDeviceState(deviceID string) (any, error)
 }
 
 // VirtualDeviceUpdate represents a state change for a virtual device.
@@ -46,12 +53,20 @@ type VdevManager struct {
 
 	// OnVirtualDeviceUpdated callbacks are invoked for each device whose state changed.
 	OnVirtualDeviceUpdated []func(vdev *VirtualDevice)
+
+	stateProvider DeviceStateProvider
 }
 
 // NewVdevManager creates an empty manager instance.
 func NewVdevManager() *VdevManager {
-
 	return &VdevManager{}
+}
+
+// SetStateProvider configures the persistence provider.
+func (m *VdevManager) SetStateProvider(p DeviceStateProvider) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stateProvider = p
 }
 
 // AddDevices adds newly discovered virtual devices whose IDs are not already present.
@@ -74,6 +89,15 @@ func (m *VdevManager) AddDevices(devs []*VirtualDevice) {
 		if _, found := existing[d.ID]; found {
 			continue
 		}
+
+		// Try to restore state if provider is available
+		if m.stateProvider != nil {
+			if persistedState, err := m.stateProvider.GetLatestDeviceState(d.ID); err == nil && persistedState != nil {
+				d.State = persistedState
+				// Fresh remains false (default) because this is a restored state
+			}
+		}
+
 		m.devices = append(m.devices, d)
 	}
 }
@@ -102,6 +126,7 @@ func (m *VdevManager) ApplyUpdates(updates []*VirtualDeviceUpdate) []string {
 		if dev, ok := index[upd.Name]; ok {
 			if shouldAssignState(dev.State, upd.State) {
 				dev.State = upd.State
+				dev.Fresh = true
 				changed = append(changed, dev.ID)
 			}
 		}

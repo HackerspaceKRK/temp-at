@@ -152,3 +152,40 @@ func (r *VirtualDeviceHistoryRepository) GetLatestPersonDetectionTime(deviceName
 
 	return nil, nil // No transition found
 }
+
+// GetLatestDeviceState returns the most recent state for the given device ID.
+// Returns nil, nil if no state is found.
+func (r *VirtualDeviceHistoryRepository) GetLatestDeviceState(deviceID string) (any, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// 1. Get database ID for the device string ID
+	var device VirtualDeviceModel
+	if err := r.db.Where("name = ?", deviceID).First(&device).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	// 2. Get the latest state record
+	var latestState VirtualDeviceStateModel
+	err := r.db.Where("virtual_device_id = ?", device.ID).
+		Order("timestamp DESC").
+		First(&latestState).Error
+
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	// 3. Unmarshal the state
+	var state any
+	if err := json.Unmarshal([]byte(latestState.State), &state); err != nil {
+		return nil, err
+	}
+
+	return state, nil
+}

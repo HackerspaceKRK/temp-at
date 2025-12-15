@@ -71,12 +71,10 @@ func buildRoomState(id string) *RoomState {
 
 			// If room is empty, find the latest person detection time
 			if rs.PeopleCount == 0 && len(personDevices) > 0 && vdevHistoryRepo != nil {
-				log.Printf("Room %s is empty, finding latest person detection time", id)
 				var latestTimestamp *int64
 				for _, deviceID := range personDevices {
 					ts, err := vdevHistoryRepo.GetLatestPersonDetectionTime(deviceID)
 					if err != nil {
-						log.Printf("Failed to get latest person detection time for %s: %v", deviceID, err)
 						continue
 					}
 					if ts != nil && (latestTimestamp == nil || *ts > *latestTimestamp) {
@@ -85,7 +83,6 @@ func buildRoomState(id string) *RoomState {
 				}
 				if latestTimestamp != nil {
 					parsed := time.Unix((*latestTimestamp)/1000, 0)
-					log.Printf("Latest person detection time for room %s: %v, %v", id, latestTimestamp, parsed)
 					rs.LatestPersonDetectedAt = &parsed
 				}
 			}
@@ -171,7 +168,6 @@ func handleLiveWs(c *websocket.Conn) {
 	for r := range recvChan {
 		err := c.WriteJSON(r)
 		if err != nil {
-			log.Printf("Failed to send updated room state to WS: %v", err)
 			break
 		}
 	}
