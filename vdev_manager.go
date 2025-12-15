@@ -5,14 +5,25 @@ import (
 	"sync"
 )
 
+// VdevType represents the type of a virtual device.
+type VdevType string
+
+const (
+	VdevTypeRelay          VdevType = "relay"
+	VdevTypeTemperature    VdevType = "temperature"
+	VdevTypeHumidity       VdevType = "humidity"
+	VdevTypePerson         VdevType = "person"
+	VdevTypeCameraSnapshot VdevType = "camera_snapshot"
+)
+
 // VirtualDevice represents a single controllable/readable capability broken out
 // from a physical device (e.g. multi-relay or multi-sensor).
 // Moved from mqtt_adapter.go into this dedicated manager file.
 type VirtualDevice struct {
 	// ID is a string which uniquely identifies this virtual device.
 	ID string `json:"id"`
-	// Type: "relay", "temperature", "humidity", "person", etc.
-	Type string `json:"type"`
+	// Type: relay, temperature, humidity, person, etc.
+	Type VdevType `json:"type"`
 	// Current state of the given device (bool, float64, int, etc).
 	State any `json:"state"`
 	// MapperData stores any mapper-specific metadata.
@@ -33,8 +44,8 @@ type VdevManager struct {
 	mu      sync.RWMutex
 	devices []*VirtualDevice
 
-	// OnVirtualDeviceUpdated is invoked for each device whose state changed.
-	OnVirtualDeviceUpdated func(name string)
+	// OnVirtualDeviceUpdated callbacks are invoked for each device whose state changed.
+	OnVirtualDeviceUpdated []func(vdev *VirtualDevice)
 }
 
 // NewVdevManager creates an empty manager instance.
@@ -97,12 +108,23 @@ func (m *VdevManager) ApplyUpdates(updates []*VirtualDeviceUpdate) []string {
 	}
 
 	// Fire callbacks outside the lock to avoid deadlocks.
-	if len(changed) > 0 && m.OnVirtualDeviceUpdated != nil {
-		go func(ids []string, cb func(string)) {
-			for _, id := range ids {
-				cb(id)
+	if len(changed) > 0 && len(m.OnVirtualDeviceUpdated) > 0 {
+		// Collect updated devices for callbacks
+		updatedDevices := make([]*VirtualDevice, 0, len(changed))
+		for _, id := range changed {
+			if dev, ok := index[id]; ok {
+				clone := *dev
+				updatedDevices = append(updatedDevices, &clone)
 			}
-		}(append([]string{}, changed...), m.OnVirtualDeviceUpdated) // copy slice for safety
+		}
+		callbacks := append([]func(vdev *VirtualDevice){}, m.OnVirtualDeviceUpdated...) // copy slice
+		go func(devices []*VirtualDevice, cbs []func(vdev *VirtualDevice)) {
+			for _, dev := range devices {
+				for _, cb := range cbs {
+					cb(dev)
+				}
+			}
+		}(updatedDevices, callbacks)
 	}
 
 	return changed

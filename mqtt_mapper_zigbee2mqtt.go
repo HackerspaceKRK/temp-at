@@ -120,7 +120,7 @@ func (m *Zigbee2MQTTMapper) DiscoverDevicesFromMessage(topic string, payload []b
 			}
 			discovered = append(discovered, &VirtualDevice{
 				ID:   friendlyName + suffix,
-				Type: "relay",
+				Type: VdevTypeRelay,
 				MapperData: &Zigbee2MQTTMapperData{
 					BaseTopic:   friendlyName,
 					Endpoint:    endpoint,
@@ -135,7 +135,7 @@ func (m *Zigbee2MQTTMapper) DiscoverDevicesFromMessage(topic string, payload []b
 			endpoint := extractEndpointZigbee(ex)
 			discovered = append(discovered, &VirtualDevice{
 				ID:   friendlyName + "/temperature",
-				Type: "temperature",
+				Type: VdevTypeTemperature,
 				MapperData: &Zigbee2MQTTMapperData{
 					BaseTopic:   friendlyName,
 					Endpoint:    endpoint,
@@ -150,7 +150,7 @@ func (m *Zigbee2MQTTMapper) DiscoverDevicesFromMessage(topic string, payload []b
 			endpoint := extractEndpointZigbee(ex)
 			discovered = append(discovered, &VirtualDevice{
 				ID:   friendlyName + "/humidity",
-				Type: "humidity",
+				Type: VdevTypeHumidity,
 				MapperData: &Zigbee2MQTTMapperData{
 					BaseTopic:   friendlyName,
 					Endpoint:    endpoint,

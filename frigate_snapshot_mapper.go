@@ -67,7 +67,7 @@ func (s *FrigateSnapshotMapper) Start() error {
 		vdev := &VirtualDevice{
 			ID:    fmt.Sprintf("snapshot/%s", name),
 			State: nil,
-			Type:  "camera_snapshot",
+			Type:  VdevTypeCameraSnapshot,
 			MapperData: FrigateSnapshotMapperData{
 				CameraName: name,
 			},

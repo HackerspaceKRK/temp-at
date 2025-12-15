@@ -1,12 +1,16 @@
 package main
 
 type Config struct {
-	Frigate FrigateConfig `yaml:"frigate"`
-	MQTT    MQTTConfig    `yaml:"mqtt"`
-	Rooms   []RoomConfig  `yaml:"rooms"`
-	Oidc    *OidcConfig   `yaml:"oidc"`
+	Frigate  FrigateConfig  `yaml:"frigate"`
+	MQTT     MQTTConfig     `yaml:"mqtt"`
+	Rooms    []RoomConfig   `yaml:"rooms"`
+	Oidc     *OidcConfig    `yaml:"oidc"`
+	Database DatabaseConfig `yaml:"database"`
+	Web      WebConfig      `yaml:"web"`
+}
 
-	Web WebConfig `yaml:"web"`
+type DatabaseConfig struct {
+	Path string `yaml:"path"` // SQLite file path
 }
 
 // LocalizedString represents a string localized into multiple languages.

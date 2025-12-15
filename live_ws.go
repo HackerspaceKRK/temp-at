@@ -46,14 +46,14 @@ func buildRoomState(id string) *RoomState {
 				for _, v := range virtDevices {
 					if v.ID == e.ID {
 						// Use the maximum people count reported by any camera in the room
-						if v.Type == "person" && v.State != nil {
+						if v.Type == VdevTypePerson && v.State != nil {
 							intVal, ok := v.State.(int)
 							if ok && intVal > rs.PeopleCount {
 								rs.PeopleCount = intVal
 							}
 						}
 						es.State = v.State
-						es.Type = v.Type
+						es.Type = string(v.Type)
 						break
 					}
 
@@ -83,7 +83,8 @@ func handleGetRoomStates(c *fiber.Ctx) error {
 	return c.JSON(states)
 }
 
-func handleVirtualDeviceStateUpdate(devName string) {
+func handleVirtualDeviceStateUpdate(vdev *VirtualDevice) {
+	devName := vdev.ID
 
 	var room *RoomConfig
 	for _, r := range ConfigInstance.Rooms {

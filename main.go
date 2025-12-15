@@ -13,10 +13,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/proxy"
-
-	"github.com/gofiber/contrib/websocket"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 var FRIGATE_URL string
@@ -47,6 +48,19 @@ func main() {
 
 	vdevManager = NewVdevManager()
 
+	// Initialize database
+	db, err := gorm.Open(sqlite.Open(cfg.Database.Path), &gorm.Config{})
+	if err != nil {
+		log.Fatalf("failed to connect to database: %v", err)
+	}
+	if err := AutoMigrateModels(db); err != nil {
+		log.Fatalf("failed to run database migrations: %v", err)
+	}
+	log.Printf("Database initialized at %s", cfg.Database.Path)
+
+	// Create history repository (registers itself as listener)
+	_ = NewVirtualDeviceHistoryRepository(db, vdevManager)
+
 	mqttAdapter, err = NewMQTTAdapter(cfg, vdevManager)
 	if err != nil {
 		log.Fatalf("failed to initialize MQTT adapter: %v", err)
@@ -58,7 +72,10 @@ func main() {
 		log.Fatalf("failed to start Frigate snapshot mapper: %v", err)
 	}
 
-	vdevManager.OnVirtualDeviceUpdated = handleVirtualDeviceStateUpdate
+	vdevManager.OnVirtualDeviceUpdated = append(
+		vdevManager.OnVirtualDeviceUpdated,
+		handleVirtualDeviceStateUpdate,
+	)
 
 	app := fiber.New()
 

@@ -61,7 +61,7 @@ func (m *FrigateMapper) DiscoverDevicesFromMessage(topic string, payload []byte)
 
 	dev := &VirtualDevice{
 		ID:   m.prefix + "person/" + camera,
-		Type: "person",
+		Type: VdevTypePerson,
 		MapperData: &FrigateMapperData{
 			CameraName: camera,
 		},
