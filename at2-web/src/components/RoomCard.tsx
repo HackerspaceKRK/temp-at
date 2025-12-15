@@ -1,17 +1,15 @@
-import { useState, type FC } from "react";
+import { useState, useEffect, type FC } from "react";
 import { Thermometer, Droplets, User, SwitchCamera } from "lucide-react";
 import type { RoomState, CameraSnapshotEntity } from "../schema";
 import { useLocale } from "../locale";
 import RelayGroupControl from "./RelayGroupControl";
 import CameraSnapshot from "./CameraSnapshot";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
+// import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 
 import {
   Card,
   CardAction,
-  CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -46,8 +44,47 @@ const NumericSensorBarItem: FC<{
  */
 const PeopleCountBarItem: FC<{
   count: number;
+  lastSeen?: string | null;
   title: string;
-}> = ({ count, title }) => {
+}> = ({ count, lastSeen, title }) => {
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(new Date());
+    }, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (count === 0 && lastSeen) {
+    const date = new Date(lastSeen);
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    let timeString = "";
+    if (diffInSeconds < 60) {
+      timeString = `${Math.max(0, diffInSeconds)}s`;
+    } else if (diffInSeconds < 3600) {
+      const mins = Math.floor(diffInSeconds / 60);
+      timeString = `${mins}m`;
+    } else if (diffInSeconds < 86400) {
+      const hours = Math.floor(diffInSeconds / 3600);
+      timeString = `${hours}h`;
+    } else {
+      const days = Math.floor(diffInSeconds / 86400);
+      timeString = `${days}d`;
+    }
+
+    return (
+      <div
+        className="flex items-center gap-1 text-neutral-300"
+        title={`Last seen: ${date.toLocaleString()}`}
+      >
+        <User className="w-4 h-4" />
+        <span className="text-xs">{timeString} ago</span>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`flex items-center gap-1 ${count > 0 ? "text-red-400" : "text-neutral-300"
@@ -86,6 +123,7 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
             {hasPresence && (
               <PeopleCountBarItem
                 count={room.people_count}
+                lastSeen={room.latest_person_detected_at}
                 title="People count"
               />
             )}
