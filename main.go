@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"net/http" // for http.TimeFormat
-	"os"
 	"sync"
 	"time"
 
@@ -32,21 +31,14 @@ var (
 
 func main() {
 	cfg := MustLoadConfig()
-	FRIGATE_URL = cfg.Frigate.Url
-	if override := os.Getenv("FRIGATE_URL"); override != "" {
-		FRIGATE_URL = override
-	}
-	if FRIGATE_URL == "" {
-		log.Fatal("frigate.url must be set in at2.yaml or FRIGATE_URL env var")
-	}
-	PORT = os.Getenv("LISTEN_PORT")
-	if PORT == "" {
-		PORT = ":8080"
+
+	err := initAuth()
+	if err != nil {
+		log.Fatalf("failed to initialize authentication: %v", err)
 	}
 
 	vdevManager = NewVdevManager()
 
-	var err error
 	mqttAdapter, err = NewMQTTAdapter(cfg, vdevManager)
 	if err != nil {
 		log.Fatalf("failed to initialize MQTT adapter: %v", err)
@@ -69,9 +61,12 @@ func main() {
 	app.Get("/api/v1/live-ws", websocket.New(handleLiveWs))
 	app.Get("/api/v1/room-states", handleGetRoomStates)
 	app.Get("/api/v1/camera-snapshot/:filename", frigateSnapshotMapper.HandleSnapshot)
+	app.Get("/api/v1/auth/login", handleLoginRequest)
+	app.Get("/api/v1/auth/callback", handleAuthCallback)
+	
 
-	log.Printf("Serving on http://localhost%s", PORT)
-	if err := app.Listen(PORT); err != nil {
+	log.Printf("Starting Fiber server on %s", cfg.Web.ListenAddress)
+	if err := app.Listen(cfg.Web.ListenAddress); err != nil {
 		log.Fatalf("Fiber server failed: %v", err)
 	}
 }

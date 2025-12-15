@@ -4,11 +4,26 @@ type Config struct {
 	Frigate FrigateConfig `yaml:"frigate"`
 	MQTT    MQTTConfig    `yaml:"mqtt"`
 	Rooms   []RoomConfig  `yaml:"rooms"`
+	Oidc    *OidcConfig   `yaml:"oidc"`
+
+	Web WebConfig `yaml:"web"`
 }
 
 // LocalizedString represents a string localized into multiple languages.
 // The keys are language codes (e.g. "en", "de"), and the values are the localized strings.
 type LocalizedString map[string]string
+
+type WebConfig struct {
+	ListenAddress string `yaml:"listen_address"`
+	PublicURL     string `yaml:"public_url"`
+	JWTSecret     string `yaml:"jwt_secret"`
+}
+
+type OidcConfig struct {
+	ClientID     string `yaml:"client_id"`
+	ClientSecret string `yaml:"client_secret"`
+	IssuerURL    string `yaml:"issuer_url"`
+}
 
 type FrigateConfig struct {
 	Url string `yaml:"url"`
