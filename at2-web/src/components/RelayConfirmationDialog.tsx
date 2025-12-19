@@ -37,8 +37,7 @@ export const RelayConfirmationDialog: FC<RelayConfirmationDialogProps> = ({
                     </div>
                     <DialogDescription className="pt-2">
                         Czy na pewno chcesz wyłączyć <strong>{entityName}</strong> w{" "}
-                        <strong>{roomName}</strong>? Upewnij się, że nikogo nie ma w
-                        pomieszczeniu.
+                        <strong>{roomName}</strong>? Upewnij się, że wyłączenia światła nie spowoduje niebezpieczeństwa.
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
