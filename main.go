@@ -97,7 +97,7 @@ func main() {
 
 	if *devFrontend {
 		log.Println("Starting frontend in dev mode...")
-		cmd := exec.Command("pnpm", "dev", "--host", "0.0.0.0")
+		cmd := exec.Command("npm", "run",  "dev", "--", "--host", "0.0.0.0")
 		cmd.Dir = "./at2-web"
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
