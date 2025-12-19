@@ -16,6 +16,9 @@ import (
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/proxy"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/gofiber/adaptor/v2"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -83,7 +86,13 @@ func main() {
 
 	app := fiber.New()
 
+	// Prometheus
+	promRegistry := prometheus.NewRegistry()
+	promCollector := NewPrometheusCollector(vdevManager, cfg)
+	promRegistry.MustRegister(promCollector)
+
 	// Routes
+	app.Get("/metrics", adaptor.HTTPHandler(promhttp.HandlerFor(promRegistry, promhttp.HandlerOpts{})))
 	app.Get("/image/:name", handleImage)
 	app.Get("/robots.txt", handleRobots)
 	app.Get("/api/v1/all-devices", handleDevices)
