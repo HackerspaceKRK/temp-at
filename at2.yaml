@@ -1,13 +1,15 @@
 frigate:
-  url: http://flatsun.at.hskrk.pl:5080/
+  url: http://10.12.20.5:5080/
 mqtt:
   broker: 10.12.20.5:1883
   username: frigate
   password: "U^&fiwXi9h%zJ@R"
 oidc:
   client_id: IrNl2Ws57pGYewlYcGkvTFbR3PL6KjCPg85PFtCI
-  client_secret: ho9Lr3nNb2aoCxu5dVovhtLxZAtIfah3cxaR2uabihxFOQ3gJGJf3wO4l1NyiKdakEtkGChL4HsHObC1K0TlF9ruodapbFrE764HZrXz28lSiBcyzAQFGuyF43TzLLcn
+  client_secret: "Bp4tfegMhiq1s1AHyMKDDoq/BqEDYo8Rl1KsbHldRQk"
   issuer_url: https://auth.apps.hskrk.pl/application/o/at2-alufers-dev/
+database:
+  path: ./data.db
 web:
   listen_address: ":8080"
   public_url: "http://localhost:8080"
@@ -27,8 +29,14 @@ rooms:
         representation: humidity
       - id: lights/audytorium/relay_left
         representation: light
+        localized_name:
+          pl: Małe światło
+          en: Small light
       - id: lights/audytorium/relay_right
         representation: light
+        localized_name:
+          pl: Duże światło
+          en: Large light
   - id: 3ac4b8f1-a88e-4fcf-9443-7d161717968f
     localized_name:
       pl: Korytarz
@@ -78,7 +86,7 @@ rooms:
         representation: temperature
       - id: environ/elelab/humidity
         representation: humidity
-      - id: lights/elelab_luk_prawy
+      - id: lights/elelab_luk_prawy/relay
         representation: light
   - id: c0bc933f-7321-4437-9a09-7f2edfebd23d
     localized_name:
