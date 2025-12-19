@@ -27,7 +27,9 @@ type MQTTMapper interface {
 	DiscoverDevicesFromMessage(topic string, payload []byte) ([]*VirtualDevice, error)
 	// UpdateDevicesFromMessage attempts to extract state updates from an incoming message.
 	UpdateDevicesFromMessage(topic string, payload []byte) ([]*VirtualDeviceUpdate, error)
-}
+	// Control attempts to control a specific virtual device.
+	Control(vdev *VirtualDevice, state any, client mqtt.Client) error
+} // MQTTMapper
 
 // MQTTAdapter adapts mqtt messages coming from multiple sources (e.g. Zigbee2MQTT, Frigate)
 // into a unified list of VirtualDevice objects managed by VdevManager.
@@ -190,4 +192,57 @@ func (a *MQTTAdapter) Close() {
 // IsConnected returns true if underlying MQTT client is connected.
 func (a *MQTTAdapter) IsConnected() bool {
 	return a.client != nil && a.client.IsConnectionOpen()
+}
+
+// ControlDevice attempts to find the device and the responsible mapper to send a control command.
+func (a *MQTTAdapter) ControlDevice(deviceID string, state any) error {
+	if !a.IsConnected() {
+		return errors.New("MQTT client not connected")
+	}
+
+	// 1. Retrieve device to check type and mapper data.
+	a.vdevMgr.mu.RLock()
+	var targetDev *VirtualDevice
+	for _, dev := range a.vdevMgr.devices {
+		if dev.ID == deviceID {
+			targetDev = dev
+			break
+		}
+	}
+	a.vdevMgr.mu.RUnlock()
+
+	if targetDev == nil {
+		return fmt.Errorf("device %s not found", deviceID)
+	}
+
+	// 2. Validation: Relay only
+	if targetDev.Type != VdevTypeRelay {
+		return fmt.Errorf("device %s is not a relay (type: %s)", deviceID, targetDev.Type)
+	}
+
+	// 3. Validation: State must be ON or OFF
+	stateStr, ok := state.(string)
+	if !ok {
+		return errors.New("state must be a string")
+	}
+	upperState := strings.ToUpper(stateStr)
+	if upperState != "ON" && upperState != "OFF" {
+		return fmt.Errorf("invalid state %q; must be ON or OFF", stateStr)
+	}
+
+	// 4. Iterate mappers to find who owns this device (or just try all, since they check internally).
+	// Ideally, we'd know which mapper owns it, but the current architecture lazily checks payload/topic.
+	// Since we have the device struct, we can pass it to mappers and see if they recognize their own metadata.
+	// However, `Control` assumes the mapper knows how to handle it. 
+	// The `Zigbee2MQTTMapper` checks `vdev.MapperData.(*Zigbee2MQTTMapperData)`. 
+	// So safe to iterate all.
+
+	for _, mapper := range a.mappers {
+		// We pass strict "ON" or "OFF" to ensure consistency.
+		if err := mapper.Control(targetDev, upperState, a.client); err != nil {
+			return err
+		}
+	}
+	
+	return nil
 }

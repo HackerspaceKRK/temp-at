@@ -5,6 +5,8 @@ import (
 	"log"
 	"strings"
 	"sync"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 type Zigbee2MQTTMapperData struct {
@@ -234,4 +236,40 @@ func extractEndpointZigbee(ex map[string]any) string {
 		return ep
 	}
 	return ""
+}
+
+// Control publishes a set message to the zigbee2mqtt device.
+func (m *Zigbee2MQTTMapper) Control(vdev *VirtualDevice, state any, client mqtt.Client) error {
+	mapperData, ok := vdev.MapperData.(*Zigbee2MQTTMapperData)
+	if !ok {
+		return nil // Not managed by this mapper
+	}
+
+	// Construct topic: prefix + friendlyName + /set
+	// e.g. zigbee2mqtt/my-relay/set
+	topic := m.prefix + mapperData.BaseTopic + "/set"
+
+	// Construct payload. 
+	// If StateKey is present, use it: e.g. {"state_l2": "ON"}
+	// If Endpoint is present, some z2m setups might need it, but usually sending to friendly_name/set with {"state_bottom": "ON"} etc is enough.
+	payloadMap := map[string]any{}
+	
+	key := mapperData.StateKey
+	if key == "" {
+		key = "state"
+	}
+	payloadMap[key] = state
+
+	payloadBytes, err := json.Marshal(payloadMap)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("[zigbee2mqtt] controlling %s via topic %s: %s", vdev.ID, topic, string(payloadBytes))
+	token := client.Publish(topic, 0, false, payloadBytes)
+	if token.Wait() && token.Error() != nil {
+		return token.Error()
+	}
+
+	return nil
 }

@@ -4,6 +4,8 @@ import (
 	"log"
 	"strconv"
 	"strings"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 // FrigateMapperData is stored in the MapperData field of VirtualDevice for FrigateMapper devices.
@@ -96,4 +98,9 @@ func (m *FrigateMapper) UpdateDevicesFromMessage(topic string, payload []byte) (
 		State: count,
 	}
 	return []*VirtualDeviceUpdate{update}, nil
+}
+
+// Control is a no-op for Frigate devices.
+func (m *FrigateMapper) Control(vdev *VirtualDevice, state any, client mqtt.Client) error {
+	return nil
 }

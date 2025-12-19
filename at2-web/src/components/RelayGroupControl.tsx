@@ -107,7 +107,7 @@ export const RelayGroupControl: FC<RelayGroupControlProps> = ({
 
   const executeControl = async (id: string, state: boolean) => {
     try {
-      await fetch(apiPath("v1/control-relay"), {
+      await fetch(apiPath("/api/v1/control-relay"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
