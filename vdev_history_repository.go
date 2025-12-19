@@ -189,3 +189,29 @@ func (r *VirtualDeviceHistoryRepository) GetLatestDeviceState(deviceID string) (
 
 	return state, nil
 }
+
+// GetDeviceHistory returns the state history for a device within a specific duration.
+func (r *VirtualDeviceHistoryRepository) GetDeviceHistory(deviceName string, durationMs int64) ([]VirtualDeviceStateModel, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// 1. Get database ID for the device string ID
+	var device VirtualDeviceModel
+	if err := r.db.Where("name = ?", deviceName).First(&device).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil // No device found, so no history
+		}
+		return nil, err
+	}
+
+	// 2. Calculate cutoff timestamp
+	cutoff := CurrentTimestampMillis() - durationMs
+
+	// 3. Query history
+	var history []VirtualDeviceStateModel
+	err := r.db.Where("virtual_device_id = ? AND timestamp >= ?", device.ID, cutoff).
+		Order("timestamp ASC"). // Oldest first usually makes sense for charts, but requester didn't specify. ASC is standard for time series.
+		Find(&history).Error
+
+	return history, err
+}

@@ -104,6 +104,7 @@ func main() {
 	app.Get("/api/v1/auth/me", handleMe)
 	app.Post("/api/v1/auth/logout", handleLogout)
 	app.Post("/api/v1/control-relay", AuthMiddleware, handleControlRelay)
+	app.Get("/api/v1/device-history", handleDeviceHistory) // No auth required for reading history as per other read endpoints? Devices list is public, so history probably is too.
 
 	if *devFrontend {
 		log.Println("Starting frontend in dev mode...")
@@ -133,6 +134,22 @@ func main() {
 	if err := app.Listen(cfg.Web.ListenAddress); err != nil {
 		log.Fatalf("Fiber server failed: %v", err)
 	}
+}
+
+func handleDeviceHistory(c *fiber.Ctx) error {
+	deviceName := c.Query("device")
+	if deviceName == "" {
+		return c.Status(fiber.StatusBadRequest).SendString("Missing device query parameter")
+	}
+
+	// 24 hours in milliseconds
+	duration := int64(24 * 60 * 60 * 1000)
+	history, err := vdevHistoryRepo.GetDeviceHistory(deviceName, duration)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	}
+
+	return c.JSON(history)
 }
 
 type ControlRelayRequest struct {
