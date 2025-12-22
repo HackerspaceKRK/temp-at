@@ -7,18 +7,14 @@ import (
 	"io"
 	"log"
 	"net/http" // for http.TimeFormat
-	"os"
-	"os/exec"
-	"strings"
 	"sync"
 	"time"
 
+	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/proxy"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/gofiber/adaptor/v2"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -106,29 +102,7 @@ func main() {
 	app.Post("/api/v1/control-relay", AuthMiddleware, handleControlRelay)
 	app.Get("/api/v1/device-history", handleDeviceHistory) // No auth required for reading history as per other read endpoints? Devices list is public, so history probably is too.
 
-	if *devFrontend {
-		log.Println("Starting frontend in dev mode...")
-		cmd := exec.Command("npm", "run",  "dev", "--", "--host", "0.0.0.0")
-		cmd.Dir = "./at2-web"
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Start(); err != nil {
-			log.Fatalf("Failed to start frontend: %v", err)
-		}
-		defer func() {
-			if cmd.Process != nil {
-				cmd.Process.Kill()
-			}
-		}()
-
-		app.All("*", func(c *fiber.Ctx) error {
-			if strings.HasPrefix(c.Path(), "/api") {
-				return c.Next()
-			}
-			proxyUrl := "http://localhost:5173" + c.Path()
-			return proxy.Do(c, proxyUrl)
-		})
-	}
+	SetupFrontend(app, *devFrontend)
 
 	log.Printf("Starting Fiber server on %s", cfg.Web.ListenAddress)
 	if err := app.Listen(cfg.Web.ListenAddress); err != nil {
@@ -171,11 +145,11 @@ func handleControlRelay(c *fiber.Ctx) error {
 
 	if err := mqttAdapter.ControlDevice(req.ID, req.State); err != nil {
 		// Differentiate between user error (bad ID/State) and system error?
-		// For now, simpler to just return 400 or 500 based on error content, 
-		// but standardizing on 500 for control failures is acceptable for this scope 
-		// unless we strictly parse validation errors. 
+		// For now, simpler to just return 400 or 500 based on error content,
+		// but standardizing on 500 for control failures is acceptable for this scope
+		// unless we strictly parse validation errors.
 		// Given validation happens in ControlDevice, let's treat it as potentially bad request if verification fails.
-		// Use 400 if validation error, 500 if MQTT error. 
+		// Use 400 if validation error, 500 if MQTT error.
 		// For simplicity/speed, returning 400 is safer for "invalid state" etc.
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
