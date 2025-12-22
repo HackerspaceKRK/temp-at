@@ -2,7 +2,7 @@ FROM golang:alpine AS builder
 
 
 # Git is required for fetching the dependencies.
-RUN apk update && apk add --no-cache git bash && mkdir -p /build/temp-at
+RUN apk update && apk add --no-cache git bash nodejs npm && mkdir -p /build/temp-at
 
 WORKDIR /build/temp-at
 
@@ -13,6 +13,9 @@ RUN go mod download -json
 
 COPY . .
 
+# Build frontend and embed
+RUN go generate ./...
+
 RUN mkdir -p /app && CGO_ENABLED=0 GOOS=${TARGETPLATFORM%%/*} GOARCH=${TARGETPLATFORM##*/} \
     go build -ldflags='-s -w -extldflags="-static"' -o /app/temp-at
 
@@ -21,5 +24,8 @@ COPY --from=alpine:latest /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /app/temp-at /app/temp-at
 
 LABEL org.opencontainers.image.description="A docker image for the temp-at microservice."
+LABEL org.opencontainers.image.source="https://github.com/HackerspaceKRK/temp-at"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.title="temp-at"
 
 ENTRYPOINT ["/app/temp-at"]
