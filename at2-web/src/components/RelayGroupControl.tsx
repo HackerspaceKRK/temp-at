@@ -193,7 +193,7 @@ export const RelayGroupControl: FC<RelayGroupControlProps> = ({
               <div className="flex items-center space-x-2 justify-between w-full">
                 <Label
                   htmlFor={"switch-" + entity.id}
-                  className="cursor-pointer font-normal"
+                  className={`cursor-pointer font-normal ${entity.prohibit_control ? "opacity-50" : ""}`}
                 >
                   {getName(entity.localized_name) || entity.id}
                 </Label>
