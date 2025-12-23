@@ -15,6 +15,7 @@ type EntityState struct {
 	State          any             `json:"state"`
 	Type           string          `json:"type"`
 	Representation string          `json:"representation"`
+	ProhibitControl bool            `json:"prohibit_control"`
 }
 
 type RoomState struct {
@@ -47,6 +48,7 @@ func buildRoomState(id string) *RoomState {
 					ID:             e.ID,
 					Representation: e.Representation,
 					LocalizedName:  e.LocalizedName,
+					ProhibitControl: e.ProhibitControl,
 				}
 
 				for _, v := range virtDevices {
