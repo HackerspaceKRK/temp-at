@@ -21,12 +21,14 @@ type WebConfig struct {
 	ListenAddress string `yaml:"listen_address"`
 	PublicURL     string `yaml:"public_url"`
 	JWTSecret     string `yaml:"jwt_secret"`
+	JWTSecretFile string `yaml:"jwt_secret_file"`
 }
 
 type OidcConfig struct {
-	ClientID     string `yaml:"client_id"`
-	ClientSecret string `yaml:"client_secret"`
-	IssuerURL    string `yaml:"issuer_url"`
+	ClientID         string `yaml:"client_id"`
+	ClientSecret     string `yaml:"client_secret"`
+	ClientSecretFile string `yaml:"client_secret_file"`
+	IssuerURL        string `yaml:"issuer_url"`
 }
 
 type FrigateConfig struct {
@@ -34,9 +36,10 @@ type FrigateConfig struct {
 }
 
 type MQTTConfig struct {
-	Broker   string `yaml:"broker"`
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
+	Broker       string `yaml:"broker"`
+	Username     string `yaml:"username"`
+	Password     string `yaml:"password"`
+	PasswordFile string `yaml:"password_file"`
 }
 
 type EntityConfig struct {

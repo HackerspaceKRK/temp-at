@@ -4,6 +4,8 @@ import (
 	"log"
 	"os"
 
+	"strings"
+
 	"github.com/goccy/go-yaml"
 )
 
@@ -61,6 +63,10 @@ func GetConfig() *Config {
 
 // Basic validation & warnings.
 func validateConfig(cfg *Config, path string) {
+	loadSecret(&cfg.MQTT.Password, cfg.MQTT.PasswordFile)
+	loadSecret(&cfg.Oidc.ClientSecret, cfg.Oidc.ClientSecretFile)
+	loadSecret(&cfg.Web.JWTSecret, cfg.Web.JWTSecretFile)
+
 	if cfg.Frigate.Url == "" {
 		log.Printf("warning: frigate.url is empty in %s", path)
 	}
@@ -81,4 +87,15 @@ func validateConfig(cfg *Config, path string) {
 	// if len(cfg.Rooms) == 0 {
 	//	log.Fatalf("No rooms defined in %s", path)
 	// }
+}
+
+func loadSecret(target *string, file string) {
+	if *target == "" && file != "" {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			log.Printf("warning: failed to read secret from file %s: %v", file, err)
+			return
+		}
+		*target = strings.TrimSpace(string(data))
+	}
 }
