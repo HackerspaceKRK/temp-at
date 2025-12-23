@@ -1,0 +1,43 @@
+# Database configuration
+database:
+  path: "./at2.db" # Path to SQLite database file
+
+# Web server configuration
+web:
+  listen_address: ":8080"
+  public_url: "https://at2.example.com"
+  jwt_secret: "change_me_to_a_random_string"
+  # jwt_secret_file: "/run/secrets/jwt_secret" # Alternative: Load secret from file
+
+# OIDC Authentication configuration
+oidc:
+  client_id: "your-client-id"
+  client_secret: "your-client-secret"
+  # client_secret_file: "/run/secrets/oidc_client_secret" # Alternative: Load secret from file
+  issuer_url: "https://auth.example.com"
+
+# Frigate NVR configuration
+frigate:
+  url: "http://frigate.example.com"
+
+# MQTT Broker configuration
+mqtt:
+  broker: "tcp://mqtt.example.com:1883"
+  username: "mqtt_user"
+  password: "mqtt_password"
+  # password_file: "/run/secrets/mqtt_password" # Alternative: Load secret from file
+
+# Room definitions
+rooms:
+  - id: "living_room"
+    localized_name:
+      en: "Living Room"
+      de: "Wohnzimmer"
+    cameras:
+      - "living_room_cam"
+    entities:
+      - id: "living_room_light"
+        localized_name:
+          en: "Main Light"
+          de: "Hauptlicht"
+        representation: "light"
