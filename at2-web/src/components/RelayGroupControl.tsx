@@ -200,6 +200,7 @@ export const RelayGroupControl: FC<RelayGroupControlProps> = ({
                 <Switch
                   id={"switch-" + entity.id}
                   checked={entity.state === "ON"}
+                  disabled={entity.prohibit_control}
                   onCheckedChange={(checked) =>
                     handleSwitchClick(entity, checked)
                   }

@@ -172,4 +172,19 @@ func TestMQTTAdapter_ControlDevice_Validation(t *testing.T) {
 	} else if !strings.Contains(err.Error(), "not a relay") {
 		t.Errorf("Expected 'not a relay' error, got: %v", err)
 	}
+	// Test 6: Prohibited Control -> Error
+	prohibitedDev := &VirtualDevice{
+		ID:              "relay/prohibited",
+		Type:            VdevTypeRelay,
+		MapperData:      &Zigbee2MQTTMapperData{BaseTopic: "p1"},
+		ProhibitControl: true,
+	}
+	mgr.AddDevices([]*VirtualDevice{prohibitedDev})
+
+	err = adapter.ControlDevice("relay/prohibited", "ON")
+	if err == nil {
+		t.Errorf("Expected error for prohibited device, got nil")
+	} else if !strings.Contains(err.Error(), "prohibited") {
+		t.Errorf("Expected 'prohibited' error, got: %v", err)
+	}
 }

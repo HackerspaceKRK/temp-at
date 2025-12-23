@@ -30,6 +30,8 @@ type VirtualDevice struct {
 	MapperData any `json:"mapper_data"`
 	// Fresh indicates if the state is from a live update (true) or restored/initial (false).
 	Fresh bool `json:"fresh"`
+	// ProhibitControl indicates if this device cannot be controlled.
+	ProhibitControl bool `json:"prohibit_control"`
 }
 
 // DeviceStateProvider defines the interface for retrieving persisted device state.

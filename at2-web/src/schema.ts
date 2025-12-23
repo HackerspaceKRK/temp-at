@@ -90,6 +90,7 @@ export interface RelayEntity {
   localized_name: LocalizedName | null;
   type: string;
   state: RelayState | null;
+  prohibit_control?: boolean;
 }
 
 /**

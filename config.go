@@ -50,6 +50,9 @@ type EntityConfig struct {
 
 	// How the device should be represented in the UI (light, fan, etc.)
 	Representation string `yaml:"representation"`
+
+	// Prohibits controlling this device from the web page
+	ProhibitControl bool `yaml:"prohibit_control"`
 }
 
 type RoomConfig struct {

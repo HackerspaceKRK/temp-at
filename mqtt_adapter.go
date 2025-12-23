@@ -41,6 +41,9 @@ type MQTTAdapter struct {
 	// Virtual device manager extracted from previous in-struct logic.
 	vdevMgr *VdevManager
 	mappers []MQTTMapper
+
+	// deviceSettings maps device ID to its configuration (for prohibited control etc)
+	deviceSettings map[string]EntityConfig
 }
 
 // atomicBool (simple mutex-backed boolean) avoids importing sync/atomic for minimal usage.
@@ -65,8 +68,17 @@ func NewMQTTAdapter(cfg *Config, vdevMgr *VdevManager) (*MQTTAdapter, error) {
 
 	a := &MQTTAdapter{
 
+
 		config:  cfg,
 		vdevMgr: vdevMgr,
+		deviceSettings: make(map[string]EntityConfig),
+	}
+
+	// Index device configurations for fast lookup
+	for _, room := range cfg.Rooms {
+		for _, entity := range room.Entities {
+			a.deviceSettings[entity.ID] = entity
+		}
 	}
 
 	// Build client options first.
@@ -167,6 +179,12 @@ func (a *MQTTAdapter) handleMapperMessage(mapper MQTTMapper, topic string, paylo
 		log.Printf("[mqtt] discovery error on topic %s: %v", topic, derr)
 	}
 	if len(discovered) > 0 {
+		// Enrich discovered devices with config data
+		for _, d := range discovered {
+			if cfg, ok := a.deviceSettings[d.ID]; ok {
+				d.ProhibitControl = cfg.ProhibitControl
+			}
+		}
 		a.vdevMgr.AddDevices(discovered)
 	}
 
@@ -218,6 +236,11 @@ func (a *MQTTAdapter) ControlDevice(deviceID string, state any) error {
 	// 2. Validation: Relay only
 	if targetDev.Type != VdevTypeRelay {
 		return fmt.Errorf("device %s is not a relay (type: %s)", deviceID, targetDev.Type)
+	}
+
+	// 2.5 Validation: ProhibitControl
+	if targetDev.ProhibitControl {
+		return fmt.Errorf("control is prohibited for device %s", deviceID)
 	}
 
 	// 3. Validation: State must be ON or OFF
