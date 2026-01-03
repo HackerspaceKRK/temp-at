@@ -32,12 +32,14 @@ type ESPHomeMapper struct {
 	mu sync.RWMutex
 	// devicesByStateTopic maps state topics to virtual devices.
 	devicesByStateTopic map[string][]*VirtualDevice
+	deviceSettings      map[string]EntityConfig
 }
 
 // NewESPHomeMapper creates a new ESPHome mapper.
-func NewESPHomeMapper() *ESPHomeMapper {
+func NewESPHomeMapper(deviceSettings map[string]EntityConfig) *ESPHomeMapper {
 	return &ESPHomeMapper{
 		devicesByStateTopic: make(map[string][]*VirtualDevice),
+		deviceSettings:      deviceSettings,
 	}
 }
 
@@ -120,9 +122,13 @@ func (m *ESPHomeMapper) UpdateDevicesFromMessage(topic string, payload []byte) (
 
 	updates := make([]*VirtualDeviceUpdate, 0, len(devs))
 	for _, d := range devs {
+		finalVal := val
+		if cfg, ok := m.deviceSettings[d.ID]; ok && cfg.NegateValue {
+			finalVal = -val
+		}
 		updates = append(updates, &VirtualDeviceUpdate{
 			Name:  d.ID,
-			State: val,
+			State: finalVal,
 		})
 	}
 

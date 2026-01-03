@@ -82,6 +82,11 @@ type EntityConfig struct {
 
 	// Prohibits controlling this device from the web page
 	ProhibitControl bool `yaml:"prohibit_control"`
+
+	// Negates the numeric value (value = -value)
+	// Used for esphome power consumption sensors, which
+	// have the CT transformer installed backwards
+	NegateValue bool `yaml:"negate_value"`
 }
 
 type RoomConfig struct {

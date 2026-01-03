@@ -93,7 +93,7 @@ func NewMQTTAdapter(cfg *Config, vdevMgr *VdevManager) (*MQTTAdapter, error) {
 	a.mappers = []MQTTMapper{
 		NewZigbee2MQTTMapper("zigbee2mqtt/"),
 		NewFrigateMapper("frigate/"),
-		NewESPHomeMapper(),
+		NewESPHomeMapper(a.deviceSettings),
 	}
 
 	opts.OnConnect = func(c mqtt.Client) {
