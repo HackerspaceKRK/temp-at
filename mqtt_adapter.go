@@ -68,9 +68,8 @@ func NewMQTTAdapter(cfg *Config, vdevMgr *VdevManager) (*MQTTAdapter, error) {
 
 	a := &MQTTAdapter{
 
-
-		config:  cfg,
-		vdevMgr: vdevMgr,
+		config:         cfg,
+		vdevMgr:        vdevMgr,
 		deviceSettings: make(map[string]EntityConfig),
 	}
 
@@ -94,6 +93,7 @@ func NewMQTTAdapter(cfg *Config, vdevMgr *VdevManager) (*MQTTAdapter, error) {
 	a.mappers = []MQTTMapper{
 		NewZigbee2MQTTMapper("zigbee2mqtt/"),
 		NewFrigateMapper("frigate/"),
+		NewESPHomeMapper(),
 	}
 
 	opts.OnConnect = func(c mqtt.Client) {
@@ -256,8 +256,8 @@ func (a *MQTTAdapter) ControlDevice(deviceID string, state any) error {
 	// 4. Iterate mappers to find who owns this device (or just try all, since they check internally).
 	// Ideally, we'd know which mapper owns it, but the current architecture lazily checks payload/topic.
 	// Since we have the device struct, we can pass it to mappers and see if they recognize their own metadata.
-	// However, `Control` assumes the mapper knows how to handle it. 
-	// The `Zigbee2MQTTMapper` checks `vdev.MapperData.(*Zigbee2MQTTMapperData)`. 
+	// However, `Control` assumes the mapper knows how to handle it.
+	// The `Zigbee2MQTTMapper` checks `vdev.MapperData.(*Zigbee2MQTTMapperData)`.
 	// So safe to iterate all.
 
 	for _, mapper := range a.mappers {
@@ -266,6 +266,6 @@ func (a *MQTTAdapter) ControlDevice(deviceID string, state any) error {
 			return err
 		}
 	}
-	
+
 	return nil
 }

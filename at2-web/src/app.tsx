@@ -79,7 +79,7 @@ const AppContent: FC = () => {
         const room = roomStates[roomId];
         let score = 0;
         const snapCount = room.entities.filter(
-          (e) => e.representation === "camera_snapshot"
+          (e) => e.type === "camera_snapshot"
         ).length;
         score += snapCount * 20;
         if (snapCount == 0) {

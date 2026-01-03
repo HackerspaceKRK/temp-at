@@ -14,6 +14,7 @@ const (
 	VdevTypeHumidity       VdevType = "humidity"
 	VdevTypePerson         VdevType = "person"
 	VdevTypeCameraSnapshot VdevType = "camera_snapshot"
+	VdevTypePowerUsage     VdevType = "power_usage"
 )
 
 // VirtualDevice represents a single controllable/readable capability broken out

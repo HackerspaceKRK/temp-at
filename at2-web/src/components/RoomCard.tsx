@@ -1,5 +1,5 @@
 import { useState, useEffect, type FC } from "react";
-import { Thermometer, Droplets, User, SwitchCamera } from "lucide-react";
+import { Thermometer, Droplets, User, SwitchCamera, Zap } from "lucide-react";
 import type { RoomState, CameraSnapshotEntity } from "../schema";
 import { useLocale } from "../locale";
 import RelayGroupControl from "./RelayGroupControl";
@@ -106,10 +106,10 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
 
   const { user, login } = useAuth();
   const cameraEntities = room.entities.filter(
-    (e) => e.representation === "camera_snapshot"
+    (e) => e.type === "camera_snapshot"
   ) as CameraSnapshotEntity[];
   const hasPresence = room.entities.some(
-    (e) => e.representation === "presence"
+    (e) => e.type === "person"
   );
 
   const [currentCameraIndex, setCurrentCameraIndex] = useState(0);
@@ -130,7 +130,7 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
               />
             )}
             {room.entities.map((e) =>
-              e.representation === "temperature" &&
+              e.type === "temperature" &&
                 typeof e.state === "number" ? (
                 <NumericSensorBarItem
                   key={e.id}
@@ -140,7 +140,7 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
                   precision={1}
                   title={getName(e.localized_name, e.id)}
                 />
-              ) : e.representation === "humidity" &&
+              ) : e.type === "humidity" &&
                 typeof e.state === "number" ? (
                 <NumericSensorBarItem
                   key={e.id}
@@ -148,6 +148,16 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
                   value={e.state}
                   unit="%"
                   precision={0}
+                  title={getName(e.localized_name, e.id)}
+                />
+              ) : e.type === "power_usage" &&
+                typeof e.state === "number" ? (
+                <NumericSensorBarItem
+                  key={e.id}
+                  icon={Zap}
+                  value={e.state}
+                  unit="W"
+                  precision={1}
                   title={getName(e.localized_name, e.id)}
                 />
               ) : null

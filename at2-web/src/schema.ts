@@ -9,7 +9,8 @@ export type EntityRepresentation =
   | "humidity"
   | "light"
   | "fan"
-  | "plug";
+  | "plug"
+  | "power";
 
 /**
  * Relay states seen in sample: "OFF" plus null.
@@ -44,7 +45,7 @@ export interface PresenceEntity {
   representation: "presence";
   id: string;
   localized_name: LocalizedName | null;
-  type: string;
+  type: "person";
   state: number | null; // Number of people
 }
 
@@ -54,7 +55,7 @@ export interface PresenceEntity {
 export interface CameraSnapshotEntity {
   representation: "camera_snapshot";
   id: string;
-  type: string;
+  type: "camera_snapshot";
   localized_name: LocalizedName | null;
   state: SnapshotState | null;
 }
@@ -66,7 +67,7 @@ export interface TemperatureEntity {
   representation: "temperature";
   id: string;
   localized_name: LocalizedName | null;
-  type: string;
+  type: "temperature";
   state: number;
 }
 
@@ -75,7 +76,18 @@ export interface TemperatureEntity {
  */
 export interface HumidityEntity {
   representation: "humidity";
-  type: string;
+  type: "humidity";
+  id: string;
+  localized_name: LocalizedName | null;
+  state: number;
+}
+
+/**
+ * Power usage sensor.
+ */
+export interface PowerEntity {
+  representation: "power";
+  type: "power_usage";
   id: string;
   localized_name: LocalizedName | null;
   state: number;
@@ -89,7 +101,7 @@ export interface RelayEntity {
   representation: "light" | "fan" | "plug";
   id: string;
   localized_name: LocalizedName | null;
-  type: string;
+  type: "relay";
   state: RelayState | null;
   prohibit_control?: boolean;
 }
@@ -115,6 +127,7 @@ export type Entity =
   | CameraSnapshotEntity
   | TemperatureEntity
   | HumidityEntity
+  | PowerEntity
   | RelayEntity
   | UnknownEntity;
 
