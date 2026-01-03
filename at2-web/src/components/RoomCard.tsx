@@ -4,6 +4,7 @@ import type { RoomState, CameraSnapshotEntity } from "../schema";
 import { useLocale } from "../locale";
 import RelayGroupControl from "./RelayGroupControl";
 import CameraSnapshot from "./CameraSnapshot";
+import { useAuth } from "../AuthContext";
 // import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 
 import {
@@ -103,6 +104,7 @@ const PeopleCountBarItem: FC<{
 export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
   const { getName } = useLocale();
 
+  const { user, login } = useAuth();
   const cameraEntities = room.entities.filter(
     (e) => e.representation === "camera_snapshot"
   ) as CameraSnapshotEntity[];
@@ -178,11 +180,36 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
         </CardAction>
       </CardHeader>
       <div className="relative">
-        <CameraSnapshot
-          images={cameraEntities[currentCameraIndex]?.state?.images}
-          alt={`Camera snapshot for room ${getName(room.localized_name, room.id)}`}
-          className="rounded-b-md"
-        />
+        {user ? (
+          <CameraSnapshot
+            images={cameraEntities[currentCameraIndex]?.state?.images}
+            alt={`Camera snapshot for room ${getName(room.localized_name, room.id)}`}
+            className="rounded-b-md"
+          />
+        ) : (
+          <div className="relative overflow-hidden rounded-b-md aspect-video bg-neutral-900 group">
+            {cameraEntities[currentCameraIndex]?.state?.low_res_preview && (
+              <img
+                src={cameraEntities[currentCameraIndex]?.state?.low_res_preview}
+                alt="Blurred preview"
+                className="absolute inset-0 w-full h-full object-cover blur-xl scale-125"
+              />
+            )}
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] transition-all">
+              <p className="text-white text-sm mb-3 font-semibold drop-shadow-md">
+                Log in to see snapshots
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={login}
+                className="shadow-lg hover:scale-105 transition-transform"
+              >
+                Log In
+              </Button>
+            </div>
+          </div>
+        )}
         {cameraEntities.length > 1 && (
           <Button
             className="absolute bottom-4 right-4"

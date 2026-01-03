@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -22,6 +23,8 @@ type FrigateSnapshotMapperData struct {
 	CameraName string `json:"camera_name"`
 }
 
+const LowResThumbnailSize = 64
+
 type SnapshotImage struct {
 	URL       string `json:"url"`
 	Width     int    `json:"width"`
@@ -30,7 +33,8 @@ type SnapshotImage struct {
 }
 
 type FrigateSnapshotState struct {
-	Images []SnapshotImage `json:"images"`
+	Images        []SnapshotImage `json:"images"`
+	LowResPreview string          `json:"low_res_preview"`
 }
 
 // FrigateSnapshotMapper communicates with frigate over it's HTTP API to discover cameras
@@ -91,7 +95,7 @@ func (s *FrigateSnapshotMapper) fetchLoop() {
 	for {
 		updates := []*VirtualDeviceUpdate{}
 		for _, name := range s.cameraNames {
-			images, error := s.fetchCameraSnapshot(name)
+			images, lowResPreview, error := s.fetchCameraSnapshot(name)
 			if error != nil {
 				log.Printf("[frigate snapshot mapper] failed to fetch snapshot for camera %s: %v", name, error)
 				continue
@@ -100,7 +104,8 @@ func (s *FrigateSnapshotMapper) fetchLoop() {
 			updates = append(updates, &VirtualDeviceUpdate{
 				Name: fmt.Sprintf("snapshot/%s", name),
 				State: FrigateSnapshotState{
-					Images: images,
+					Images:        images,
+					LowResPreview: lowResPreview,
 				},
 			})
 		}
@@ -109,7 +114,7 @@ func (s *FrigateSnapshotMapper) fetchLoop() {
 	}
 }
 
-func (s *FrigateSnapshotMapper) fetchCameraSnapshot(cameraName string) ([]SnapshotImage, error) {
+func (s *FrigateSnapshotMapper) fetchCameraSnapshot(cameraName string) ([]SnapshotImage, string, error) {
 	// Refactored:
 	// 1. Fetch snapshot ONCE as JPEG from Frigate.
 	// 2. Decode locally using stdlib image/jpeg.
@@ -118,7 +123,7 @@ func (s *FrigateSnapshotMapper) fetchCameraSnapshot(cameraName string) ([]Snapsh
 	// 5. Store in s.imagesCache and return metadata with cache-busting URL.
 	base := strings.TrimRight(s.cfg.Frigate.Url, "/")
 	if base == "" {
-		return nil, fmt.Errorf("frigate url empty")
+		return nil, "", fmt.Errorf("frigate url empty")
 	}
 	s.mu.Lock()
 	if s.imagesCache == nil {
@@ -130,20 +135,20 @@ func (s *FrigateSnapshotMapper) fetchCameraSnapshot(cameraName string) ([]Snapsh
 	origURL := fmt.Sprintf("%s/api/%s/latest.jpg?cache=%d&height=1080", base, cameraName, ts)
 	resp, err := http.Get(origURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch original snapshot: %w", err)
+		return nil, "", fmt.Errorf("failed to fetch original snapshot: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("frigate snapshot status %d", resp.StatusCode)
+		return nil, "", fmt.Errorf("frigate snapshot status %d", resp.StatusCode)
 	}
 	origBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("reading snapshot body failed: %w", err)
+		return nil, "", fmt.Errorf("reading snapshot body failed: %w", err)
 	}
 
 	srcImg, err := jpeg.Decode(bytes.NewReader(origBytes))
 	if err != nil {
-		return nil, fmt.Errorf("jpeg decode failed: %w", err)
+		return nil, "", fmt.Errorf("jpeg decode failed: %w", err)
 	}
 
 	origBounds := srcImg.Bounds()
@@ -189,7 +194,32 @@ func (s *FrigateSnapshotMapper) fetchCameraSnapshot(cameraName string) ([]Snapsh
 		storeVariant(w, h, "jpg", buf.Bytes())
 	}
 
-	return images, nil
+	// Generate low-res preview (max LowResThumbnailSize px in any dimension)
+	lowResW, lowResH := origW, origH
+	if origW > origH {
+		lowResW = LowResThumbnailSize
+		lowResH = int(float64(origH) * float64(LowResThumbnailSize) / float64(origW))
+	} else {
+		lowResH = LowResThumbnailSize
+		lowResW = int(float64(origW) * float64(LowResThumbnailSize) / float64(origH))
+	}
+	if lowResW == 0 {
+		lowResW = 1
+	}
+	if lowResH == 0 {
+		lowResH = 1
+	}
+
+	dstLow := image.NewRGBA(image.Rect(0, 0, lowResW, lowResH))
+	draw.CatmullRom.Scale(dstLow, dstLow.Bounds(), srcImg, origBounds, draw.Over, nil)
+
+	var lowResBuf bytes.Buffer
+	var lowResPreview string
+	if err := jpeg.Encode(&lowResBuf, dstLow, &jpeg.Options{Quality: 70}); err == nil {
+		lowResPreview = "data:image/jpeg;base64," + base64.StdEncoding.EncodeToString(lowResBuf.Bytes())
+	}
+
+	return images, lowResPreview, nil
 }
 
 // GetCachedSnapshot returns the image bytes and media type for a given snapshot filename.

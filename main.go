@@ -89,12 +89,12 @@ func main() {
 
 	// Routes
 	app.Get("/metrics", adaptor.HTTPHandler(promhttp.HandlerFor(promRegistry, promhttp.HandlerOpts{})))
-	app.Get("/image/:name", handleImage)
+	app.Get("/image/:name", AuthMiddleware, handleImage)
 	app.Get("/robots.txt", handleRobots)
 	app.Get("/api/v1/all-devices", handleDevices)
 	app.Get("/api/v1/live-ws", websocket.New(handleLiveWs))
 	app.Get("/api/v1/room-states", handleGetRoomStates)
-	app.Get("/api/v1/camera-snapshot/:filename", frigateSnapshotMapper.HandleSnapshot)
+	app.Get("/api/v1/camera-snapshot/:filename", AuthMiddleware, frigateSnapshotMapper.HandleSnapshot)
 	app.Get("/api/v1/auth/login", handleLoginRequest)
 	app.Get("/api/v1/auth/callback", handleAuthCallback)
 	app.Get("/api/v1/auth/me", handleMe)

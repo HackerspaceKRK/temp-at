@@ -30,6 +30,7 @@ export interface SnapshotImage {
 
 export interface SnapshotState {
   images: SnapshotImage[];
+  low_res_preview?: string;
 }
 
 /* =============================
