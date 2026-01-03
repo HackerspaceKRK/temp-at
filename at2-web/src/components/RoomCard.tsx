@@ -5,6 +5,7 @@ import { useLocale } from "../locale";
 import RelayGroupControl from "./RelayGroupControl";
 import CameraSnapshot from "./CameraSnapshot";
 import { useAuth } from "../AuthContext";
+import { useTranslation } from "react-i18next";
 // import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 
 import {
@@ -49,6 +50,7 @@ const PeopleCountBarItem: FC<{
   title: string;
 }> = ({ count, lastSeen, title }) => {
   const [now, setNow] = useState(new Date());
+  const { t } = useTranslation();
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -78,10 +80,10 @@ const PeopleCountBarItem: FC<{
     return (
       <div
         className="flex items-center gap-1 text-neutral-300"
-        title={`Last seen: ${date.toLocaleString()}`}
+        title={t("Last seen: {{date}}", { date: date.toLocaleString() })}
       >
         <User className="w-4 h-4" />
-        <span className="text-xs">{timeString} ago</span>
+        <span className="text-xs">{t("{{time}} ago", { time: timeString })}</span>
       </div>
     );
   }
@@ -103,6 +105,7 @@ const PeopleCountBarItem: FC<{
 
 export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
   const { getName } = useLocale();
+  const { t } = useTranslation();
 
   const { user, login } = useAuth();
   const cameraEntities = room.entities.filter(
@@ -126,7 +129,7 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
               <PeopleCountBarItem
                 count={room.people_count}
                 lastSeen={room.latest_person_detected_at}
-                title="People count"
+                title={t("People count")}
               />
             )}
             {room.entities.map((e) =>
@@ -193,7 +196,7 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
         {user ? (
           <CameraSnapshot
             images={cameraEntities[currentCameraIndex]?.state?.images}
-            alt={`Camera snapshot for room ${getName(room.localized_name, room.id)}`}
+            alt={t("Camera snapshot for room {{room}}", { room: getName(room.localized_name, room.id) })}
             className="rounded-b-md"
           />
         ) : (
@@ -207,7 +210,7 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
             )}
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] transition-all">
               <p className="text-white text-sm mb-3 font-semibold drop-shadow-md">
-                Log in to see snapshots
+                {t("Log in to see snapshots")}
               </p>
               <Button
                 size="sm"
@@ -215,7 +218,7 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
                 onClick={login}
                 className="shadow-lg hover:scale-105 transition-transform"
               >
-                Log In
+                {t("Log In")}
               </Button>
             </div>
           </div>

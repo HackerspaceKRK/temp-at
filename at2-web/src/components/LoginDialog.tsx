@@ -9,6 +9,7 @@ import {
     DialogDescription,
     DialogFooter,
 } from "./ui/dialog";
+import { useTranslation } from "react-i18next";
 
 interface LoginDialogProps {
     open: boolean;
@@ -21,6 +22,8 @@ export const LoginDialog: FC<LoginDialogProps> = ({
     onOpenChange,
     onLogin,
 }) => {
+    const { t } = useTranslation();
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
@@ -29,17 +32,17 @@ export const LoginDialog: FC<LoginDialogProps> = ({
                         <div className="p-2 bg-primary/10 rounded-full">
                             <Lock className="w-5 h-5 text-primary" />
                         </div>
-                        <DialogTitle>Logowanie Wymagane</DialogTitle>
+                        <DialogTitle>{t("Login Required")}</DialogTitle>
                     </div>
                     <DialogDescription className="pt-2">
-                        Musisz być zalogowany, aby sterować urządzeniami.
+                        {t("You must be logged in to control devices.")}
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
-                        Anuluj
+                        {t("Cancel")}
                     </Button>
-                    <Button onClick={onLogin}>Zaloguj się</Button>
+                    <Button onClick={onLogin}>{t("Log In")}</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

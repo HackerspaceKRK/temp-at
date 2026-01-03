@@ -9,29 +9,29 @@ import type { FC } from "react";
 import "./app.css";
 import useWebsocket from "./useWebsocket";
 import type { RoomState } from "./schema";
-import { LocaleProvider } from "./locale";
 import RoomCard from "./components/RoomCard";
 import { API_URL } from "./config";
 import { AuthProvider, useAuth } from "./AuthContext";
+import { useTranslation } from "react-i18next";
 
 import { ThemeProvider } from "./theme";
 
 import { ModeToggle } from "./components/ModeToggle";
+import { LanguageToggle } from "./components/LanguageToggle";
 
 export function App() {
   return (
     <ThemeProvider>
-      <LocaleProvider locale="pl">
-        <AuthProvider>
-          <AppContent />
-        </AuthProvider>
-      </LocaleProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </ThemeProvider>
   );
 }
 
 const UserControls: FC = () => {
   const { user, login, logout, isLoading } = useAuth();
+  const { t } = useTranslation();
 
   if (isLoading) {
     return <div>...</div>;
@@ -40,20 +40,28 @@ const UserControls: FC = () => {
   if (user) {
     return (
       <div className="flex items-center gap-4">
-        <span className="text-sm">Witaj, <span className="font-bold">{user.username}</span></span>
-        <button onClick={logout} className="text-sm underline hover:text-primary">Wyloguj</button>
+        <span className="text-sm">
+          {t("Welcome, {{username}}", { username: user.username })}
+        </span>
+        <button
+          onClick={logout}
+          className="text-sm underline hover:text-primary"
+        >
+          {t("Log Out")}
+        </button>
       </div>
     );
   }
 
   return (
     <button onClick={login} className="text-sm font-semibold hover:underline">
-      Zaloguj się
+      {t("Log In")}
     </button>
   );
 };
 
 const AppContent: FC = () => {
+  const { t } = useTranslation();
   const [roomStates, setRoomStates] = useState<{ [key: string]: RoomState }>(
     {}
   );
@@ -108,18 +116,17 @@ const AppContent: FC = () => {
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto">
         <header className="px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">
-            Siedziba
-          </h1>
+          <h1 className="text-2xl font-bold">{t("Headquarters")}</h1>
           <div className="flex items-center gap-4">
             <UserControls />
+            <LanguageToggle />
             <ModeToggle />
           </div>
         </header>
         <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4 pb-10">
           {rooms.length === 0 && (
             <div className="col-span-full text-center py-10 text-neutral-600">
-              Oczekiwanie na dane…
+              {t("Waiting for data...")}
             </div>
           )}
           {rooms.map((room) => (

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, type FunctionComponent, type JSX } from "react";
+import { useTranslation } from "react-i18next";
 import type { SnapshotImage } from "../schema";
 import { resolveImageUrl } from "../config";
 
@@ -88,7 +89,7 @@ function pickDefaultSrc(images: SnapshotImage[]): string | null {
 
 export const CameraSnapshot: FunctionComponent<CameraSnapshotProps> = ({
   images,
-  alt = "Camera snapshot",
+  alt,
   className,
   fit = "cover",
   priority = false,
@@ -97,6 +98,8 @@ export const CameraSnapshot: FunctionComponent<CameraSnapshotProps> = ({
   placeholder,
   lockAspectRatio = true,
 }) => {
+  const { t } = useTranslation();
+  const displayAlt = alt || t("Camera snapshot");
   const [isEnlarged, setIsEnlarged] = useState(false);
   // isVisible triggers the CSS transitions (opacity/transform)
   const [isVisible, setIsVisible] = useState(false);
@@ -605,7 +608,7 @@ export const CameraSnapshot: FunctionComponent<CameraSnapshotProps> = ({
         src={src}
         srcSet={srcSet}
         sizes={sizes}
-        alt={alt}
+        alt={displayAlt}
         loading={loading ?? (priority ? "eager" : "lazy")}
         className={
           "absolute inset-0 w-full h-full " +
@@ -622,7 +625,7 @@ export const CameraSnapshot: FunctionComponent<CameraSnapshotProps> = ({
           (lockAspectRatio ? "absolute inset-0" : "w-full h-full")
         }
       >
-        {placeholder ?? <span>Brak obrazu</span>}
+        {placeholder ?? <span>{t("No image")}</span>}
       </div>
     );
 
@@ -665,7 +668,7 @@ export const CameraSnapshot: FunctionComponent<CameraSnapshotProps> = ({
             ref={enlargedImgRef}
             src={src}
             srcSet={srcSet}
-            alt={alt}
+            alt={displayAlt}
             className="fixed object-contain origin-center select-none"
             style={{
               transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,

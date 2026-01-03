@@ -4,6 +4,7 @@ import { Lightbulb, Fan } from "lucide-react";
 import { useLocale } from "../locale";
 import type { RelayEntity } from "../schema";
 import { Button } from "./ui/button";
+import { useTranslation } from "react-i18next";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,6 +72,7 @@ export const RelayGroupControl: FC<RelayGroupControlProps> = ({
 }) => {
   const { getName } = useLocale();
   const { user, login } = useAuth();
+  const { t } = useTranslation();
 
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
@@ -100,7 +102,7 @@ export const RelayGroupControl: FC<RelayGroupControlProps> = ({
     );
 
   const ariaLabel =
-    kind === "light" ? "Sterowanie światłami" : "Sterowanie wentylatorami";
+    kind === "light" ? t("Light controls") : t("Fan controls");
 
   // Accent color logic: apply explicit hex accent when any relay is ON
   const variant = onCount > 0 ? "outlinePrimary" : "outline";
@@ -228,7 +230,7 @@ export const RelayGroupControl: FC<RelayGroupControlProps> = ({
           setPendingRelay(null);
         }}
         entityName={pendingRelay?.localizedName || ""}
-        roomName={roomName || roomId || "pomieszczeniu"}
+        roomName={roomName || roomId || t("the room")}
       />
     </div>
   );

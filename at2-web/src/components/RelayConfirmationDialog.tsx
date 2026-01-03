@@ -9,6 +9,7 @@ import {
     DialogDescription,
     DialogFooter,
 } from "./ui/dialog";
+import { useTranslation } from "react-i18next";
 
 interface RelayConfirmationDialogProps {
     open: boolean;
@@ -25,6 +26,8 @@ export const RelayConfirmationDialog: FC<RelayConfirmationDialogProps> = ({
     entityName,
     roomName,
 }) => {
+    const { t } = useTranslation();
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
@@ -33,16 +36,18 @@ export const RelayConfirmationDialog: FC<RelayConfirmationDialogProps> = ({
                         <div className="p-2 bg-destructive/10 rounded-full">
                             <AlertTriangle className="w-5 h-5 text-destructive" />
                         </div>
-                        <DialogTitle>Potwierdzenie</DialogTitle>
+                        <DialogTitle>{t("Confirmation")}</DialogTitle>
                     </div>
                     <DialogDescription className="pt-2">
-                        Czy na pewno chcesz wyłączyć <strong>{entityName}</strong> w{" "}
-                        <strong>{roomName}</strong>? Upewnij się, że wyłączenia światła nie spowoduje niebezpieczeństwa.
+                        {t("Are you sure you want to turn off {{entity}} in {{room}}?", {
+                            entity: entityName,
+                            room: roomName
+                        })}
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
-                        Anuluj
+                        {t("Cancel")}
                     </Button>
                     <Button
                         variant="destructive"
@@ -51,7 +56,7 @@ export const RelayConfirmationDialog: FC<RelayConfirmationDialogProps> = ({
                             onOpenChange(false);
                         }}
                     >
-                        Potwierdź
+                        {t("Confirm")}
                     </Button>
                 </DialogFooter>
             </DialogContent>
