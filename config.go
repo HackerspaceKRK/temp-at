@@ -7,6 +7,35 @@ type Config struct {
 	Oidc     *OidcConfig    `yaml:"oidc"`
 	Database DatabaseConfig `yaml:"database"`
 	Web      WebConfig      `yaml:"web"`
+	SpaceAPI SpaceAPIConfig `yaml:"spaceapi"`
+}
+
+type SpaceAPIConfig struct {
+	Space    string                 `yaml:"space"`
+	Logo     string                 `yaml:"logo"`
+	Url      string                 `yaml:"url"`
+	Location SpaceAPILocationConfig `yaml:"location"`
+	Contact  SpaceAPIContactConfig  `yaml:"contact"`
+}
+
+type SpaceAPILocationConfig struct {
+	Address  string  `yaml:"address"`
+	Lat      float64 `yaml:"lat"`
+	Lon      float64 `yaml:"lon"`
+	Timezone string  `yaml:"timezone"`
+}
+
+type SpaceAPIContactConfig struct {
+	Email    string `yaml:"email"`
+	Irc      string `yaml:"irc"`
+	Twitter  string `yaml:"twitter"`
+	Facebook string `yaml:"facebook"`
+	Phone    string `yaml:"phone"`
+	Sip      string `yaml:"sip"`
+	Ml       string `yaml:"ml"`
+	Mastodon string `yaml:"mastodon"`
+	Matrix   string `yaml:"matrix"`
+	Xmpp     string `yaml:"xmpp"`
 }
 
 type DatabaseConfig struct {

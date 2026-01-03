@@ -41,3 +41,18 @@ rooms:
           en: "Main Light"
           de: "Hauptlicht"
         representation: "light"
+
+# SpaceAPI configuration
+spaceapi:
+  space: "Hackerspace Example"
+  logo: "https://example.com/logo.png"
+  url: "https://example.com"
+  location:
+    address: "Street 123, City, Country"
+    lat: 50.0
+    lon: 20.0
+    timezone: "Europe/Warsaw"
+  contact:
+    email: "info@example.com"
+    irc: "irc://freenode.net/#example"
+    matrix: "#example:matrix.org"
