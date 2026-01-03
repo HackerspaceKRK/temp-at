@@ -43,7 +43,26 @@ i18n
                     "You must be logged in to control devices.": "Musisz być zalogowany, aby sterować urządzeniami.",
                     "Camera snapshot for room {{room}}": "Podgląd z kamery w pomieszczeniu {{room}}",
                     "Camera snapshot": "Podgląd z kamery",
-                    "No image": "Brak obrazu"
+                    "No image": "Brak obrazu",
+                    "Usage Statistics": "Statystyki użytkowania",
+                    "All Rooms": "Wszystkie pomieszczenia",
+                    "Last 60 Days": "Ostatnie 60 dni",
+                    "Last 14 Days": "Ostatnie 14 dni",
+                    "Daily": "Dziennie",
+                    "Hourly": "Godzinowo",
+                    "Error loading data": "Błąd ładowania danych",
+                    "No data available": "Brak dostępnych danych",
+                    "No data": "Brak danych",
+                    "Mon": "Pon",
+                    "Tue": "Wt",
+                    "Wed": "Śr",
+                    "Thu": "Czw",
+                    "Fri": "Pt",
+                    "Sat": "Sob",
+                    "Sun": "Ndz",
+                    "person-hours": "osobogodziny",
+                    "Max people": "Maks. osób",
+                    "Active hours": "Godziny aktywności"
                 }
             }
         }

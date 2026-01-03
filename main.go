@@ -101,7 +101,8 @@ func main() {
 	app.Post("/api/v1/auth/logout", handleLogout)
 	app.Post("/api/v1/control-relay", AuthMiddleware, handleControlRelay)
 	app.Get("/api/v1/spaceapi", handleSpaceAPI)
-	app.Get("/api/v1/device-history", handleDeviceHistory) // No auth required for reading history as per other read endpoints? Devices list is public, so history probably is too.
+	app.Get("/api/v1/device-history", handleDeviceHistory)
+	app.Get("/api/v1/stats/usage-heatmap", handleUsageHeatmap)
 
 	SetupFrontend(app, *devFrontend)
 

@@ -215,3 +215,39 @@ func (r *VirtualDeviceHistoryRepository) GetDeviceHistory(deviceName string, dur
 
 	return history, err
 }
+
+// GetDevicesHistory returns the state history for multiple devices within a specific duration.
+func (r *VirtualDeviceHistoryRepository) GetDevicesHistory(deviceNames []string, durationMs int64) ([]VirtualDeviceStateModel, error) {
+	if len(deviceNames) == 0 {
+		return nil, nil
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// 1. Get database IDs for the device string IDs
+	var devices []VirtualDeviceModel
+	if err := r.db.Where("name IN ?", deviceNames).Find(&devices).Error; err != nil {
+		return nil, err
+	}
+
+	if len(devices) == 0 {
+		return nil, nil
+	}
+
+	deviceIDs := make([]uint, len(devices))
+	for i, d := range devices {
+		deviceIDs[i] = d.ID
+	}
+
+	// 2. Calculate cutoff timestamp
+	cutoff := CurrentTimestampMillis() - durationMs
+
+	// 3. Query history
+	var history []VirtualDeviceStateModel
+	err := r.db.Preload("VirtualDevice").
+		Where("virtual_device_id IN ? AND timestamp >= ?", deviceIDs, cutoff).
+		Order("timestamp ASC").
+		Find(&history).Error
+
+	return history, err
+}

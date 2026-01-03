@@ -140,3 +140,14 @@ export interface RoomState {
 }
 
 export type RoomStates = RoomState[];
+
+export interface UsageHeatmapDataPoint {
+  startsAt: number;
+  maxPeople: number;
+  manHours: number;
+  activeHours: number;
+}
+
+export interface UsageHeatmapResponse {
+  dataPoints: UsageHeatmapDataPoint[];
+}

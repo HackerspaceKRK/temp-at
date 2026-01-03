@@ -13,6 +13,7 @@ import RoomCard from "./components/RoomCard";
 import { API_URL } from "./config";
 import { AuthProvider, useAuth } from "./AuthContext";
 import { useTranslation } from "react-i18next";
+import { RoomUsageStats } from "./components/RoomUsageStats";
 
 import { ThemeProvider } from "./theme";
 
@@ -132,6 +133,7 @@ const AppContent: FC = () => {
           {rooms.map((room) => (
             <RoomCard key={room.id} room={room} />
           ))}
+          <RoomUsageStats rooms={rooms} />
         </main>
       </div>
     </div>
