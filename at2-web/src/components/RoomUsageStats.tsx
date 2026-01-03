@@ -1,4 +1,4 @@
-import { type FC, useEffect, useState } from "react";
+import { type FC, useEffect, useState, useMemo, memo } from "react";
 import type { RoomState, UsageHeatmapResponse } from "../schema";
 import { API_URL } from "../config";
 import { HeatmapChart } from "./HeatmapChart";
@@ -17,7 +17,7 @@ interface RoomUsageStatsProps {
     rooms: RoomState[];
 }
 
-export const RoomUsageStats: FC<RoomUsageStatsProps> = ({ rooms }) => {
+const RoomUsageStatsComponent: FC<RoomUsageStatsProps> = ({ rooms }) => {
     const { t, i18n } = useTranslation();
     const [selectedRoomId, setSelectedRoomId] = useState<string>("");
     const [timeRange, setTimeRange] = useState<"month" | "week">("month");
@@ -26,7 +26,7 @@ export const RoomUsageStats: FC<RoomUsageStatsProps> = ({ rooms }) => {
     const [error, setError] = useState<string | null>(null);
 
     const resolution = timeRange === "month" ? "day" : "hour";
-    const duration = timeRange === "month" ? 30 : 168;
+    const duration = timeRange === "month" ? 60 : 168 * 2;
 
     useEffect(() => {
         const fetchData = async () => {
@@ -57,9 +57,13 @@ export const RoomUsageStats: FC<RoomUsageStatsProps> = ({ rooms }) => {
         fetchData();
     }, [selectedRoomId, timeRange, resolution, duration]);
 
-    const selectedRoomLabel = selectedRoomId
+    const filteredRooms = useMemo(() => rooms.filter(r =>
+        r.entities.some(e => e.representation === "presence" || e.representation === "person")
+    ), [rooms]);
+
+    const selectedRoomLabel = useMemo(() => selectedRoomId
         ? (rooms.find(r => r.id === selectedRoomId)?.localized_name[i18n.language] || selectedRoomId)
-        : t("All Rooms");
+        : t("All Rooms"), [selectedRoomId, rooms, i18n.language, t]);
 
     return (
         <Card className="col-span-full mt-8">
@@ -79,7 +83,7 @@ export const RoomUsageStats: FC<RoomUsageStatsProps> = ({ rooms }) => {
                             <DropdownMenuItem onClick={() => setSelectedRoomId("")}>
                                 {t("All Rooms")}
                             </DropdownMenuItem>
-                            {rooms.map((room) => (
+                            {filteredRooms.map((room) => (
                                 <DropdownMenuItem key={room.id} onClick={() => setSelectedRoomId(room.id)}>
                                     {room.localized_name[i18n.language] || room.id}
                                 </DropdownMenuItem>
@@ -90,16 +94,16 @@ export const RoomUsageStats: FC<RoomUsageStatsProps> = ({ rooms }) => {
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline" size="sm" className="h-8 gap-1">
-                                {timeRange === "month" ? t("Last 30 Days") : t("Last 7 Days")}
+                                {timeRange === "month" ? t("Last 60 Days") : t("Last 14 Days")}
                                 <ChevronDown className="h-4 w-4" />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => setTimeRange("month")}>
-                                {t("Last 30 Days")} ({t("Daily")})
+                                {t("Last 60 Days")} ({t("Daily")})
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setTimeRange("week")}>
-                                {t("Last 7 Days")} ({t("Hourly")})
+                                {t("Last 14 Days")} ({t("Hourly")})
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
@@ -123,3 +127,18 @@ export const RoomUsageStats: FC<RoomUsageStatsProps> = ({ rooms }) => {
         </Card>
     );
 };
+
+export const RoomUsageStats = memo(RoomUsageStatsComponent, (prevProps, nextProps) => {
+    if (prevProps.rooms.length !== nextProps.rooms.length) return false;
+    for (let i = 0; i < prevProps.rooms.length; i++) {
+        if (prevProps.rooms[i].id !== nextProps.rooms[i].id) return false;
+        // Check localized names for changes
+        const prevLoc = prevProps.rooms[i].localized_name;
+        const nextLoc = nextProps.rooms[i].localized_name;
+        if (Object.keys(prevLoc).length !== Object.keys(nextLoc).length) return false;
+        for (const key in prevLoc) {
+            if (prevLoc[key] !== nextLoc[key]) return false;
+        }
+    }
+    return true;
+});

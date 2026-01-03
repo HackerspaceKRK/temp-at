@@ -20,6 +20,13 @@ type UsageHeatmapResponse struct {
 	DataPoints []UsageHeatmapDataPoint `json:"dataPoints"`
 }
 
+const (
+	MaxDailyDurationHours      = 60 * 24
+	MaxHourlyDurationHours     = 14 * 24
+	DefaultDailyDurationHours  = 30 * 24
+	DefaultHourlyDurationHours = 7 * 24
+)
+
 func handleUsageHeatmap(c *fiber.Ctx) error {
 	roomId := c.Query("roomId")
 	resolution := c.Query("resolution", "day")
@@ -28,22 +35,22 @@ func handleUsageHeatmap(c *fiber.Ctx) error {
 	var durationHours int
 	if resolution == "day" {
 		if durationStr == "" {
-			durationHours = 30 * 24
+			durationHours = DefaultDailyDurationHours
 		} else {
 			fmt.Sscanf(durationStr, "%d", &durationHours)
 			durationHours *= 24
 		}
-		if durationHours > 60*24 {
-			durationHours = 60 * 24
+		if durationHours > MaxDailyDurationHours {
+			durationHours = MaxDailyDurationHours
 		}
 	} else if resolution == "hour" {
 		if durationStr == "" {
-			durationHours = 168
+			durationHours = DefaultHourlyDurationHours
 		} else {
 			fmt.Sscanf(durationStr, "%d", &durationHours)
 		}
-		if durationHours > 336 {
-			durationHours = 336
+		if durationHours > MaxHourlyDurationHours {
+			durationHours = MaxHourlyDurationHours
 		}
 	} else {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid resolution. Use 'day' or 'hour'.")
@@ -103,9 +110,13 @@ func handleUsageHeatmap(c *fiber.Ctx) error {
 	now := time.Now().UnixMilli()
 	startTime := now - durationMs
 
-	// Round start time to the beginning of the day (00:00:00)
+	// Round start time to resolution boundary
 	t := time.UnixMilli(startTime)
-	startTime = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).UnixMilli()
+	if resolution == "day" {
+		startTime = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).UnixMilli()
+	} else {
+		startTime = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location()).UnixMilli()
+	}
 
 	var bucketDuration int64
 	if resolution == "day" {
