@@ -62,7 +62,8 @@ i18n
                     "Sun": "Ndz",
                     "person-hours": "osobogodziny",
                     "Max people": "Maks. osób",
-                    "Active hours": "Godziny aktywności"
+                    "Active hours": "Godziny aktywności",
+                    "No cameras in this room": "Brak kamer w tym pomieszczeniu"
                 }
             }
         }

@@ -1,5 +1,5 @@
 import { useState, useEffect, type FC } from "react";
-import { Thermometer, Droplets, User, SwitchCamera, Plug } from "lucide-react";
+import { Thermometer, Droplets, User, SwitchCamera, Plug, VideoOff } from "lucide-react";
 import type { RoomState, CameraSnapshotEntity } from "../schema";
 import { useLocale } from "../locale";
 import RelayGroupControl from "./RelayGroupControl";
@@ -193,34 +193,43 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
         </CardDescription>
       </CardHeader>
       <div className="relative">
-        {user ? (
-          <CameraSnapshot
-            images={cameraEntities[currentCameraIndex]?.state?.images}
-            alt={t("Camera snapshot for room {{room}}", { room: getName(room.localized_name, room.id) })}
-            className="rounded-b-md"
-          />
-        ) : (
-          <div className="relative overflow-hidden rounded-b-md aspect-video bg-neutral-900 group">
-            {cameraEntities[currentCameraIndex]?.state?.low_res_preview && (
-              <img
-                src={cameraEntities[currentCameraIndex]?.state?.low_res_preview}
-                alt="Blurred preview"
-                className="absolute inset-0 w-full h-full object-cover blur-xl scale-125"
-              />
-            )}
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] transition-all">
-              <p className="text-white text-sm mb-3 font-semibold drop-shadow-md">
-                {t("Log in to see snapshots")}
-              </p>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={login}
-                className="shadow-lg hover:scale-105 transition-transform"
-              >
-                {t("Log In")}
-              </Button>
+        {cameraEntities.length > 0 ? (
+          user ? (
+            <CameraSnapshot
+              images={cameraEntities[currentCameraIndex]?.state?.images}
+              alt={t("Camera snapshot for room {{room}}", { room: getName(room.localized_name, room.id) })}
+              className="rounded-b-md"
+            />
+          ) : (
+            <div className="relative overflow-hidden rounded-b-md aspect-video bg-neutral-900 group">
+              {cameraEntities[currentCameraIndex]?.state?.low_res_preview && (
+                <img
+                  src={cameraEntities[currentCameraIndex]?.state?.low_res_preview}
+                  alt="Blurred preview"
+                  className="absolute inset-0 w-full h-full object-cover blur-xl scale-125"
+                />
+              )}
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] transition-all">
+                <p className="text-white text-sm mb-3 font-semibold drop-shadow-md">
+                  {t("Log in to see snapshots")}
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={login}
+                  className="shadow-lg hover:scale-105 transition-transform"
+                >
+                  {t("Log In")}
+                </Button>
+              </div>
             </div>
+          )
+        ) : (
+          <div className="relative flex flex-col items-center justify-center aspect-video bg-neutral-900 rounded-b-md text-muted-foreground border-t border-border/50">
+            <VideoOff className="w-12 h-12 mb-2 opacity-20" />
+            <p className="text-sm font-medium opacity-50">
+              {t("No cameras in this room")}
+            </p>
           </div>
         )}
         {cameraEntities.length > 1 && (
