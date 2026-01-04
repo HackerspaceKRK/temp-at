@@ -1,5 +1,5 @@
 import { useState, useEffect, type FC } from "react";
-import { Thermometer, Droplets, User, SwitchCamera, Zap } from "lucide-react";
+import { Thermometer, Droplets, User, SwitchCamera, Zap, Plug } from "lucide-react";
 import type { RoomState, CameraSnapshotEntity } from "../schema";
 import { useLocale } from "../locale";
 import RelayGroupControl from "./RelayGroupControl";
@@ -157,10 +157,10 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
                 typeof e.state === "number" ? (
                 <NumericSensorBarItem
                   key={e.id}
-                  icon={Zap}
+                  icon={Plug}
                   value={e.state}
                   unit="W"
-                  precision={1}
+                  precision={0}
                   title={getName(e.localized_name, e.id)}
                 />
               ) : null
