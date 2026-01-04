@@ -119,12 +119,36 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
 
   return (
     <Card className="gap-4 pb-0">
-      <CardHeader className="items-baseline ">
-        <CardTitle className="block  self-center">
+      <CardHeader className="items-center pb-0">
+        <CardTitle>
           {getName(room.localized_name, room.id)}
         </CardTitle>
-        <CardDescription>
-          <div className="flex items-center gap-3">
+        <CardAction className="row-span-1 flex gap-2">
+          <RelayGroupControl
+            entities={
+              room.entities.filter(
+                (e): e is any =>
+                  e.representation === "light" || e.representation === "fan"
+              ) as any
+            }
+            kind="light"
+            roomId={room.id}
+            roomName={getName(room.localized_name, room.id)}
+          />
+          <RelayGroupControl
+            entities={
+              room.entities.filter(
+                (e): e is any =>
+                  e.representation === "light" || e.representation === "fan"
+              ) as any
+            }
+            kind="fan"
+            roomId={room.id}
+            roomName={getName(room.localized_name, room.id)}
+          />
+        </CardAction>
+        <CardDescription className="col-span-full">
+          <div className="flex items-center gap-x-4 gap-y-2 flex-wrap">
             {hasPresence && (
               <PeopleCountBarItem
                 count={room.people_count}
@@ -167,30 +191,6 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
             )}
           </div>
         </CardDescription>
-        <CardAction className="flex gap-2 self-center">
-          <RelayGroupControl
-            entities={
-              room.entities.filter(
-                (e): e is any =>
-                  e.representation === "light" || e.representation === "fan"
-              ) as any
-            }
-            kind="light"
-            roomId={room.id}
-            roomName={getName(room.localized_name, room.id)}
-          />
-          <RelayGroupControl
-            entities={
-              room.entities.filter(
-                (e): e is any =>
-                  e.representation === "light" || e.representation === "fan"
-              ) as any
-            }
-            kind="fan"
-            roomId={room.id}
-            roomName={getName(room.localized_name, room.id)}
-          />
-        </CardAction>
       </CardHeader>
       <div className="relative">
         {user ? (
