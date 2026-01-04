@@ -20,7 +20,7 @@ interface RoomUsageStatsProps {
 const RoomUsageStatsComponent: FC<RoomUsageStatsProps> = ({ rooms }) => {
     const { t, i18n } = useTranslation();
     const [selectedRoomId, setSelectedRoomId] = useState<string>("");
-    const [timeRange, setTimeRange] = useState<"month" | "week">("month");
+    const [timeRange, setTimeRange] = useState<"month" | "week">("week");
     const [data, setData] = useState<UsageHeatmapResponse | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -109,10 +109,16 @@ const RoomUsageStatsComponent: FC<RoomUsageStatsProps> = ({ rooms }) => {
                     </DropdownMenu>
                 </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="min-h-[300px] flex flex-col justify-center">
                 {error && (
                     <div className="text-destructive text-sm p-4 text-center">
                         {t("Error loading data")}: {error}
+                    </div>
+                )}
+                {!error && isLoading && !data && (
+                    <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground animate-pulse">
+                        <Loader2 className="h-8 w-8 animate-spin" />
+                        <span className="text-sm font-medium">{t("Loading statistics...")}</span>
                     </div>
                 )}
                 {!error && data && (
