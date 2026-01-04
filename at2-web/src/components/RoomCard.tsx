@@ -1,5 +1,5 @@
 import { useState, useEffect, type FC } from "react";
-import { Thermometer, Droplets, User, SwitchCamera, Zap, Plug } from "lucide-react";
+import { Thermometer, Droplets, User, SwitchCamera, Plug } from "lucide-react";
 import type { RoomState, CameraSnapshotEntity } from "../schema";
 import { useLocale } from "../locale";
 import RelayGroupControl from "./RelayGroupControl";
