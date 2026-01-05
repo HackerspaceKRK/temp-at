@@ -9,7 +9,7 @@ import {
     DialogDescription,
     DialogFooter,
 } from "./ui/dialog";
-import { useTranslation } from "react-i18next";
+import { useTranslation, Trans } from "react-i18next";
 
 interface RelayConfirmationDialogProps {
     open: boolean;
@@ -39,10 +39,11 @@ export const RelayConfirmationDialog: FC<RelayConfirmationDialogProps> = ({
                         <DialogTitle>{t("Confirmation")}</DialogTitle>
                     </div>
                     <DialogDescription className="pt-2">
-                        {t("Are you sure you want to turn off {{entity}} in {{room}}?", {
-                            entity: entityName,
-                            room: roomName
-                        })}
+                        <Trans
+                            i18nKey="Are you sure you want to turn off {{entity}} in {{room}}?"
+                            values={{ entity: entityName, room: roomName }}
+                            components={{ bold: <strong /> }}
+                        />
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>

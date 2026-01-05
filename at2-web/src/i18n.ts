@@ -2,6 +2,8 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 
+import pl from './locales/pl.json';
+
 i18n
     .use(LanguageDetector)
     .use(initReactI18next)
@@ -18,58 +20,7 @@ i18n
         },
         resources: {
             pl: {
-                translation: {
-                    "Headquarters": "Siedziba",
-                    "Welcome, {{username}}": "Witaj, {{username}}",
-                    "Log Out": "Wyloguj",
-                    "Log In": "Zaloguj się",
-                    "Waiting for data...": "Oczekiwanie na dane...",
-                    "People count": "Liczba osób",
-                    "Last seen: {{date}}": "Ostatnio widziano: {{date}}",
-                    "{{time}} ago": "{{time}} temu",
-                    "Log in to see snapshots": "Zaloguj się, aby zobaczyć podgląd",
-                    "Relay Group": "Grupa przekaźników",
-                    "Switching lights in {{room}}": "Przełączanie świateł w: {{room}}",
-                    "Switching fans in {{room}}": "Przełączanie wentylatorów w: {{room}}",
-                    "Are you sure you want to switch {{count}} entities in {{room}}?": "Czy na pewno chcesz przełączyć {{count}} urządzeń w: {{room}}?",
-                    "Cancel": "Anuluj",
-                    "Confirm": "Potwierdź",
-                    "Toggle theme": "Przełącz motyw",
-                    "Toggle language": "Przełącz język",
-                    "Light": "Jasny",
-                    "Dark": "Ciemny",
-                    "System": "Systemowy",
-                    "Light controls": "Sterowanie światłami",
-                    "Fan controls": "Sterowanie wentylatorami",
-                    "the room": "pomieszczeniu",
-                    "Confirmation": "Potwierdzenie",
-                    "Are you sure you want to turn off {{entity}} in {{room}}?": "Czy na pewno chcesz wyłączyć {{entity}} w {{room}}? Upewnij się, że wyłączenie światła nie spowoduje niebezpieczeństwa.",
-                    "Login Required": "Logowanie wymagane",
-                    "You must be logged in to control devices.": "Musisz być zalogowany, aby sterować urządzeniami.",
-                    "Camera snapshot for room {{room}}": "Podgląd z kamery w pomieszczeniu {{room}}",
-                    "Camera snapshot": "Podgląd z kamery",
-                    "No image": "Brak obrazu",
-                    "Usage Statistics": "Statystyki użytkowania",
-                    "All Rooms": "Wszystkie pomieszczenia",
-                    "Last 60 Days": "Ostatnie 60 dni",
-                    "Last 14 Days": "Ostatnie 14 dni",
-                    "Daily": "Dziennie",
-                    "Hourly": "Godzinowo",
-                    "Error loading data": "Błąd ładowania danych",
-                    "No data available": "Brak dostępnych danych",
-                    "No data": "Brak danych",
-                    "Mon": "Pon",
-                    "Tue": "Wt",
-                    "Wed": "Śr",
-                    "Thu": "Czw",
-                    "Fri": "Pt",
-                    "Sat": "Sob",
-                    "Sun": "Ndz",
-                    "person-hours": "osobogodziny",
-                    "Max people": "Maks. osób",
-                    "Active hours": "Godziny aktywności",
-                    "No cameras in this room": "Brak kamer w tym pomieszczeniu"
-                }
+                translation: pl
             }
         }
     });

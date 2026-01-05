@@ -12,7 +12,7 @@ import type { RoomState } from "./schema";
 import RoomCard from "./components/RoomCard";
 import { API_URL } from "./config";
 import { AuthProvider, useAuth } from "./AuthContext";
-import { useTranslation } from "react-i18next";
+import { useTranslation, Trans } from "react-i18next";
 import { RoomUsageStats } from "./components/RoomUsageStats";
 
 import { ThemeProvider } from "./theme";
@@ -42,7 +42,11 @@ const UserControls: FC = () => {
     return (
       <div className="flex items-center gap-4">
         <span className="text-sm">
-          {t("Welcome, {{username}}", { username: user.username })}
+          <Trans
+            i18nKey="Welcome, {{username}}"
+            values={{ username: user.username }}
+            components={{ bold: <strong /> }}
+          />
         </span>
         <button
           onClick={logout}
