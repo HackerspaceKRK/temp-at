@@ -3,7 +3,8 @@ import type { UsageHeatmapDataPoint } from "../schema";
 import { useTranslation } from "react-i18next";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import moment from "moment";
+import { format, startOfISOWeek, differenceInCalendarWeeks, getISODay, startOfDay, differenceInCalendarDays, getHours, addDays } from "date-fns";
+import { enUS, pl } from "date-fns/locale";
 import {
     Tooltip,
     TooltipContent,
@@ -94,24 +95,31 @@ const HeatmapChartComponent: FC<HeatmapChartProps> = ({ data, resolution }) => {
         return `oklch(from var(--primary) l c h / ${opacity})`;
     }, [maxManHours]);
 
+    const getDateFnsLocale = (lang: string) => {
+        if (lang.startsWith("pl")) return pl;
+        return enUS;
+    };
+
     const formatDate = useMemo(() => (timestamp: number) => {
-        return moment(timestamp).locale(i18n.language).format(resolution === "hour" ? "ddd, MMM D, HH:mm" : "ddd, MMM D");
+        return format(timestamp, resolution === "hour" ? "EEE, MMM d, HH:mm" : "EEE, MMM d", {
+            locale: getDateFnsLocale(i18n.language),
+        });
     }, [i18n.language, resolution]);
 
     const dailyConfig = useMemo(() => {
         if (resolution !== "day" || data.length === 0) return null;
 
         const days = [t("Mon"), t("Tue"), t("Wed"), t("Thu"), t("Fri"), t("Sat"), t("Sun")];
-        const firstDataMoment = moment(data[0].startsAt).startOf('isoWeek');
-        const lastDataMoment = moment(data[data.length - 1].startsAt);
+        const firstDataMoment = startOfISOWeek(data[0].startsAt);
+        const lastDataMoment = data[data.length - 1].startsAt;
 
-        const numCols = lastDataMoment.diff(firstDataMoment, 'weeks') + 1;
+        const numCols = differenceInCalendarWeeks(lastDataMoment, firstDataMoment) + 1;
         const grid: (UsageHeatmapDataPoint | null)[][] = Array.from({ length: 7 }, () => Array.from({ length: numCols }, () => null));
 
         data.forEach(dp => {
-            const m = moment(dp.startsAt);
-            const col = m.diff(firstDataMoment, 'weeks');
-            const row = (m.isoWeekday() - 1); // 0=Mon, 6=Sun
+            const m = dp.startsAt;
+            const col = differenceInCalendarWeeks(m, firstDataMoment);
+            const row = (getISODay(m) - 1); // 0=Mon, 6=Sun
             if (col >= 0 && col < numCols) grid[row][col] = dp;
         });
 
@@ -122,21 +130,23 @@ const HeatmapChartComponent: FC<HeatmapChartProps> = ({ data, resolution }) => {
         if (resolution !== "hour" || data.length === 0) return null;
 
         const hours = Array.from({ length: 24 }).map((_, i) => `${i}:00`);
-        const firstDataMoment = moment(data[0].startsAt).startOf('day');
-        const lastDataMoment = moment(data[data.length - 1].startsAt);
+        const firstDataMoment = startOfDay(data[0].startsAt);
+        const lastDataMoment = data[data.length - 1].startsAt;
 
-        const numDays = lastDataMoment.diff(firstDataMoment, 'days') + 1;
+        const numDays = differenceInCalendarDays(lastDataMoment, firstDataMoment) + 1;
         const grid: (UsageHeatmapDataPoint | null)[][] = Array.from({ length: 24 }, () => Array.from({ length: numDays }, () => null));
 
         data.forEach(dp => {
-            const m = moment(dp.startsAt);
-            const dayIdx = m.diff(firstDataMoment, 'days');
-            const hourIdx = m.hour();
+            const m = dp.startsAt;
+            const dayIdx = differenceInCalendarDays(m, firstDataMoment);
+            const hourIdx = getHours(m);
             if (dayIdx >= 0 && dayIdx < numDays) grid[hourIdx][dayIdx] = dp;
         });
 
         const dayHeaders = Array.from({ length: numDays }).map((_, i) => {
-            return moment(firstDataMoment).add(i, 'days').locale(i18n.language).format("ddd D");
+            return format(addDays(firstDataMoment, i), "EEE d", {
+                locale: getDateFnsLocale(i18n.language),
+            });
         });
 
         return { hours, numDays, grid, dayHeaders, firstDataMoment };
