@@ -48,5 +48,9 @@
     "person-hours": "osobogodziny",
     "Max people": "Maks. osób",
     "Active hours": "Godziny aktywności",
-    "No cameras in this room": "Brak kamer w tym pomieszczeniu"
+    "No cameras in this room": "Brak kamer w tym pomieszczeniu",
+    "footer.spaceapi": "Udostępniamy endpoint <1>SpaceAPI</1>: <3>/api/v1/spaceapi</3>",
+    "Licensed under MIT": "Licencja MIT",
+    "Source code": "Kod źródłowy",
+    "Logo": "Logo"
 }

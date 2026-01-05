@@ -8,14 +8,15 @@ import { useEffect, useState } from "react";
 import type { FC } from "react";
 import "./app.css";
 import useWebsocket from "./useWebsocket";
-import type { RoomState } from "./schema";
+import type { RoomState, Branding } from "./schema";
 import RoomCard from "./components/RoomCard";
+import Footer from "./components/Footer";
 import { API_URL } from "./config";
 import { AuthProvider, useAuth } from "./AuthContext";
 import { useTranslation, Trans } from "react-i18next";
 import { RoomUsageStats } from "./components/RoomUsageStats";
 
-import { ThemeProvider } from "./theme";
+import { ThemeProvider, useTheme } from "./theme";
 
 import { ModeToggle } from "./components/ModeToggle";
 import { LanguageToggle } from "./components/LanguageToggle";
@@ -67,6 +68,8 @@ const UserControls: FC = () => {
 
 const AppContent: FC = () => {
   const { t } = useTranslation();
+  const { theme } = useTheme();
+  const [branding, setBranding] = useState<Branding | null>(null);
   const [roomStates, setRoomStates] = useState<{ [key: string]: RoomState }>(
     {}
   );
@@ -85,6 +88,18 @@ const AppContent: FC = () => {
       }
     },
   });
+
+  useEffect(() => {
+    fetch(`${API_URL.replace(/\/$/, "")}/api/v1/branding`)
+      .then((res) => res.json())
+      .then((data) => {
+        setBranding(data);
+        if (data.page_title) {
+          document.title = data.page_title;
+        }
+      })
+      .catch((err) => console.error("Failed to fetch branding:", err));
+  }, []);
 
   useEffect(() => {
     for (const roomId in roomStates) {
@@ -117,15 +132,37 @@ const AppContent: FC = () => {
     return scoreB - scoreA;
   });
 
+  const logoUrl =
+    theme === "dark" && branding?.logo_dark_url
+      ? branding.logo_dark_url
+      : branding?.logo_url;
+
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto">
-        <header className="px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">{t("Headquarters")}</h1>
-          <div className="flex items-center gap-4">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
+      <div className="w-full flex-grow">
+        <header className="px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <a
+            href={branding?.logo_link_url || "/"}
+            className="flex items-center"
+            target={branding?.logo_link_url?.startsWith("http") ? "_blank" : undefined}
+            rel={branding?.logo_link_url?.startsWith("http") ? "noopener noreferrer" : undefined}
+          >
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt={branding?.logo_alt || t("Logo")}
+                className="max-h-[70px] w-auto transition-transform hover:scale-105"
+              />
+            ) : (
+              <h1 className="text-2xl font-bold">{t("Headquarters")}</h1>
+            )}
+          </a>
+          <div className="flex items-center gap-2 sm:gap-4 flex-wrap justify-center">
             <UserControls />
-            <LanguageToggle />
-            <ModeToggle />
+            <div className="flex items-center gap-2">
+              <LanguageToggle />
+              <ModeToggle />
+            </div>
           </div>
         </header>
         <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4 pb-10">
@@ -140,6 +177,7 @@ const AppContent: FC = () => {
           <RoomUsageStats rooms={rooms} />
         </main>
       </div>
+      <Footer branding={branding} />
     </div>
   );
 };

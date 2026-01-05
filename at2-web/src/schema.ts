@@ -151,3 +151,13 @@ export interface UsageHeatmapDataPoint {
 export interface UsageHeatmapResponse {
   dataPoints: UsageHeatmapDataPoint[];
 }
+
+export interface Branding {
+  page_title: string;
+  logo_url: string;
+  logo_dark_url: string;
+  logo_alt: string;
+  logo_link_url: string;
+  footer_name: string;
+  footer_name_link_url: string;
+}

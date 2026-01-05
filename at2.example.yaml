@@ -56,3 +56,13 @@ spaceapi:
     email: "info@example.com"
     irc: "irc://freenode.net/#example"
     matrix: "#example:matrix.org"
+
+# Branding configuration
+branding:
+  page_title: "Headquarters - My Space"
+  logo_url: "https://example.com/logo.png"
+  logo_dark_url: "https://example.com/logo_dark.png"
+  logo_alt: "My Space Logo"
+  logo_link_url: "https://example.com"
+  footer_name: "My Hackerspace"
+  footer_name_link_url: "https://example.com"

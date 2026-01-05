@@ -8,6 +8,17 @@ type Config struct {
 	Database DatabaseConfig `yaml:"database"`
 	Web      WebConfig      `yaml:"web"`
 	SpaceAPI SpaceAPIConfig `yaml:"spaceapi"`
+	Branding BrandingConfig `yaml:"branding"`
+}
+
+type BrandingConfig struct {
+	PageTitle         string `yaml:"page_title" json:"page_title"`
+	LogoURL           string `yaml:"logo_url" json:"logo_url"`
+	LogoDarkURL       string `yaml:"logo_dark_url" json:"logo_dark_url"`
+	LogoAlt           string `yaml:"logo_alt" json:"logo_alt"`
+	LogoLinkURL       string `yaml:"logo_link_url" json:"logo_link_url"`
+	FooterName        string `yaml:"footer_name" json:"footer_name"`
+	FooterNameLinkURL string `yaml:"footer_name_link_url" json:"footer_name_link_url"`
 }
 
 type SpaceAPIConfig struct {

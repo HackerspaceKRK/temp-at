@@ -15,10 +15,15 @@ func handleSpaceAPI(c *fiber.Ctx) error {
 		deviceMap[dev.ID] = dev
 	}
 
+	logo := cfg.SpaceAPI.Logo
+	if logo == "" {
+		logo = cfg.Branding.LogoURL
+	}
+
 	api := A15Json{
 		ApiCompatibility: []string{"15"},
 		Space:            cfg.SpaceAPI.Space,
-		Logo:             cfg.SpaceAPI.Logo,
+		Logo:             logo,
 		Url:              cfg.SpaceAPI.Url,
 		Contact: A15JsonContact{
 			Email:    stringPtr(cfg.SpaceAPI.Contact.Email),

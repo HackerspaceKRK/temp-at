@@ -101,6 +101,7 @@ func main() {
 	app.Post("/api/v1/auth/logout", handleLogout)
 	app.Post("/api/v1/control-relay", AuthMiddleware, handleControlRelay)
 	app.Get("/api/v1/spaceapi", handleSpaceAPI)
+	app.Get("/api/v1/branding", handleBranding)
 	app.Get("/api/v1/device-history", handleDeviceHistory)
 	app.Get("/api/v1/stats/usage-heatmap", handleUsageHeatmap)
 
@@ -210,4 +211,9 @@ func handleDevices(c *fiber.Ctx) error {
 
 	c.Set("Cache-Control", "no-cache")
 	return c.Status(fiber.StatusOK).JSON(devices)
+}
+
+func handleBranding(c *fiber.Ctx) error {
+	cfg := MustLoadConfig()
+	return c.JSON(cfg.Branding)
 }
