@@ -52,6 +52,8 @@ func handleSpaceAPI(c *fiber.Ctx) error {
 
 		roomPeopleCount := 0.0
 		hasPeopleSensor := false
+		roomPowerUsage := 0.0
+		hasPowerUsageSensor := false
 
 		for _, entity := range room.Entities {
 			dev, ok := deviceMap[entity.ID]
@@ -87,6 +89,9 @@ func handleSpaceAPI(c *fiber.Ctx) error {
 			case VdevTypePerson:
 				roomPeopleCount += val
 				hasPeopleSensor = true
+			case VdevTypePowerUsage:
+				roomPowerUsage += val
+				hasPowerUsageSensor = true
 			}
 		}
 
@@ -94,6 +99,14 @@ func handleSpaceAPI(c *fiber.Ctx) error {
 			api.Sensors.PeopleNowPresent = append(api.Sensors.PeopleNowPresent, A15JsonSensorsPeopleNowPresentElem{
 				Location: &roomLabel,
 				Value:    roomPeopleCount,
+			})
+		}
+
+		if hasPowerUsageSensor {
+			api.Sensors.PowerConsumption = append(api.Sensors.PowerConsumption, A15JsonSensorsPowerConsumptionElem{
+				Location: roomLabel,
+				Value:    roomPowerUsage,
+				Unit:     A15JsonSensorsPowerConsumptionElemUnitW,
 			})
 		}
 	}
@@ -106,6 +119,19 @@ func handleSpaceAPI(c *fiber.Ctx) error {
 		api.Sensors.PeopleNowPresent = append(api.Sensors.PeopleNowPresent, A15JsonSensorsPeopleNowPresentElem{
 			Name:  stringPtr("total"),
 			Value: totalPeople,
+		})
+	}
+
+	if len(api.Sensors.PowerConsumption) > 0 {
+		totalPower := 0.0
+		for _, p := range api.Sensors.PowerConsumption {
+			totalPower += p.Value
+		}
+		api.Sensors.PowerConsumption = append(api.Sensors.PowerConsumption, A15JsonSensorsPowerConsumptionElem{
+			Name:     stringPtr("total"),
+			Location: "total",
+			Unit:     A15JsonSensorsPowerConsumptionElemUnitW,
+			Value:    totalPower,
 		})
 	}
 
