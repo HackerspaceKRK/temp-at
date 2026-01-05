@@ -102,6 +102,7 @@ func main() {
 	app.Post("/api/v1/control-relay", AuthMiddleware, handleControlRelay)
 	app.Get("/api/v1/spaceapi", handleSpaceAPI)
 	app.Get("/api/v1/branding", handleBranding)
+	app.Get("/health", handleHealth)
 	app.Get("/api/v1/device-history", handleDeviceHistory)
 	app.Get("/api/v1/stats/usage-heatmap", handleUsageHeatmap)
 
@@ -216,4 +217,8 @@ func handleDevices(c *fiber.Ctx) error {
 func handleBranding(c *fiber.Ctx) error {
 	cfg := MustLoadConfig()
 	return c.JSON(cfg.Branding)
+}
+
+func handleHealth(c *fiber.Ctx) error {
+	return c.SendString("OK")
 }
