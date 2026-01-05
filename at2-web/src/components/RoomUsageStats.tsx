@@ -3,6 +3,7 @@ import type { RoomState, UsageHeatmapResponse } from "../schema";
 import { API_URL } from "../config";
 import { HeatmapChart } from "./HeatmapChart";
 import { useTranslation } from "react-i18next";
+import { useLocale } from "../locale";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import {
     DropdownMenu,
@@ -18,7 +19,8 @@ interface RoomUsageStatsProps {
 }
 
 const RoomUsageStatsComponent: FC<RoomUsageStatsProps> = ({ rooms }) => {
-    const { t, i18n } = useTranslation();
+    const { t } = useTranslation();
+    const { getName } = useLocale();
     const [selectedRoomId, setSelectedRoomId] = useState<string>("");
     const [timeRange, setTimeRange] = useState<"month" | "week">("week");
     const [data, setData] = useState<UsageHeatmapResponse | null>(null);
@@ -62,8 +64,8 @@ const RoomUsageStatsComponent: FC<RoomUsageStatsProps> = ({ rooms }) => {
     ), [rooms]);
 
     const selectedRoomLabel = useMemo(() => selectedRoomId
-        ? (rooms.find(r => r.id === selectedRoomId)?.localized_name[i18n.language] || selectedRoomId)
-        : t("All Rooms"), [selectedRoomId, rooms, i18n.language, t]);
+        ? getName(rooms.find(r => r.id === selectedRoomId)?.localized_name, selectedRoomId)
+        : t("All Rooms"), [selectedRoomId, rooms, getName, t]);
 
     return (
         <Card className="col-span-full mt-8">
@@ -85,7 +87,7 @@ const RoomUsageStatsComponent: FC<RoomUsageStatsProps> = ({ rooms }) => {
                             </DropdownMenuItem>
                             {filteredRooms.map((room) => (
                                 <DropdownMenuItem key={room.id} onClick={() => setSelectedRoomId(room.id)}>
-                                    {room.localized_name[i18n.language] || room.id}
+                                    {getName(room.localized_name, room.id)}
                                 </DropdownMenuItem>
                             ))}
                         </DropdownMenuContent>

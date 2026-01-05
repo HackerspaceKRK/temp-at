@@ -7,6 +7,11 @@ i18n
     .use(initReactI18next)
     .init({
         fallbackLng: 'en',
+        detection: {
+            order: ['localStorage', 'htmlTag'],
+            caches: ['localStorage'],
+        },
+        lng: localStorage.getItem('i18nextLng') || 'pl',
         debug: false,
         interpolation: {
             escapeValue: false,
