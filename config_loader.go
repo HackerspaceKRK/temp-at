@@ -65,7 +65,7 @@ func GetConfig() *Config {
 func validateConfig(cfg *Config, path string) {
 	loadSecret(&cfg.MQTT.Password, cfg.MQTT.PasswordFile)
 	loadSecret(&cfg.Oidc.ClientSecret, cfg.Oidc.ClientSecretFile)
-	loadSecret(&cfg.Web.JWTSecret, cfg.Web.JWTSecretFile)
+	loadSecret(&cfg.Oidc.ClientSecret, cfg.Oidc.ClientSecretFile)
 
 	if cfg.Frigate.Url == "" {
 		log.Printf("warning: frigate.url is empty in %s", path)

@@ -5,16 +5,17 @@ database:
 # Web server configuration
 web:
   listen_address: ":8080"
-  public_url: "https://at2.example.com"
-  jwt_secret: "change_me_to_a_random_string"
+  public_url: "http://localhost:8080"
   # jwt_secret_file: "/run/secrets/jwt_secret" # Alternative: Load secret from file
 
 # OIDC Authentication configuration
 oidc:
   client_id: "your-client-id"
-  client_secret: "your-client-secret"
+  client_secret: "secret"
   # client_secret_file: "/run/secrets/oidc_client_secret" # Alternative: Load secret from file
-  issuer_url: "https://auth.example.com"
+  issuer_url: "https://accounts.google.com"
+  extra_scopes:
+    - "groups"
 
 # Frigate NVR configuration
 frigate:

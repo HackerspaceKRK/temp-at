@@ -99,6 +99,7 @@ func main() {
 	app.Get("/api/v1/auth/callback", handleAuthCallback)
 	app.Get("/api/v1/auth/me", handleMe)
 	app.Post("/api/v1/auth/logout", handleLogout)
+	app.Post("/api/v1/auth/backchannel-logout", handleBackchannelLogout)
 	app.Post("/api/v1/control-relay", AuthMiddleware, handleControlRelay)
 	app.Get("/api/v1/spaceapi", handleSpaceAPI)
 	app.Get("/api/v1/branding", handleBranding)

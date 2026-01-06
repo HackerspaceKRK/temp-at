@@ -8,11 +8,15 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/oauth2"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
-var oauth2Config *oauth2.Config
+var (
+	oauth2Config *oauth2.Config
+	oidcProvider *oidc.Provider
+)
 
 func initAuth() error {
 	oidcConfig := ConfigInstance.Oidc
@@ -23,9 +27,15 @@ func initAuth() error {
 
 	ctx := context.Background()
 
-	provider, err := oidc.NewProvider(ctx, oidcConfig.IssuerURL)
+	var err error
+	oidcProvider, err = oidc.NewProvider(ctx, oidcConfig.IssuerURL)
 	if err != nil {
 		return fmt.Errorf("failed to initialize OIDC provider: %w", err)
+	}
+
+	scopes := []string{oidc.ScopeOpenID, "profile", "email"}
+	if oidcConfig.ExtraScopes != nil {
+		scopes = append(scopes, oidcConfig.ExtraScopes...)
 	}
 
 	oauth2Config = &oauth2.Config{
@@ -34,17 +44,17 @@ func initAuth() error {
 		RedirectURL:  ConfigInstance.Web.PublicURL + "/api/v1/auth/callback",
 
 		// Discovery returns the OAuth2 endpoints.
-		Endpoint: provider.Endpoint(),
+		Endpoint: oidcProvider.Endpoint(),
 
 		// "openid" is a required scope for OpenID Connect flows.
-		Scopes: []string{oidc.ScopeOpenID, "profile", "email"},
+		Scopes: scopes,
 	}
 
 	return nil
 }
 
 const (
-	CookieName = "access_token"
+	CookieName = "session_id"
 )
 
 func handleLoginRequest(c *fiber.Ctx) error {
@@ -79,11 +89,7 @@ func handleAuthCallback(c *fiber.Ctx) error {
 	}
 
 	// Verify the ID Token signature and expiration.
-	provider, err := oidc.NewProvider(ctx, ConfigInstance.Oidc.IssuerURL)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Failed to get provider: " + err.Error())
-	}
-	verifier := provider.Verifier(&oidc.Config{ClientID: ConfigInstance.Oidc.ClientID})
+	verifier := oidcProvider.Verifier(&oidc.Config{ClientID: ConfigInstance.Oidc.ClientID})
 	idToken, err := verifier.Verify(ctx, rawIDToken)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString("Failed to verify ID Token: " + err.Error())
@@ -93,27 +99,37 @@ func handleAuthCallback(c *fiber.Ctx) error {
 	var claims struct {
 		PreferredUsername string `json:"preferred_username"`
 		Email             string `json:"email"`
+		Sub               string `json:"sub"`
+		Sid               string `json:"sid"`
 	}
 	if err := idToken.Claims(&claims); err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString("Failed to parse claims: " + err.Error())
 	}
 
-	// Generate a JWT for our session
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"username": claims.PreferredUsername,
-		"exp":      time.Now().Add(30 * 24 * time.Hour).Unix(),
-	})
-
-	tokenString, err := token.SignedString([]byte(ConfigInstance.Web.JWTSecret))
+	db, err := gorm.Open(sqlite.Open(ConfigInstance.Database.Path), &gorm.Config{})
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Failed to sign token: " + err.Error())
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to connect to database: " + err.Error())
+	}
+
+	session := SessionModel{
+		ID:           GenerateUUIDv7(),
+		Subject:      claims.Sub,
+		IdPSessionID: claims.Sid,
+		Username:     claims.PreferredUsername,
+		AccessToken:  oauth2Token.AccessToken,
+		RefreshToken: oauth2Token.RefreshToken,
+		ExpiresAt:    oauth2Token.Expiry,
+	}
+
+	if err := db.Create(&session).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to create session: " + err.Error())
 	}
 
 	// Set the cookie
 	c.Cookie(&fiber.Cookie{
 		Name:     CookieName,
-		Value:    tokenString,
-		Expires:  time.Now().Add(30 * 24 * time.Hour),
+		Value:    session.ID,
+		Expires:  time.Now().Add(30 * 24 * time.Hour), // Keep consistent with previous logic, or match token expiry?
 		HTTPOnly: true,
 		Secure:   false, // set to true if using HTTPS
 		SameSite: "Lax",
@@ -123,6 +139,14 @@ func handleAuthCallback(c *fiber.Ctx) error {
 }
 
 func handleLogout(c *fiber.Ctx) error {
+	cookie := c.Cookies(CookieName)
+	if cookie != "" {
+		db, err := gorm.Open(sqlite.Open(ConfigInstance.Database.Path), &gorm.Config{})
+		if err == nil {
+			db.Delete(&SessionModel{}, "id = ?", cookie)
+		}
+	}
+
 	c.Cookie(&fiber.Cookie{
 		Name:    CookieName,
 		Value:   "",
@@ -137,25 +161,60 @@ func handleMe(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).SendString("Not logged in")
 	}
 
-	token, err := jwt.Parse(cookie, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+	db, err := gorm.Open(sqlite.Open(ConfigInstance.Database.Path), &gorm.Config{})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Database error")
+	}
+
+	var session SessionModel
+	if err := db.First(&session, "id = ?", cookie).Error; err != nil {
+		return c.Status(fiber.StatusUnauthorized).SendString("Invalid session")
+	}
+
+	// Reconstruct the token
+	token := &oauth2.Token{
+		AccessToken:  session.AccessToken,
+		RefreshToken: session.RefreshToken,
+		Expiry:       session.ExpiresAt,
+		TokenType:    "Bearer",
+	}
+
+	ctx := context.Background()
+	tokenSource := oauth2Config.TokenSource(ctx, token)
+
+	// Get a fresh token (this will refresh if needed)
+	newToken, err := tokenSource.Token()
+	if err != nil {
+		// If we can't refresh, the session is effectively invalid for OIDC purposes,
+		// but maybe we still want to allow access if the session in DB is still valid?
+		// The user request explicitly said "When calling handleMe call the OIDC userinfo endpoint".
+		// If that fails, we probably should return error or at least fail the request.
+		// However, let's just log it and maybe return 401 if we strictly need OIDC info.
+		// Given the requirement, I'll error out.
+		return c.Status(fiber.StatusUnauthorized).SendString("Failed to refresh token: " + err.Error())
+	}
+
+	// Update session if token changed
+	if newToken.AccessToken != session.AccessToken {
+		session.AccessToken = newToken.AccessToken
+		session.RefreshToken = newToken.RefreshToken
+		session.ExpiresAt = newToken.Expiry
+		if err := db.Save(&session).Error; err != nil {
+			log.Printf("Failed to update session with new token: %v", err)
 		}
-		return []byte(ConfigInstance.Web.JWTSecret), nil
-	})
-
-	if err != nil || !token.Valid {
-		return c.Status(fiber.StatusUnauthorized).SendString("Invalid token")
 	}
 
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return c.Status(fiber.StatusInternalServerError).SendString("Invalid claims")
+	userInfo, err := oidcProvider.UserInfo(ctx, tokenSource)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to get user info: " + err.Error())
 	}
 
-	return c.JSON(fiber.Map{
-		"username": claims["username"],
-	})
+	var claims map[string]interface{}
+	if err := userInfo.Claims(&claims); err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to parse user info claims: " + err.Error())
+	}
+
+	return c.JSON(claims)
 }
 
 func AuthMiddleware(c *fiber.Ctx) error {
@@ -164,24 +223,63 @@ func AuthMiddleware(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).SendString("Not logged in")
 	}
 
-	token, err := jwt.Parse(cookie, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return []byte(ConfigInstance.Web.JWTSecret), nil
-	})
-
-	if err != nil || !token.Valid {
-		return c.Status(fiber.StatusUnauthorized).SendString("Invalid token")
+	db, err := gorm.Open(sqlite.Open(ConfigInstance.Database.Path), &gorm.Config{})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Database error")
 	}
 
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return c.Status(fiber.StatusInternalServerError).SendString("Invalid claims")
+	var session SessionModel
+	if err := db.First(&session, "id = ?", cookie).Error; err != nil {
+		return c.Status(fiber.StatusUnauthorized).SendString("Invalid session")
 	}
 
 	// Store user info in context for downstream handlers
-	c.Locals("username", claims["username"])
+	c.Locals("username", session.Username)
 
 	return c.Next()
+}
+
+func handleBackchannelLogout(c *fiber.Ctx) error {
+	logoutToken := c.FormValue("logout_token")
+	if logoutToken == "" {
+		return c.Status(fiber.StatusBadRequest).SendString("Missing logout_token")
+	}
+
+	// Verify the logout token
+	// It's a JWT. We need to verify signature and claims.
+	// The key used to sign it is from the IdP.
+
+	// We need a provider to get the verifier.
+	// Assuming initAuth has run and configured things, but we might need to create a new provider instance if we want to be safe,
+	// or re-use a global one if we had it. initAuth creates a local provider variable.
+	// Let's create a new one.
+	ctx := context.Background()
+
+	verifier := oidcProvider.Verifier(&oidc.Config{ClientID: ConfigInstance.Oidc.ClientID})
+	token, err := verifier.Verify(ctx, logoutToken)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString("Invalid logout_token: " + err.Error())
+	}
+
+	var claims struct {
+		Sid string `json:"sid"`
+		Sub string `json:"sub"`
+	}
+	if err := token.Claims(&claims); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString("Failed to parse claims")
+	}
+
+	db, err := gorm.Open(sqlite.Open(ConfigInstance.Database.Path), &gorm.Config{})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Database error")
+	}
+
+	if claims.Sid != "" {
+		db.Delete(&SessionModel{}, "id_p_session_id = ?", claims.Sid)
+	} else if claims.Sub != "" {
+		// If sid is missing, logout all sessions for the user (sub)
+		db.Delete(&SessionModel{}, "subject = ?", claims.Sub)
+	}
+
+	return c.SendStatus(fiber.StatusOK)
 }

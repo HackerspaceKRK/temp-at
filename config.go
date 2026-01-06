@@ -60,15 +60,14 @@ type LocalizedString map[string]string
 type WebConfig struct {
 	ListenAddress string `yaml:"listen_address"`
 	PublicURL     string `yaml:"public_url"`
-	JWTSecret     string `yaml:"jwt_secret"`
-	JWTSecretFile string `yaml:"jwt_secret_file"`
 }
 
 type OidcConfig struct {
-	ClientID         string `yaml:"client_id"`
-	ClientSecret     string `yaml:"client_secret"`
-	ClientSecretFile string `yaml:"client_secret_file"`
-	IssuerURL        string `yaml:"issuer_url"`
+	ClientID         string   `yaml:"client_id"`
+	ClientSecret     string   `yaml:"client_secret"`
+	ClientSecretFile string   `yaml:"client_secret_file"`
+	IssuerURL        string   `yaml:"issuer_url"`
+	ExtraScopes      []string `yaml:"extra_scopes"`
 }
 
 type FrigateConfig struct {

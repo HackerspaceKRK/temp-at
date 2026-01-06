@@ -33,6 +33,23 @@ func (VirtualDeviceStateModel) TableName() string {
 	return "virtual_device_state_models"
 }
 
+// SessionModel represents an authenticated user session.
+type SessionModel struct {
+	ID           string    `gorm:"primaryKey;type:text"` // Random UUID
+	Subject      string    `gorm:"index;not null"`       // QIDC sub
+	IdPSessionID string    `gorm:"index"`                // QIDC sid
+	Username     string    `gorm:"not null"`             // Cached preferred_username
+	AccessToken  string    `gorm:"type:text"`
+	RefreshToken string    `gorm:"type:text"`
+	ExpiresAt    time.Time `gorm:"not null;index"`
+	CreatedAt    time.Time `gorm:"autoCreateTime"`
+}
+
+// TableName overrides the default table name.
+func (SessionModel) TableName() string {
+	return "sessions"
+}
+
 // GenerateUUIDv7 generates a new UUIDv7 string for state record IDs.
 func GenerateUUIDv7() string {
 	id, err := uuid.NewV7()
@@ -45,7 +62,7 @@ func GenerateUUIDv7() string {
 
 // AutoMigrateModels runs GORM auto-migration for all models.
 func AutoMigrateModels(db *gorm.DB) error {
-	return db.AutoMigrate(&VirtualDeviceModel{}, &VirtualDeviceStateModel{})
+	return db.AutoMigrate(&VirtualDeviceModel{}, &VirtualDeviceStateModel{}, &SessionModel{})
 }
 
 // CurrentTimestampMillis returns current time as Unix milliseconds.
