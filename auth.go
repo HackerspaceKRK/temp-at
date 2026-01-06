@@ -82,6 +82,8 @@ func handleAuthCallback(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString("Failed to exchange token: " + err.Error())
 	}
 
+	log.Printf("Received OAuth2 token: %+v\n", oauth2Token)
+
 	// Extract the ID Token from OAuth2 token.
 	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
 	if !ok {
@@ -214,7 +216,30 @@ func handleMe(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString("Failed to parse user info claims: " + err.Error())
 	}
 
-	return c.JSON(claims)
+	usernameClaim := ConfigInstance.Oidc.UsernameClaim
+	if usernameClaim == "" {
+		usernameClaim = "preferred_username"
+	}
+
+	username, _ := claims[usernameClaim].(string)
+	if username == "" {
+		// Fallback or error? User requested defaulting to preferred_username logic,
+		// but if that is missing, maybe sub? For now, empty string or "Unknown".
+		// Or if configured claim is missing.
+		// Let's stick to what we have.
+	}
+
+	var membershipExpirationDate interface{} = nil
+	if ConfigInstance.Oidc.MembershipExpirationClaim != "" {
+		if val, ok := claims[ConfigInstance.Oidc.MembershipExpirationClaim]; ok {
+			membershipExpirationDate = val
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"username":                 username,
+		"membershipExpirationDate": membershipExpirationDate,
+	})
 }
 
 func AuthMiddleware(c *fiber.Ctx) error {

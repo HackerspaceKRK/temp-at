@@ -63,11 +63,13 @@ type WebConfig struct {
 }
 
 type OidcConfig struct {
-	ClientID         string   `yaml:"client_id"`
-	ClientSecret     string   `yaml:"client_secret"`
-	ClientSecretFile string   `yaml:"client_secret_file"`
-	IssuerURL        string   `yaml:"issuer_url"`
-	ExtraScopes      []string `yaml:"extra_scopes"`
+	ClientID                  string   `yaml:"client_id"`
+	ClientSecret              string   `yaml:"client_secret"`
+	ClientSecretFile          string   `yaml:"client_secret_file"`
+	IssuerURL                 string   `yaml:"issuer_url"`
+	ExtraScopes               []string `yaml:"extra_scopes"`
+	UsernameClaim             string   `yaml:"username_claim"`
+	MembershipExpirationClaim string   `yaml:"membership_expiration_claim"`
 }
 
 type FrigateConfig struct {

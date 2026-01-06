@@ -4,6 +4,7 @@ import { API_URL } from "./config";
 
 interface User {
     username: string;
+    membershipExpirationDate?: string | null;
 }
 
 interface AuthContextType {

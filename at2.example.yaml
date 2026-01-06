@@ -16,6 +16,8 @@ oidc:
   issuer_url: "https://accounts.google.com"
   extra_scopes:
     - "groups"
+  username_claim: "preferred_username"
+  membership_expiration_claim: "membership_expiration"
 
 # Frigate NVR configuration
 frigate:

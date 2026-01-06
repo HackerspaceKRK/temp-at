@@ -20,6 +20,8 @@ import { ThemeProvider, useTheme } from "./theme";
 
 import { ModeToggle } from "./components/ModeToggle";
 import { LanguageToggle } from "./components/LanguageToggle";
+import { Button } from "./components/ui/button";
+import { User as UserIcon } from "lucide-react";
 
 export function App() {
   return (
@@ -42,27 +44,38 @@ const UserControls: FC = () => {
   if (user) {
     return (
       <div className="flex items-center gap-4">
-        <span className="text-sm">
-          <Trans
-            i18nKey="Welcome, {{username}}"
-            values={{ username: user.username }}
-            components={{ bold: <strong /> }}
-          />
-        </span>
-        <button
+        <div className="flex items-center gap-2">
+          <UserIcon className="size-8 p-1 bg-muted rounded-full" />
+          <div className="flex flex-col text-sm">
+            <span className="font-semibold">
+              <Trans
+                i18nKey="Welcome, {{username}}"
+                values={{ username: user.username }}
+                components={{ bold: <span /> }}
+              />
+            </span>
+            {user.membershipExpirationDate && (
+              <span className="text-xs text-muted-foreground">
+                {t("Membership expiration: {{date}}", { date: user.membershipExpirationDate })}
+              </span>
+            )}
+          </div>
+        </div>
+        <Button
           onClick={logout}
-          className="text-sm underline hover:text-primary"
+          variant="outline"
+          size="sm"
         >
           {t("Log Out")}
-        </button>
+        </Button>
       </div>
     );
   }
 
   return (
-    <button onClick={login} className="text-sm font-semibold hover:underline">
+    <Button onClick={login} size="sm">
       {t("Log In")}
-    </button>
+    </Button>
   );
 };
 
@@ -158,11 +171,12 @@ const AppContent: FC = () => {
             )}
           </a>
           <div className="flex items-center gap-2 sm:gap-4 flex-wrap justify-center">
-            <UserControls />
             <div className="flex items-center gap-2">
               <LanguageToggle />
               <ModeToggle />
             </div>
+            <div className="w-px h-8 bg-border mx-2" />
+            <UserControls />
           </div>
         </header>
         <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4 pb-10">
