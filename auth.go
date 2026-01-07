@@ -83,8 +83,6 @@ func handleAuthCallback(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to exchange token: " + err.Error()})
 	}
 
-	log.Printf("Received OAuth2 token: %+v\n", oauth2Token)
-
 	// Extract the ID Token from OAuth2 token.
 	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
 	if !ok {
@@ -144,7 +142,7 @@ func handleAuthCallback(c *fiber.Ctx) error {
 	c.Cookie(&fiber.Cookie{
 		Name:     CookieName,
 		Value:    session.ID,
-		Expires:  time.Now().Add(30 * 24 * time.Hour), // Keep consistent with previous logic, or match token expiry?
+		Expires:  time.Now().Add(31 * 24 * time.Hour),
 		HTTPOnly: true,
 		Secure:   false, // set to true if using HTTPS
 		SameSite: "Lax",
@@ -219,7 +217,7 @@ func handleMe(c *fiber.Ctx) error {
 	if newToken.AccessToken != session.AccessToken {
 		session.AccessToken = newToken.AccessToken
 		session.RefreshToken = newToken.RefreshToken
-		session.ExpiresAt = newToken.Expiry
+		session.ExpiresAt = time.Now().Add(31 * 24 * time.Hour)
 		session.CachedClaims = "" // Invalidate cached claims as we will fetch new ones
 		// We don't save yet, we save after fetching new claims
 	}
@@ -246,6 +244,16 @@ func handleMe(c *fiber.Ctx) error {
 			log.Printf("Failed to update session with new token: %v", err)
 		}
 	}
+
+	// Extend the session cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     CookieName,
+		Value:    session.ID,
+		Expires:  time.Now().Add(31 * 24 * time.Hour),
+		HTTPOnly: true,
+		Secure:   false, // set to true if using HTTPS
+		SameSite: "Lax",
+	})
 
 	return c.JSON(extractUserInfo(claims))
 }
