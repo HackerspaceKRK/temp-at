@@ -190,12 +190,16 @@ export const RelayGroupControl: FC<RelayGroupControlProps> = ({
             <DropdownMenuItem
               key={entity.id}
               role="menuitem"
-              onSelect={(e) => e.preventDefault()}
+              onSelect={(e) => {
+                e.preventDefault();
+                handleSwitchClick(entity, !(entity.state === "ON"));
+              }}
+              className="cursor-pointer"
             >
-              <div className="flex items-center space-x-2 justify-between w-full">
+              <div className="flex items-center space-x-2 justify-between w-full pointer-events-none">
                 <Label
                   htmlFor={"switch-" + entity.id}
-                  className={`cursor-pointer font-normal ${entity.prohibit_control ? "opacity-50" : ""}`}
+                  className={`font-normal ${entity.prohibit_control ? "opacity-50" : ""}`}
                 >
                   {getName(entity.localized_name) || entity.id}
                 </Label>
@@ -203,9 +207,13 @@ export const RelayGroupControl: FC<RelayGroupControlProps> = ({
                   id={"switch-" + entity.id}
                   checked={entity.state === "ON"}
                   disabled={entity.prohibit_control}
-                  onCheckedChange={(checked) =>
-                    handleSwitchClick(entity, checked)
-                  }
+                // Switch is visually updated by parent, no need for onCheckedChange here
+                // in the controlled context if we handle the row click.
+                // But to keep it robust we can leave onCheckedChange or just rely on the Item click.
+                // Since we are wrapping it in a click handler, let's make the switch passive or
+                // ensure it doesn't double trigger. 
+                // Radix DropdownMenuItem handles click. 
+                // If we put pointer-events-none on the content, the Item gets the click.
                 />
               </div>
             </DropdownMenuItem>
