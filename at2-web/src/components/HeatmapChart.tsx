@@ -1,4 +1,4 @@
-import { type FC, useMemo, memo } from "react";
+import { type FC, useMemo, memo, useRef, useLayoutEffect } from "react";
 import type { UsageHeatmapDataPoint } from "../schema";
 import { useTranslation } from "react-i18next";
 import { clsx, type ClassValue } from "clsx";
@@ -83,6 +83,13 @@ const Legend = memo(({ maxManHours, getColor }: { maxManHours: number; getColor:
 
 const HeatmapChartComponent: FC<HeatmapChartProps> = ({ data, resolution }) => {
     const { t, i18n } = useTranslation();
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    useLayoutEffect(() => {
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
+        }
+    }, [data, resolution]);
 
     const maxManHours = useMemo(() => {
         return Math.max(...data.map((d) => d.manHours), 0.1);
@@ -158,7 +165,7 @@ const HeatmapChartComponent: FC<HeatmapChartProps> = ({ data, resolution }) => {
         <TooltipProvider>
             <div className="flex items-start">
                 <Legend maxManHours={maxManHours} getColor={getColor} />
-                <div className="flex flex-col gap-2 overflow-x-auto pb-4 flex-1">
+                <div ref={scrollContainerRef} className="flex flex-col gap-2 overflow-x-auto pb-4 flex-1">
                     <div className="flex gap-2 min-w-max">
                         {resolution === "day" && dailyConfig && (
                             <>
