@@ -56,7 +56,7 @@ const UserControls: FC = () => {
             </span>
             {user.membershipExpirationDate && (
               <span className="text-xs text-muted-foreground">
-                {t("Membership expiration: {{date}}", { date: user.membershipExpirationDate })}
+                {t("Access card expiration: {{date}}", { date: user.membershipExpirationDate })}
               </span>
             )}
           </div>

@@ -3,7 +3,7 @@
     "Welcome, {{username}}": "Witaj, <bold>{{username}}</bold>",
     "Log Out": "Wyloguj",
     "Log In": "Zaloguj się",
-    "Membership expiration: {{date}}": "Wygasa: {{date}}",
+    "Access card expiration: {{date}}": "Brelok wygasa: {{date}}",
     "Waiting for data...": "Oczekiwanie na dane...",
     "People count": "Liczba osób",
     "Last seen: {{date}}": "Ostatnio widziano: {{date}}",
