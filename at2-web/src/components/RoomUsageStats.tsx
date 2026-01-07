@@ -69,9 +69,9 @@ const RoomUsageStatsComponent: FC<RoomUsageStatsProps> = ({ rooms }) => {
 
     return (
         <Card className="col-span-full mt-8">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
+            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 space-y-0 pb-7">
                 <CardTitle className="text-xl font-bold">{t("Usage Statistics")}</CardTitle>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
                     {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
 
                     <DropdownMenu>
