@@ -145,8 +145,13 @@ const AppContent: FC = () => {
     return scoreB - scoreA;
   });
 
+  const isDarkMode =
+    theme === "dark" ||
+    (theme === "system" &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches);
+
   const logoUrl =
-    theme === "dark" && branding?.logo_dark_url
+    isDarkMode && branding?.logo_dark_url
       ? branding.logo_dark_url
       : branding?.logo_url;
 
