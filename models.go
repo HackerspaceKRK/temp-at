@@ -41,6 +41,7 @@ type SessionModel struct {
 	Username     string    `gorm:"not null"`             // Cached preferred_username
 	AccessToken  string    `gorm:"type:text"`
 	RefreshToken string    `gorm:"type:text"`
+	CachedClaims string    `gorm:"type:text"` // JSON-encoded claims
 	ExpiresAt    time.Time `gorm:"not null;index"`
 	CreatedAt    time.Time `gorm:"autoCreateTime"`
 }

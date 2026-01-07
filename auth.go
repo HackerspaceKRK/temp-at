@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -59,7 +60,7 @@ const (
 
 func handleLoginRequest(c *fiber.Ctx) error {
 	if oauth2Config == nil {
-		return c.Status(fiber.StatusUnauthorized).SendString("OIDC not configured")
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "OIDC not configured"})
 	}
 
 	authCodeURL := oauth2Config.AuthCodeURL("state", oauth2.AccessTypeOffline)
@@ -68,18 +69,18 @@ func handleLoginRequest(c *fiber.Ctx) error {
 
 func handleAuthCallback(c *fiber.Ctx) error {
 	if oauth2Config == nil {
-		return c.Status(fiber.StatusUnauthorized).SendString("OIDC not configured")
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "OIDC not configured"})
 	}
 
 	code := c.Query("code")
 	if code == "" {
-		return c.Status(fiber.StatusBadRequest).SendString("Missing code in callback")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Missing code in callback"})
 	}
 
 	ctx := context.Background()
 	oauth2Token, err := oauth2Config.Exchange(ctx, code)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Failed to exchange token: " + err.Error())
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to exchange token: " + err.Error()})
 	}
 
 	log.Printf("Received OAuth2 token: %+v\n", oauth2Token)
@@ -87,14 +88,14 @@ func handleAuthCallback(c *fiber.Ctx) error {
 	// Extract the ID Token from OAuth2 token.
 	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
 	if !ok {
-		return c.Status(fiber.StatusInternalServerError).SendString("No id_token field in oauth2 token.")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "No id_token field in oauth2 token."})
 	}
 
 	// Verify the ID Token signature and expiration.
 	verifier := oidcProvider.Verifier(&oidc.Config{ClientID: ConfigInstance.Oidc.ClientID})
 	idToken, err := verifier.Verify(ctx, rawIDToken)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Failed to verify ID Token: " + err.Error())
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to verify ID Token: " + err.Error()})
 	}
 
 	// Get the claims
@@ -105,12 +106,23 @@ func handleAuthCallback(c *fiber.Ctx) error {
 		Sid               string `json:"sid"`
 	}
 	if err := idToken.Claims(&claims); err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Failed to parse claims: " + err.Error())
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse claims: " + err.Error()})
 	}
+
+	// Fetch standard UserInfo claims to cache them
+	userInfo, err := oidcProvider.UserInfo(ctx, oauth2Config.TokenSource(ctx, oauth2Token))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to get user info: " + err.Error()})
+	}
+	var allClaims map[string]interface{}
+	if err := userInfo.Claims(&allClaims); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse user info claims: " + err.Error()})
+	}
+	cachedClaimsJSON, _ := json.Marshal(allClaims)
 
 	db, err := gorm.Open(sqlite.Open(ConfigInstance.Database.Path), &gorm.Config{})
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Failed to connect to database: " + err.Error())
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to connect to database: " + err.Error()})
 	}
 
 	session := SessionModel{
@@ -120,11 +132,12 @@ func handleAuthCallback(c *fiber.Ctx) error {
 		Username:     claims.PreferredUsername,
 		AccessToken:  oauth2Token.AccessToken,
 		RefreshToken: oauth2Token.RefreshToken,
+		CachedClaims: string(cachedClaimsJSON),
 		ExpiresAt:    oauth2Token.Expiry,
 	}
 
 	if err := db.Create(&session).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Failed to create session: " + err.Error())
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create session: " + err.Error()})
 	}
 
 	// Set the cookie
@@ -160,17 +173,26 @@ func handleLogout(c *fiber.Ctx) error {
 func handleMe(c *fiber.Ctx) error {
 	cookie := c.Cookies(CookieName)
 	if cookie == "" {
-		return c.Status(fiber.StatusUnauthorized).SendString("Not logged in")
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Not logged in"})
 	}
 
 	db, err := gorm.Open(sqlite.Open(ConfigInstance.Database.Path), &gorm.Config{})
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Database error")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error"})
 	}
 
 	var session SessionModel
 	if err := db.First(&session, "id = ?", cookie).Error; err != nil {
-		return c.Status(fiber.StatusUnauthorized).SendString("Invalid session")
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid session"})
+	}
+
+	fast := c.Query("fast") == "true"
+	if fast && session.CachedClaims != "" {
+		var claims map[string]interface{}
+		if err := json.Unmarshal([]byte(session.CachedClaims), &claims); err == nil {
+			return c.JSON(extractUserInfo(claims))
+		}
+		// If unmarshal fails, we fall through to the slow path
 	}
 
 	// Reconstruct the token
@@ -187,13 +209,10 @@ func handleMe(c *fiber.Ctx) error {
 	// Get a fresh token (this will refresh if needed)
 	newToken, err := tokenSource.Token()
 	if err != nil {
-		// If we can't refresh, the session is effectively invalid for OIDC purposes,
-		// but maybe we still want to allow access if the session in DB is still valid?
-		// The user request explicitly said "When calling handleMe call the OIDC userinfo endpoint".
-		// If that fails, we probably should return error or at least fail the request.
-		// However, let's just log it and maybe return 401 if we strictly need OIDC info.
-		// Given the requirement, I'll error out.
-		return c.Status(fiber.StatusUnauthorized).SendString("Failed to refresh token: " + err.Error())
+		// Invalidate the session and return 401
+		db.Delete(&SessionModel{}, "id = ?", cookie)
+		c.ClearCookie(CookieName)
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Failed to refresh token: " + err.Error()})
 	}
 
 	// Update session if token changed
@@ -201,33 +220,43 @@ func handleMe(c *fiber.Ctx) error {
 		session.AccessToken = newToken.AccessToken
 		session.RefreshToken = newToken.RefreshToken
 		session.ExpiresAt = newToken.Expiry
+		session.CachedClaims = "" // Invalidate cached claims as we will fetch new ones
+		// We don't save yet, we save after fetching new claims
+	}
+
+	userInfo, err := oidcProvider.UserInfo(ctx, tokenSource)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to get user info: " + err.Error()})
+	}
+
+	var claims map[string]interface{}
+	if err := userInfo.Claims(&claims); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse user info claims: " + err.Error()})
+	}
+
+	// Update cached claims
+	if claimsJSON, err := json.Marshal(claims); err == nil {
+		session.CachedClaims = string(claimsJSON)
+		if err := db.Save(&session).Error; err != nil {
+			log.Printf("Failed to update session with new token: %v", err)
+		}
+	} else {
+		// Just save the token update if we couldn't marshal claims for some reason
 		if err := db.Save(&session).Error; err != nil {
 			log.Printf("Failed to update session with new token: %v", err)
 		}
 	}
 
-	userInfo, err := oidcProvider.UserInfo(ctx, tokenSource)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Failed to get user info: " + err.Error())
-	}
+	return c.JSON(extractUserInfo(claims))
+}
 
-	var claims map[string]interface{}
-	if err := userInfo.Claims(&claims); err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Failed to parse user info claims: " + err.Error())
-	}
-
+func extractUserInfo(claims map[string]interface{}) fiber.Map {
 	usernameClaim := ConfigInstance.Oidc.UsernameClaim
 	if usernameClaim == "" {
 		usernameClaim = "preferred_username"
 	}
 
 	username, _ := claims[usernameClaim].(string)
-	if username == "" {
-		// Fallback or error? User requested defaulting to preferred_username logic,
-		// but if that is missing, maybe sub? For now, empty string or "Unknown".
-		// Or if configured claim is missing.
-		// Let's stick to what we have.
-	}
 
 	var membershipExpirationDate interface{} = nil
 	if ConfigInstance.Oidc.MembershipExpirationClaim != "" {
@@ -236,26 +265,26 @@ func handleMe(c *fiber.Ctx) error {
 		}
 	}
 
-	return c.JSON(fiber.Map{
+	return fiber.Map{
 		"username":                 username,
 		"membershipExpirationDate": membershipExpirationDate,
-	})
+	}
 }
 
 func AuthMiddleware(c *fiber.Ctx) error {
 	cookie := c.Cookies(CookieName)
 	if cookie == "" {
-		return c.Status(fiber.StatusUnauthorized).SendString("Not logged in")
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Not logged in"})
 	}
 
 	db, err := gorm.Open(sqlite.Open(ConfigInstance.Database.Path), &gorm.Config{})
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Database error")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error"})
 	}
 
 	var session SessionModel
 	if err := db.First(&session, "id = ?", cookie).Error; err != nil {
-		return c.Status(fiber.StatusUnauthorized).SendString("Invalid session")
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid session"})
 	}
 
 	// Store user info in context for downstream handlers
@@ -267,7 +296,7 @@ func AuthMiddleware(c *fiber.Ctx) error {
 func handleBackchannelLogout(c *fiber.Ctx) error {
 	logoutToken := c.FormValue("logout_token")
 	if logoutToken == "" {
-		return c.Status(fiber.StatusBadRequest).SendString("Missing logout_token")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Missing logout_token"})
 	}
 
 	// Verify the logout token
@@ -283,7 +312,7 @@ func handleBackchannelLogout(c *fiber.Ctx) error {
 	verifier := oidcProvider.Verifier(&oidc.Config{ClientID: ConfigInstance.Oidc.ClientID})
 	token, err := verifier.Verify(ctx, logoutToken)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString("Invalid logout_token: " + err.Error())
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid logout_token: " + err.Error()})
 	}
 
 	var claims struct {
@@ -291,12 +320,12 @@ func handleBackchannelLogout(c *fiber.Ctx) error {
 		Sub string `json:"sub"`
 	}
 	if err := token.Claims(&claims); err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString("Failed to parse claims")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Failed to parse claims"})
 	}
 
 	db, err := gorm.Open(sqlite.Open(ConfigInstance.Database.Path), &gorm.Config{})
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Database error")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error"})
 	}
 
 	if claims.Sid != "" {

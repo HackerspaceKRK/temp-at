@@ -21,8 +21,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
 
     const checkAuth = async () => {
+        const apiUrl = API_URL.replace(/\/$/, "");
+        let slowRequestCompleted = false;
+
+        // Perform fast request (cache-only)
+        fetch(`${apiUrl}/api/v1/auth/me?fast=true`)
+            .then(async (res) => {
+                if (slowRequestCompleted) return;
+                if (res.ok) {
+                    const data = await res.json();
+                    if (!slowRequestCompleted) {
+                        setUser(data);
+                    }
+                }
+            })
+            .catch(() => {
+                // Ignore errors from fast endpoint
+            });
+
+        // Perform normal request (actual auth verification)
         try {
-            const response = await fetch(`${API_URL.replace(/\/$/, "")}/api/v1/auth/me`);
+            const response = await fetch(`${apiUrl}/api/v1/auth/me`);
+            slowRequestCompleted = true;
             if (response.ok) {
                 const data = await response.json();
                 setUser(data);
@@ -31,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
         } catch (error) {
             console.error("Auth check failed", error);
+            slowRequestCompleted = true;
             setUser(null);
         } finally {
             setIsLoading(false);
