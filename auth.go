@@ -216,8 +216,10 @@ func handleMe(c *fiber.Ctx) error {
 	// Update session if token changed
 	if newToken.AccessToken != session.AccessToken {
 		session.AccessToken = newToken.AccessToken
-		session.RefreshToken = newToken.RefreshToken
-		session.ExpiresAt = time.Now().Add(31 * 24 * time.Hour)
+		if newToken.RefreshToken != "" {
+			session.RefreshToken = newToken.RefreshToken
+		}
+		session.ExpiresAt = newToken.Expiry
 		session.CachedClaims = "" // Invalidate cached claims as we will fetch new ones
 		// We don't save yet, we save after fetching new claims
 	}
