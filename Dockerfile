@@ -16,8 +16,13 @@ COPY . .
 # Build frontend and embed
 RUN go generate ./...
 
+# Build arguments for version info
+ARG GIT_REPO_URL
+ARG GIT_COMMIT_HASH
+ARG GIT_COMMIT_DATE
+
 RUN mkdir -p /app && CGO_ENABLED=1 GOOS=${TARGETPLATFORM%%/*} GOARCH=${TARGETPLATFORM##*/} \
-    go build -ldflags='-s -w -extldflags="-static"' -o /app/temp-at
+    go build -ldflags="-s -w -extldflags='-static' -X 'main.GitRepoURL=${GIT_REPO_URL}' -X 'main.GitCommitHash=${GIT_COMMIT_HASH}' -X 'main.GitCommitDate=${GIT_COMMIT_DATE}'" -o /app/temp-at
 
 FROM scratch AS bin-unix
 COPY --from=alpine:latest /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/

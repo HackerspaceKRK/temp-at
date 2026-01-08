@@ -8,11 +8,12 @@ import { useEffect, useState } from "react";
 import type { FC } from "react";
 import "./app.css";
 import useWebsocket from "./useWebsocket";
-import type { RoomState, Branding } from "./schema";
+import type { RoomState } from "./schema";
 import RoomCard from "./components/RoomCard";
 import Footer from "./components/Footer";
 import { API_URL } from "./config";
 import { AuthProvider, useAuth } from "./AuthContext";
+import { AppConfigProvider, useAppConfig } from "./AppConfigContext";
 import { useTranslation, Trans } from "react-i18next";
 import { RoomUsageStats } from "./components/RoomUsageStats";
 
@@ -27,7 +28,9 @@ export function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AppContent />
+        <AppConfigProvider>
+          <AppContent />
+        </AppConfigProvider>
       </AuthProvider>
     </ThemeProvider>
   );
@@ -82,7 +85,8 @@ const UserControls: FC = () => {
 const AppContent: FC = () => {
   const { t } = useTranslation();
   const { theme } = useTheme();
-  const [branding, setBranding] = useState<Branding | null>(null);
+  const { config } = useAppConfig();
+  const branding = config?.branding;
   const [roomStates, setRoomStates] = useState<{ [key: string]: RoomState }>(
     {}
   );
@@ -102,17 +106,7 @@ const AppContent: FC = () => {
     },
   });
 
-  useEffect(() => {
-    fetch(`${API_URL.replace(/\/$/, "")}/api/v1/branding`)
-      .then((res) => res.json())
-      .then((data) => {
-        setBranding(data);
-        if (data.page_title) {
-          document.title = data.page_title;
-        }
-      })
-      .catch((err) => console.error("Failed to fetch branding:", err));
-  }, []);
+
 
   useEffect(() => {
     for (const roomId in roomStates) {
@@ -196,7 +190,7 @@ const AppContent: FC = () => {
           <RoomUsageStats rooms={rooms} />
         </main>
       </div>
-      <Footer branding={branding} />
+      <Footer />
     </div>
   );
 };

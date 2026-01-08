@@ -1,16 +1,19 @@
 import type { FC } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import type { Branding } from "../schema";
+import { useAppConfig } from "../AppConfigContext";
 
-interface FooterProps {
-    branding?: Branding | null;
-}
-
-const Footer: FC<FooterProps> = ({ branding }) => {
+const Footer: FC = () => {
     const { t } = useTranslation();
+    const { config } = useAppConfig();
     const currentYear = new Date().getFullYear();
+    const branding = config?.branding;
+    const version = config?.version;
 
     if (!branding) return null;
+
+    const shortHash = version?.git_commit_hash?.substring(0, 7) || "unknown";
+    const commitDate = version?.git_commit_date ? new Date(version.git_commit_date).toLocaleString() : "";
+    const commitUrl = version?.git_repo_url && version?.git_commit_hash ? `${version.git_repo_url}/commit/${version.git_commit_hash}` : undefined;
 
     return (
         <footer className="mt-auto py-8 border-t border-border">
@@ -53,6 +56,19 @@ const Footer: FC<FooterProps> = ({ branding }) => {
                         </a>
                     </div>
                 </div>
+                {version && version.git_commit_hash !== "unknown" && (
+                    <div className="text-xs opacity-50">
+                        {t("Version")}:{" "}
+                        <a
+                            href={commitUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:underline"
+                        >
+                            {shortHash} ({commitDate})
+                        </a>
+                    </div>
+                )}
             </div>
         </footer>
     );

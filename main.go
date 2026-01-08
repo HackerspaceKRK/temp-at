@@ -102,7 +102,7 @@ func main() {
 	app.Post("/api/v1/auth/backchannel-logout", handleBackchannelLogout)
 	app.Post("/api/v1/control-relay", AuthMiddleware, handleControlRelay)
 	app.Get("/api/v1/spaceapi", handleSpaceAPI)
-	app.Get("/api/v1/branding", handleBranding)
+	app.Get("/api/v1/app-config", handleAppConfig)
 	app.Get("/health", handleHealth)
 	app.Get("/api/v1/device-history", handleDeviceHistory)
 	app.Get("/api/v1/stats/usage-heatmap", handleUsageHeatmap)
@@ -215,9 +215,16 @@ func handleDevices(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(devices)
 }
 
-func handleBranding(c *fiber.Ctx) error {
+func handleAppConfig(c *fiber.Ctx) error {
 	cfg := MustLoadConfig()
-	return c.JSON(cfg.Branding)
+	return c.JSON(fiber.Map{
+		"branding": cfg.Branding,
+		"version": fiber.Map{
+			"git_repo_url":    GitRepoURL,
+			"git_commit_hash": GitCommitHash,
+			"git_commit_date": GitCommitDate,
+		},
+	})
 }
 
 func handleHealth(c *fiber.Ctx) error {
