@@ -23,6 +23,7 @@ import { ModeToggle } from "./components/ModeToggle";
 import { LanguageToggle } from "./components/LanguageToggle";
 import { Button } from "./components/ui/button";
 import { User as UserIcon } from "lucide-react";
+import { Alerts } from "./components/Alerts";
 
 export function App() {
   return (
@@ -178,6 +179,7 @@ const AppContent: FC = () => {
             <UserControls />
           </div>
         </header>
+        <Alerts />
         <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4 pb-10">
           {rooms.length === 0 && (
             <div className="col-span-full text-center py-10 text-neutral-600">
