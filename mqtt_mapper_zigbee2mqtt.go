@@ -80,6 +80,8 @@ func (m *Zigbee2MQTTMapper) DiscoverDevicesFromMessage(topic string, payload []b
 		var relayExposes []map[string]any
 		var tempExposes []map[string]any
 		var humidExposes []map[string]any
+		var coExposes []map[string]any
+		var gasExposes []map[string]any
 
 		for _, exp := range exposes {
 			expMap, ok := exp.(map[string]any)
@@ -94,6 +96,12 @@ func (m *Zigbee2MQTTMapper) DiscoverDevicesFromMessage(topic string, payload []b
 			}
 			if expMap["type"] == "numeric" && expMap["property"] == "humidity" {
 				humidExposes = append(humidExposes, expMap)
+			}
+			if expMap["type"] == "numeric" && expMap["property"] == "co" {
+				coExposes = append(coExposes, expMap)
+			}
+			if expMap["type"] == "numeric" && expMap["property"] == "gas_value" {
+				gasExposes = append(gasExposes, expMap)
 			}
 		}
 
@@ -158,6 +166,36 @@ func (m *Zigbee2MQTTMapper) DiscoverDevicesFromMessage(topic string, payload []b
 					Endpoint:    endpoint,
 					IEEEAddress: ieee,
 					StateKey:    "humidity",
+				},
+			})
+		}
+
+		// Build CO virtual devices.
+		for _, ex := range coExposes {
+			endpoint := extractEndpointZigbee(ex)
+			discovered = append(discovered, &VirtualDevice{
+				ID:   friendlyName + "/co",
+				Type: VdevTypeCo,
+				MapperData: &Zigbee2MQTTMapperData{
+					BaseTopic:   friendlyName,
+					Endpoint:    endpoint,
+					IEEEAddress: ieee,
+					StateKey:    "co",
+				},
+			})
+		}
+
+		// Build gas virtual devices.
+		for _, ex := range gasExposes {
+			endpoint := extractEndpointZigbee(ex)
+			discovered = append(discovered, &VirtualDevice{
+				ID:   friendlyName + "/gas",
+				Type: VdevTypeGas,
+				MapperData: &Zigbee2MQTTMapperData{
+					BaseTopic:   friendlyName,
+					Endpoint:    endpoint,
+					IEEEAddress: ieee,
+					StateKey:    "gas_value",
 				},
 			})
 		}
@@ -249,11 +287,11 @@ func (m *Zigbee2MQTTMapper) Control(vdev *VirtualDevice, state any, client mqtt.
 	// e.g. zigbee2mqtt/my-relay/set
 	topic := m.prefix + mapperData.BaseTopic + "/set"
 
-	// Construct payload. 
+	// Construct payload.
 	// If StateKey is present, use it: e.g. {"state_l2": "ON"}
 	// If Endpoint is present, some z2m setups might need it, but usually sending to friendly_name/set with {"state_bottom": "ON"} etc is enough.
 	payloadMap := map[string]any{}
-	
+
 	key := mapperData.StateKey
 	if key == "" {
 		key = "state"
