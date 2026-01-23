@@ -24,6 +24,7 @@ import { LanguageToggle } from "./components/LanguageToggle";
 import { Button } from "./components/ui/button";
 import { User as UserIcon } from "lucide-react";
 import { Alerts } from "./components/Alerts";
+import UserControls from "./components/UserControls";
 
 export function App() {
   return (
@@ -37,62 +38,16 @@ export function App() {
   );
 }
 
-const UserControls: FC = () => {
-  const { user, login, logout, isLoading } = useAuth();
-  const { t } = useTranslation();
-
-  if (isLoading) {
-    return <div>...</div>;
-  }
-
-  if (user) {
-    return (
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <UserIcon className="size-8 p-1 bg-muted rounded-full" />
-          <div className="flex flex-col text-sm">
-            <span className="font-semibold">
-              <Trans
-                i18nKey="Welcome, {{username}}"
-                values={{ username: user.username }}
-                components={{ bold: <span /> }}
-              />
-            </span>
-            {user.membershipExpirationDate && (
-              <span className="text-xs text-muted-foreground">
-                {t("Access card expiration: {{date}}", { date: user.membershipExpirationDate })}
-              </span>
-            )}
-          </div>
-        </div>
-        <Button
-          onClick={logout}
-          variant="outline"
-          size="sm"
-        >
-          {t("Log Out")}
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <Button onClick={login} size="sm">
-      {t("Log In")}
-    </Button>
-  );
-};
-
 const AppContent: FC = () => {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const { config } = useAppConfig();
   const branding = config?.branding;
   const [roomStates, setRoomStates] = useState<{ [key: string]: RoomState }>(
-    {}
+    {},
   );
   const [roomScores, setRoomScores] = useState<{ [key: string]: number }>({});
-  const { } = useWebsocket(`${API_URL.replace(/\/$/, "")}/api/v1/live-ws`, {
+  const {} = useWebsocket(`${API_URL.replace(/\/$/, "")}/api/v1/live-ws`, {
     binaryType: "arraybuffer",
     onMessage: (msgEvt) => {
       if (msgEvt.data) {
@@ -107,15 +62,13 @@ const AppContent: FC = () => {
     },
   });
 
-
-
   useEffect(() => {
     for (const roomId in roomStates) {
       if (!(roomId in roomScores)) {
         const room = roomStates[roomId];
         let score = 0;
         const snapCount = room.entities.filter(
-          (e) => e.type === "camera_snapshot"
+          (e) => e.type === "camera_snapshot",
         ).length;
         score += snapCount * 20;
         if (snapCount == 0) {
@@ -123,7 +76,9 @@ const AppContent: FC = () => {
         }
 
         score += room.people_count * 200;
-        const lights = room.entities.filter((e) => e.representation === "light");
+        const lights = room.entities.filter(
+          (e) => e.representation === "light",
+        );
         const lightsOn = lights.filter((e) => (e as any).state === "ON").length;
         score += lightsOn * 50;
         score += lights.length * 10;
@@ -132,7 +87,6 @@ const AppContent: FC = () => {
       }
     }
   }, [roomStates]);
-
 
   const rooms = Object.values(roomStates).sort((a, b) => {
     const scoreA = roomScores[a.id] || 0;
@@ -157,8 +111,14 @@ const AppContent: FC = () => {
           <a
             href={branding?.logo_link_url || "/"}
             className="flex items-center"
-            target={branding?.logo_link_url?.startsWith("http") ? "_blank" : undefined}
-            rel={branding?.logo_link_url?.startsWith("http") ? "noopener noreferrer" : undefined}
+            target={
+              branding?.logo_link_url?.startsWith("http") ? "_blank" : undefined
+            }
+            rel={
+              branding?.logo_link_url?.startsWith("http")
+                ? "noopener noreferrer"
+                : undefined
+            }
           >
             {logoUrl ? (
               <img

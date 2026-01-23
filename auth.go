@@ -268,16 +268,16 @@ func extractUserInfo(claims map[string]interface{}) fiber.Map {
 
 	username, _ := claims[usernameClaim].(string)
 
-	var membershipExpirationDate interface{} = nil
-	if ConfigInstance.Oidc.MembershipExpirationClaim != "" {
-		if val, ok := claims[ConfigInstance.Oidc.MembershipExpirationClaim]; ok {
-			membershipExpirationDate = val
+	var membershipExpirationTimestamp interface{} = nil
+	if ConfigInstance.Oidc.MembershipExpirationTimestampClaim != "" {
+		if val, ok := claims[ConfigInstance.Oidc.MembershipExpirationTimestampClaim]; ok {
+			membershipExpirationTimestamp = val
 		}
 	}
 
 	return fiber.Map{
-		"username":                 username,
-		"membershipExpirationDate": membershipExpirationDate,
+		"username":                      username,
+		"membershipExpirationTimestamp": membershipExpirationTimestamp,
 	}
 }
 
