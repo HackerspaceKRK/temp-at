@@ -43,6 +43,20 @@ func (m *Zigbee2MQTTMapper) SubscriptionTopics() []string {
 	}
 }
 
+type z2mExposureConfig struct {
+	VdevType  VdevType
+	IDsomefix string
+	StateKey  string
+}
+
+var z2mSensorConfigs = map[string]z2mExposureConfig{
+	"numeric:temperature": {VdevTypeTemperature, "/temperature", "temperature"},
+	"numeric:humidity":    {VdevTypeHumidity, "/humidity", "humidity"},
+	"numeric:co":          {VdevTypeCo, "/co", "co"},
+	"numeric:gas_value":   {VdevTypeGas, "/gas", "gas_value"},
+	"binary:contact":      {VdevTypeContact, "/contact", "contact"},
+}
+
 // DiscoverDevicesFromMessage parses the bridge/devices payload and builds virtual devices.
 func (m *Zigbee2MQTTMapper) DiscoverDevicesFromMessage(topic string, payload []byte) ([]*VirtualDevice, error) {
 	if topic != m.prefix+"bridge/devices" {
@@ -59,7 +73,6 @@ func (m *Zigbee2MQTTMapper) DiscoverDevicesFromMessage(topic string, payload []b
 	for _, raw := range rawDevices {
 		var devMap map[string]any
 		if err := json.Unmarshal(raw, &devMap); err != nil {
-			// Skip individual device errors but continue processing.
 			log.Printf("[zigbee2mqtt] device entry unmarshal error: %v", err)
 			continue
 		}
@@ -76,128 +89,67 @@ func (m *Zigbee2MQTTMapper) DiscoverDevicesFromMessage(topic string, payload []b
 			continue
 		}
 
-		// Collect exposures of interest.
-		var relayExposes []map[string]any
-		var tempExposes []map[string]any
-		var humidExposes []map[string]any
-		var coExposes []map[string]any
-		var gasExposes []map[string]any
-
 		for _, exp := range exposes {
 			expMap, ok := exp.(map[string]any)
 			if !ok {
 				continue
 			}
-			if expMap["type"] == "switch" {
-				relayExposes = append(relayExposes, expMap)
-			}
-			if expMap["type"] == "numeric" && expMap["property"] == "temperature" {
-				tempExposes = append(tempExposes, expMap)
-			}
-			if expMap["type"] == "numeric" && expMap["property"] == "humidity" {
-				humidExposes = append(humidExposes, expMap)
-			}
-			if expMap["type"] == "numeric" && expMap["property"] == "co" {
-				coExposes = append(coExposes, expMap)
-			}
-			if expMap["type"] == "numeric" && expMap["property"] == "gas_value" {
-				gasExposes = append(gasExposes, expMap)
-			}
-		}
 
-		// Build virtual relay devices.
-		for _, ex := range relayExposes {
-			endpoint := extractEndpointZigbee(ex)
-			suffix := endpoint
-			if suffix != "" {
-				suffix = "/" + suffix
-			}
-			stateKey := ""
-			if features, ok := ex["features"]; ok {
-				if arr, ok := features.([]any); ok {
-					for _, feature := range arr {
-						fm, ok := feature.(map[string]any)
-						if !ok {
-							continue
-						}
-						if prop, ok := fm["property"]; ok {
-							if s, ok := prop.(string); ok {
-								stateKey = s
+			expType, _ := expMap["type"].(string)
+
+			// Handle switches (special case for relays with endpoints)
+			if expType == "switch" {
+				endpoint := extractEndpointZigbee(expMap)
+				suffix := endpoint
+				if suffix != "" {
+					suffix = "/" + suffix
+				}
+				stateKey := ""
+				if features, ok := expMap["features"]; ok {
+					if arr, ok := features.([]any); ok {
+						for _, feature := range arr {
+							fm, ok := feature.(map[string]any)
+							if !ok {
+								continue
+							}
+							if prop, ok := fm["property"]; ok {
+								if s, ok := prop.(string); ok {
+									stateKey = s
+								}
 							}
 						}
 					}
 				}
+				discovered = append(discovered, &VirtualDevice{
+					ID:   friendlyName + suffix,
+					Type: VdevTypeRelay,
+					MapperData: &Zigbee2MQTTMapperData{
+						BaseTopic:   friendlyName,
+						Endpoint:    endpoint,
+						IEEEAddress: ieee,
+						StateKey:    stateKey,
+					},
+				})
+				continue
 			}
-			discovered = append(discovered, &VirtualDevice{
-				ID:   friendlyName + suffix,
-				Type: VdevTypeRelay,
-				MapperData: &Zigbee2MQTTMapperData{
-					BaseTopic:   friendlyName,
-					Endpoint:    endpoint,
-					IEEEAddress: ieee,
-					StateKey:    stateKey,
-				},
-			})
-		}
 
-		// Build temperature virtual devices.
-		for _, ex := range tempExposes {
-			endpoint := extractEndpointZigbee(ex)
-			discovered = append(discovered, &VirtualDevice{
-				ID:   friendlyName + "/temperature",
-				Type: VdevTypeTemperature,
-				MapperData: &Zigbee2MQTTMapperData{
-					BaseTopic:   friendlyName,
-					Endpoint:    endpoint,
-					IEEEAddress: ieee,
-					StateKey:    "temperature",
-				},
-			})
-		}
+			// Handle general sensors from the map
+			property, _ := expMap["property"].(string)
+			mapKey := expType + ":" + property
 
-		// Build humidity virtual devices.
-		for _, ex := range humidExposes {
-			endpoint := extractEndpointZigbee(ex)
-			discovered = append(discovered, &VirtualDevice{
-				ID:   friendlyName + "/humidity",
-				Type: VdevTypeHumidity,
-				MapperData: &Zigbee2MQTTMapperData{
-					BaseTopic:   friendlyName,
-					Endpoint:    endpoint,
-					IEEEAddress: ieee,
-					StateKey:    "humidity",
-				},
-			})
-		}
-
-		// Build CO virtual devices.
-		for _, ex := range coExposes {
-			endpoint := extractEndpointZigbee(ex)
-			discovered = append(discovered, &VirtualDevice{
-				ID:   friendlyName + "/co",
-				Type: VdevTypeCo,
-				MapperData: &Zigbee2MQTTMapperData{
-					BaseTopic:   friendlyName,
-					Endpoint:    endpoint,
-					IEEEAddress: ieee,
-					StateKey:    "co",
-				},
-			})
-		}
-
-		// Build gas virtual devices.
-		for _, ex := range gasExposes {
-			endpoint := extractEndpointZigbee(ex)
-			discovered = append(discovered, &VirtualDevice{
-				ID:   friendlyName + "/gas",
-				Type: VdevTypeGas,
-				MapperData: &Zigbee2MQTTMapperData{
-					BaseTopic:   friendlyName,
-					Endpoint:    endpoint,
-					IEEEAddress: ieee,
-					StateKey:    "gas_value",
-				},
-			})
+			if config, ok := z2mSensorConfigs[mapKey]; ok {
+				endpoint := extractEndpointZigbee(expMap)
+				discovered = append(discovered, &VirtualDevice{
+					ID:   friendlyName + config.IDsomefix,
+					Type: config.VdevType,
+					MapperData: &Zigbee2MQTTMapperData{
+						BaseTopic:   friendlyName,
+						Endpoint:    endpoint,
+						IEEEAddress: ieee,
+						StateKey:    config.StateKey,
+					},
+				})
+			}
 		}
 	}
 

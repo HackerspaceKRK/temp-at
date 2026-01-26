@@ -17,6 +17,7 @@ const (
 	VdevTypePowerUsage     VdevType = "power_usage"
 	VdevTypeCo             VdevType = "co"
 	VdevTypeGas            VdevType = "gas"
+	VdevTypeContact        VdevType = "contact"
 )
 
 // VirtualDevice represents a single controllable/readable capability broken out
