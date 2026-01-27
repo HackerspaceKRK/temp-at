@@ -13,17 +13,20 @@ export type ReadyState = (typeof ReadyState)[keyof typeof ReadyState];
 export interface UseWebsocketOptions {
   binaryType: BinaryType;
   onMessage?: (message: MessageEvent) => void;
+  autoReconnect?: boolean;
 }
 
 export default function useWebsocket(
   webSocketUrl: string | null,
-  options?: UseWebsocketOptions,
+  options: UseWebsocketOptions = { binaryType: "blob", autoReconnect: true },
 ) {
   const [readyState, setReadyState] = useState<ReadyState>(
     ReadyState.UNINSTANTIATED,
   );
-  
+
   const [webSocket, setWebSocket] = useState<WebSocket | null>(null);
+  const [reconnectCount, setReconnectCount] = useState(0);
+  const [reconnectDelay, setReconnectDelay] = useState(2000);
 
   useEffect(() => {
     if (webSocketUrl === null) {
@@ -42,26 +45,38 @@ export default function useWebsocket(
     setWebSocket(ws);
     setReadyState(ReadyState.CONNECTING);
 
-    ws.addEventListener("open", () => {
+    const handleOpen = () => {
       setReadyState(ReadyState.OPEN);
-    });
-    ws.addEventListener("close", () => {
+      setReconnectDelay(2000); // Reset delay on successful connection
+    };
+
+    const handleClose = () => {
       setReadyState(ReadyState.CLOSED);
-    });
-    ws.addEventListener("error", () => {
-      setReadyState(ReadyState.CLOSED);
-    });
+      if (options.autoReconnect !== false) {
+        const timeout = setTimeout(() => {
+          setReconnectCount((prev) => prev + 1);
+          setReconnectDelay((prev) => Math.min(prev * 2, 60000));
+        }, reconnectDelay);
+        return () => clearTimeout(timeout);
+      }
+    };
+
+    ws.addEventListener("open", handleOpen);
+    ws.addEventListener("close", handleClose);
+    ws.addEventListener("error", handleClose); // Treat error as close for simplicity in reconnect
     ws.addEventListener("message", (message) => {
       options?.onMessage?.(message);
-       
     });
 
     return () => {
       ws.close();
       setWebSocket(null);
       setReadyState(ReadyState.CLOSED);
+      ws.removeEventListener("open", handleOpen);
+      ws.removeEventListener("close", handleClose);
+      ws.removeEventListener("error", handleClose);
     };
-  }, [webSocketUrl]);
+  }, [webSocketUrl, reconnectCount]);
   const sendMessage = (
     message: string | ArrayBuffer | Blob | ArrayBufferView,
   ) => {
@@ -69,5 +84,5 @@ export default function useWebsocket(
       webSocket.send(message);
     }
   };
-  return { sendMessage,  readyState };
+  return { sendMessage, readyState };
 }
