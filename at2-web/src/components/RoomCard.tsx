@@ -1,6 +1,6 @@
 import { useState, useEffect, type FC } from "react";
-import { Thermometer, Droplets, User, SwitchCamera, Plug, VideoOff } from "lucide-react";
-import type { RoomState, CameraSnapshotEntity } from "../schema";
+import { Thermometer, Droplets, User, SwitchCamera, Plug, VideoOff, Grid2X2, Bubbles } from "lucide-react";
+import type { RoomState, CameraSnapshotEntity, CoEntity, GasEntity, ContactEntity } from "../schema";
 import { useLocale } from "../locale";
 import RelayGroupControl from "./RelayGroupControl";
 import CameraSnapshot from "./CameraSnapshot";
@@ -15,28 +15,160 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Button } from "./ui/button";
+import { cn } from "@/lib/utils";
 
 /**
  * Minimal numeric sensor item.
  * Renders nothing if value is missing.
  */
+/**
+ * Numeric sensor item.
+ * Supports single or combined values (e.g. CO / Gas).
+ * If isAlarm is true, renders with red pulsating style.
+ */
 const NumericSensorBarItem: FC<{
   icon: FC<any>;
-  value: number | null;
-  unit: string;
+  value?: number | null;
+  unit?: string;
   title: string;
   precision?: number;
-}> = ({ icon: Icon, value, unit, title, precision = 1 }) => {
-  if (value === null || isNaN(value)) return null;
+  // Optional secondary value (e.g. for Gas when combined with CO)
+  secondaryValue?: number | null;
+  secondaryUnit?: string;
+  secondaryPrecision?: number;
+  isAlarm?: boolean;
+}> = ({
+  icon: Icon,
+  value,
+  unit,
+  title,
+  precision = 1,
+  secondaryValue,
+  secondaryUnit,
+  secondaryPrecision = 1,
+  isAlarm,
+}) => {
+    const hasValue = value !== null && value !== undefined && !isNaN(value);
+    const hasSecondary =
+      secondaryValue !== null &&
+      secondaryValue !== undefined &&
+      !isNaN(secondaryValue);
+
+    if (!hasValue && !hasSecondary) return null;
+
+    return (
+      <div
+        className={cn(
+          "flex items-center gap-1 transition-all",
+          isAlarm ? "text-red-500 font-bold animate-alarm" : ""
+        )}
+        title={title}
+      >
+        <Icon className="w-4 h-4" />
+        <span>
+          {hasValue && (
+            <>
+              {value!.toFixed(precision)}
+              <span className="ml-[1px]">{unit}</span>
+            </>
+          )}
+          {hasValue && hasSecondary && <span> / </span>}
+          {hasSecondary && (
+            <>
+              {secondaryValue!.toFixed(secondaryPrecision)}
+              <span className="ml-[1px]">{secondaryUnit}</span>
+            </>
+          )}
+        </span>
+      </div>
+    );
+  };
+
+/**
+ * Contact sensor group item.
+ * Aggregates state of all contact sensors in the room.
+ */
+/**
+ * Contact sensor group item.
+ * Aggregates state of all contact sensors in the room.
+ */
+const ContactSensorGroupItem: FC<{
+  sensors: ContactEntity[];
+}> = ({ sensors }) => {
+  const { getName } = useLocale();
+  const { t } = useTranslation();
+
+  if (!sensors || sensors.length === 0) return null;
+
+  const openSensors = sensors.filter((s) => s.state === false);
+  const unknownSensors = sensors.filter((s) => s.state === null);
+  const allClosed = openSensors.length === 0 && unknownSensors.length === 0;
+
+  // Status text and style
+  let statusText = "OK";
+  let isDanger = false;
+
+  if (unknownSensors.length > 0) {
+    statusText = "?";
+    // User requested "?" and red if any is open, but what if only null?
+    // "If any one of them has a state of 'null' then display '?'"
+    // "If any one of them is open ... also make the item red"
+  } else if (!allClosed) {
+    statusText = t("{{count}} open", { count: openSensors.length });
+    isDanger = true;
+  }
+
+  // If any is open, it should be red regardless of unknowns? 
+  // Requirement: "If any one of them is open then display ... also make the item red"
+  if (openSensors.length > 0) {
+    isDanger = true;
+  }
+
   return (
-    <div className="flex items-center gap-1" title={title}>
-      <Icon className="w-4 h-4" />
-      <span>
-        {value.toFixed(precision)}
-        {unit}
-      </span>
-    </div>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            className={cn(
+              "flex items-center gap-1 cursor-pointer",
+              isDanger ? "text-red-500 font-bold" : "text-neutral-300"
+            )}
+          >
+            <Grid2X2 className="w-4 h-4" />
+            <span>{statusText}</span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <div className="flex flex-col gap-1">
+            <p className="font-semibold text-xs mb-1">{t("Contact sensors")}</p>
+            {sensors.map((s) => (
+              <div key={s.id} className="flex justify-between gap-4 text-xs">
+                <span>{getName(s.localized_name, s.id)}:</span>
+                <span
+                  className={cn(
+                    "font-bold",
+                    s.state === false ? "text-red-500" : ""
+                  )}
+                >
+                  {s.state === true
+                    ? t("Closed")
+                    : s.state === false
+                      ? t("Open")
+                      : t("Unknown")}
+                </span>
+              </div>
+            ))}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };
 
@@ -115,6 +247,11 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
     (e) => e.type === "person"
   );
 
+  // Collect Sensors
+  const coEntity = room.entities.find((e) => e.type === "co") as CoEntity | undefined;
+  const gasEntity = room.entities.find((e) => e.type === "gas") as GasEntity | undefined;
+  const contactSensors = room.entities.filter((e) => e.type === "contact") as ContactEntity[];
+
   const [currentCameraIndex, setCurrentCameraIndex] = useState(0);
 
   return (
@@ -156,9 +293,9 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
                 title={t("People count")}
               />
             )}
+
             {room.entities.map((e) =>
-              e.type === "temperature" &&
-                typeof e.state === "number" ? (
+              e.type === "temperature" && typeof e.state === "number" ? (
                 <NumericSensorBarItem
                   key={e.id}
                   icon={Thermometer}
@@ -167,8 +304,11 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
                   precision={1}
                   title={getName(e.localized_name, e.id)}
                 />
-              ) : e.type === "humidity" &&
-                typeof e.state === "number" ? (
+              ) : null
+            )}
+
+            {room.entities.map((e) =>
+              e.type === "humidity" && typeof e.state === "number" ? (
                 <NumericSensorBarItem
                   key={e.id}
                   icon={Droplets}
@@ -177,8 +317,14 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
                   precision={0}
                   title={getName(e.localized_name, e.id)}
                 />
-              ) : e.type === "power_usage" &&
-                typeof e.state === "number" ? (
+              ) : null
+            )}
+
+
+
+
+            {room.entities.map((e) =>
+              e.type === "power_usage" && typeof e.state === "number" ? (
                 <NumericSensorBarItem
                   key={e.id}
                   icon={Plug}
@@ -188,6 +334,28 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
                   title={getName(e.localized_name, e.id)}
                 />
               ) : null
+            )}
+
+
+            {((coEntity && coEntity.state !== null && coEntity.state !== undefined) || (gasEntity && gasEntity.state !== null && gasEntity.state !== undefined)) && (
+              <NumericSensorBarItem
+                icon={Bubbles}
+                value={coEntity?.state}
+                unit="ppm"
+                title={[
+                  coEntity ? getName(coEntity.localized_name, coEntity.id) : null,
+                  gasEntity ? getName(gasEntity.localized_name, gasEntity.id) : null
+                ].filter(Boolean).join(" / ")}
+                precision={0}
+                secondaryValue={gasEntity?.state}
+                secondaryUnit="LEL"
+                secondaryPrecision={0}
+                isAlarm={(coEntity?.state || 0) > 0 || (gasEntity?.state || 0) > 0}
+              />
+            )}
+
+            {contactSensors.length > 0 && (
+              <ContactSensorGroupItem sensors={contactSensors} />
             )}
           </div>
         </CardDescription>

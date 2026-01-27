@@ -200,3 +200,22 @@
     @apply border-border;
   }
 }
+
+@keyframes pulsate-alarm {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-alarm {
+  animation: pulsate-alarm 1.5s ease-in-out infinite;
+}

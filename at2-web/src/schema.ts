@@ -10,7 +10,10 @@ export type EntityRepresentation =
   | "light"
   | "fan"
   | "plug"
-  | "power";
+  | "power"
+  | "co"
+  | "gas"
+  | "contact";
 
 /**
  * Relay states seen in sample: "OFF" plus null.
@@ -94,6 +97,40 @@ export interface PowerEntity {
 }
 
 /**
+ * CO sensor (ppm).
+ */
+export interface CoEntity {
+  representation: "co";
+  type: "co";
+  id: string;
+  localized_name: LocalizedName | null;
+  state: number;
+}
+
+/**
+ * Gas sensor (LEL).
+ */
+export interface GasEntity {
+  representation: "gas";
+  type: "gas";
+  id: string;
+  localized_name: LocalizedName | null;
+  state: number;
+}
+
+/**
+ * Contact sensor/window sensor.
+ * State: true (closed), false (open), or null (unknown).
+ */
+export interface ContactEntity {
+  representation: "contact";
+  type: "contact";
+  id: string;
+  localized_name: LocalizedName | null;
+  state: boolean | null;
+}
+
+/**
  * Light / Fan / Plug relay entity.
  * Some have explicit "OFF", others null (unknown / not yet fetched).
  */
@@ -128,6 +165,9 @@ export type Entity =
   | TemperatureEntity
   | HumidityEntity
   | PowerEntity
+  | CoEntity
+  | GasEntity
+  | ContactEntity
   | RelayEntity
   | UnknownEntity;
 
