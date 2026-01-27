@@ -33,7 +33,7 @@ const HeatmapCell = memo(({ dp, getColor, formatDate, sizeClass, t }: HeatmapCel
     if (!dp) return <div className={cn(sizeClass, "rounded-sm bg-muted/5")} />;
 
     return (
-        <Tooltip>
+        <Tooltip disableHoverableContent>
             <TooltipTrigger asChild>
                 <div
                     className={cn(
