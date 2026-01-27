@@ -45,7 +45,7 @@ export const ContactSensorGroupItem: FC<{
     return (
         <TooltipProvider>
             <Tooltip>
-                <TooltipTrigger asChild>
+                <TooltipTrigger asChild openOnClick>
                     <div
                         className={cn(
                             "flex items-center gap-1 cursor-pointer",
