@@ -120,12 +120,12 @@ const HeatmapChartComponent: FC<HeatmapChartProps> = ({ data, resolution }) => {
         const firstDataMoment = startOfISOWeek(data[0].startsAt);
         const lastDataMoment = data[data.length - 1].startsAt;
 
-        const numCols = differenceInCalendarWeeks(lastDataMoment, firstDataMoment) + 1;
+        const numCols = differenceInCalendarWeeks(lastDataMoment, firstDataMoment, { weekStartsOn: 1 }) + 1;
         const grid: (UsageHeatmapDataPoint | null)[][] = Array.from({ length: 7 }, () => Array.from({ length: numCols }, () => null));
 
         data.forEach(dp => {
             const m = dp.startsAt;
-            const col = differenceInCalendarWeeks(m, firstDataMoment);
+            const col = differenceInCalendarWeeks(m, firstDataMoment, { weekStartsOn: 1 });
             const row = (getISODay(m) - 1); // 0=Mon, 6=Sun
             if (col >= 0 && col < numCols) grid[row][col] = dp;
         });
