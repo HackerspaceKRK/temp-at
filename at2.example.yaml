@@ -67,5 +67,6 @@ branding:
   logo_dark_url: "https://example.com/logo_dark.png"
   logo_alt: "My Space Logo"
   logo_link_url: "https://example.com"
+  favicon_url: "https://example.com/favicon.ico"
   footer_name: "My Hackerspace"
   footer_name_link_url: "https://example.com"

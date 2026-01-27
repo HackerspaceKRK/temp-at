@@ -7,6 +7,7 @@ export interface BrandingConfig {
     logo_dark_url?: string;
     logo_alt?: string;
     logo_link_url?: string;
+    favicon_url?: string;
     footer_name?: string;
     footer_name_link_url?: string;
 }
@@ -44,6 +45,16 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
                 // Dynamically update document title if present
                 if (data.branding?.page_title) {
                     document.title = data.branding.page_title;
+                }
+                // Dynamically update favicon if present
+                if (data.branding?.favicon_url) {
+                    let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
+                    if (!link) {
+                        link = document.createElement("link");
+                        link.rel = "icon";
+                        document.head.appendChild(link);
+                    }
+                    link.href = data.branding.favicon_url;
                 }
             })
             .catch((err) => {

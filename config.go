@@ -17,6 +17,7 @@ type BrandingConfig struct {
 	LogoDarkURL       string `yaml:"logo_dark_url" json:"logo_dark_url"`
 	LogoAlt           string `yaml:"logo_alt" json:"logo_alt"`
 	LogoLinkURL       string `yaml:"logo_link_url" json:"logo_link_url"`
+	FaviconURL        string `yaml:"favicon_url" json:"favicon_url"`
 	FooterName        string `yaml:"footer_name" json:"footer_name"`
 	FooterNameLinkURL string `yaml:"footer_name_link_url" json:"footer_name_link_url"`
 }
