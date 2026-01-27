@@ -33,16 +33,11 @@ export const ContactSensorGroupItem: FC<{
 
     if (unknownSensors.length > 0) {
         statusText = "?";
-        // User requested "?" and red if any is open, but what if only null?
-        // "If any one of them has a state of 'null' then display '?'"
-        // "If any one of them is open ... also make the item red"
     } else if (!allClosed) {
         statusText = t("{{count}} open", { count: openSensors.length });
         isDanger = true;
     }
 
-    // If any is open, it should be red regardless of unknowns? 
-    // Requirement: "If any one of them is open then display ... also make the item red"
     if (openSensors.length > 0) {
         isDanger = true;
     }
