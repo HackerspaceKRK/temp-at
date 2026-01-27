@@ -12,17 +12,15 @@ import type { RoomState } from "./schema";
 import RoomCard from "./components/RoomCard";
 import Footer from "./components/Footer";
 import { API_URL } from "./config";
-import { AuthProvider, useAuth } from "./AuthContext";
+import { AuthProvider } from "./AuthContext";
 import { AppConfigProvider, useAppConfig } from "./AppConfigContext";
-import { useTranslation, Trans } from "react-i18next";
+import { useTranslation } from "react-i18next";
 import { RoomUsageStats } from "./components/RoomUsageStats";
 
 import { ThemeProvider, useTheme } from "./theme";
 
 import { ModeToggle } from "./components/ModeToggle";
 import { LanguageToggle } from "./components/LanguageToggle";
-import { Button } from "./components/ui/button";
-import { User as UserIcon } from "lucide-react";
 import { Alerts } from "./components/Alerts";
 import UserControls from "./components/UserControls";
 
@@ -47,7 +45,7 @@ const AppContent: FC = () => {
     {},
   );
   const [roomScores, setRoomScores] = useState<{ [key: string]: number }>({});
-  const {} = useWebsocket(`${API_URL.replace(/\/$/, "")}/api/v1/live-ws`, {
+  const { } = useWebsocket(`${API_URL.replace(/\/$/, "")}/api/v1/live-ws`, {
     binaryType: "arraybuffer",
     onMessage: (msgEvt) => {
       if (msgEvt.data) {
