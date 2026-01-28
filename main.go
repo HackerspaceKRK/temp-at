@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http" // for http.TimeFormat
+	"runtime/pprof"
 	"sync"
 	"time"
 
@@ -88,6 +89,16 @@ func main() {
 	promRegistry.MustRegister(promCollector)
 
 	// Routes
+	app.Use(func(c *fiber.Ctx) error {
+		hostname := c.Hostname()
+		for _, domain := range cfg.Web.SpaceapiDomains {
+			if domain == hostname {
+				return handleSpaceAPI(c)
+			}
+		}
+		return c.Next()
+	})
+
 	app.Get("/metrics", adaptor.HTTPHandler(promhttp.HandlerFor(promRegistry, promhttp.HandlerOpts{})))
 	app.Get("/image/:name", AuthMiddleware, handleImage)
 	app.Get("/robots.txt", handleRobots)
@@ -106,6 +117,7 @@ func main() {
 	app.Get("/health", handleHealth)
 	app.Get("/api/v1/device-history", handleDeviceHistory)
 	app.Get("/api/v1/stats/usage-heatmap", handleUsageHeatmap)
+	app.Get("/api/v1/debug/pprof-heap", AuthMiddleware, DebugAccessAuthMiddleware, handlePprofHeap)
 
 	SetupFrontend(app, *devFrontend)
 
@@ -229,4 +241,13 @@ func handleAppConfig(c *fiber.Ctx) error {
 
 func handleHealth(c *fiber.Ctx) error {
 	return c.SendString("OK")
+}
+
+func handlePprofHeap(c *fiber.Ctx) error {
+	c.Set("Content-Type", "application/octet-stream")
+	c.Set("Content-Disposition", "attachment; filename=heap.pprof")
+	if err := pprof.WriteHeapProfile(c.Response().BodyWriter()); err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	}
+	return nil
 }

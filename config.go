@@ -59,8 +59,9 @@ type DatabaseConfig struct {
 type LocalizedString map[string]string
 
 type WebConfig struct {
-	ListenAddress string `yaml:"listen_address"`
-	PublicURL     string `yaml:"public_url"`
+	ListenAddress   string   `yaml:"listen_address"`
+	PublicURL       string   `yaml:"public_url"`
+	SpaceapiDomains []string `yaml:"spaceapi_domains"`
 }
 
 type OidcConfig struct {
@@ -71,6 +72,8 @@ type OidcConfig struct {
 	ExtraScopes                        []string `yaml:"extra_scopes"`
 	UsernameClaim                      string   `yaml:"username_claim"`
 	MembershipExpirationTimestampClaim string   `yaml:"membership_expiration_timestamp_claim"`
+	GroupsClaim                        string   `yaml:"groups_claim"`
+	DebugAccessGroups                  []string `yaml:"debug_access_groups"`
 }
 
 type FrigateConfig struct {

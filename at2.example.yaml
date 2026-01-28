@@ -7,6 +7,8 @@ web:
   listen_address: ":8080"
   public_url: "http://localhost:8080"
   # jwt_secret_file: "/run/secrets/jwt_secret" # Alternative: Load secret from file
+  spaceapi_domains:
+    - "space.example.com"
 
 # OIDC Authentication configuration
 oidc:
@@ -18,6 +20,9 @@ oidc:
     - "groups"
   username_claim: "preferred_username"
   membership_expiration_claim: "membership_expiration"
+  groups_claim: "groups"
+  debug_access_groups:
+    - "admin"
 
 # Frigate NVR configuration
 frigate:

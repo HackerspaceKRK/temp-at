@@ -299,6 +299,89 @@ func AuthMiddleware(c *fiber.Ctx) error {
 
 	// Store user info in context for downstream handlers
 	c.Locals("username", session.Username)
+	c.Locals("cached_claims", session.CachedClaims)
+
+	return c.Next()
+}
+
+func DebugAccessAuthMiddleware(c *fiber.Ctx) error {
+	// Ensure user is authenticated first
+	// We check if "username" is set, which AuthMiddleware does.
+	// OR we can just check if AuthMiddleware has run.
+	// Since we are adding this middleware to specific routes, we assume AuthMiddleware is also applied or called before.
+	// But it is safer to just check for the cookie if locals are missing, but let's reuse AuthMiddleware logic if possible.
+	// However, AuthMiddleware is best used as a preceding handler.
+	// Let's assume AuthMiddleware is chain before this one.
+
+	username := c.Locals("username")
+	if username == nil {
+		// Try to run AuthMiddleware logic manually if not present?
+		// Or just return Unauthorized.
+		// For simplicity, let's just return Unauthorized if AuthMiddleware wasn't run.
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Not authenticated"})
+	}
+
+	cachedClaimsStr, ok := c.Locals("cached_claims").(string)
+	if !ok || cachedClaimsStr == "" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "No claims found"})
+	}
+
+	var claims map[string]interface{}
+	if err := json.Unmarshal([]byte(cachedClaimsStr), &claims); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse claims"})
+	}
+
+	groupsClaim := ConfigInstance.Oidc.GroupsClaim
+	if groupsClaim == "" {
+		// Default to "groups" if not configured, or maybe fail?
+		// Plan said "The GroupsClaim in OidcConfig must match the claim name".
+		// Let's default to "groups" for safety.
+		groupsClaim = "groups"
+	}
+
+	userGroupsInterface, ok := claims[groupsClaim]
+	if !ok {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "No groups in user claims"})
+	}
+
+	var userGroups []string
+	// Handle both []interface{} and []string just in case
+	switch v := userGroupsInterface.(type) {
+	case []interface{}:
+		for _, g := range v {
+			if s, ok := g.(string); ok {
+				userGroups = append(userGroups, s)
+			}
+		}
+	case []string:
+		userGroups = v
+	default:
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Invalid groups format"})
+	}
+
+	allowedGroups := ConfigInstance.Oidc.DebugAccessGroups
+	if len(allowedGroups) == 0 {
+		// If no debug groups are configured, maybe nobody should have access, or everyone?
+		// Secure by default: nobody.
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Debug access not configured"})
+	}
+
+	hasAccess := false
+	for _, allowed := range allowedGroups {
+		for _, userGroup := range userGroups {
+			if allowed == userGroup {
+				hasAccess = true
+				break
+			}
+		}
+		if hasAccess {
+			break
+		}
+	}
+
+	if !hasAccess {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied"})
+	}
 
 	return c.Next()
 }
