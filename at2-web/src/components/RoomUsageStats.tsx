@@ -62,10 +62,10 @@ const RoomUsageStatsComponent: FC<RoomUsageStatsProps> = ({ rooms }) => {
 
     useEffect(() => {
         if (!hasBeenInView) return;
-        console.log("FETCHING DATA!");
         const fetchData = async () => {
             setIsLoading(true);
             setError(null);
+            setData(null);
             try {
                 const params = new URLSearchParams({
                     resolution,
