@@ -6,13 +6,13 @@ import { useTranslation } from "react-i18next";
 import { useLocale } from "../locale";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
-import { Button } from "./ui/button";
-import { ChevronDown, Loader2 } from "lucide-react";
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "./ui/select";
+import { Loader2 } from "lucide-react";
 
 interface RoomUsageStatsProps {
     rooms: RoomState[];
@@ -71,7 +71,7 @@ const RoomUsageStatsComponent: FC<RoomUsageStatsProps> = ({ rooms }) => {
                     resolution,
                     duration: duration.toString(),
                 });
-                if (selectedRoomId) {
+                if (selectedRoomId && selectedRoomId !== "all") {
                     params.append("roomId", selectedRoomId);
                 }
 
@@ -95,10 +95,6 @@ const RoomUsageStatsComponent: FC<RoomUsageStatsProps> = ({ rooms }) => {
         r.entities.some(e => e.representation === "presence" || e.representation === "person")
     ), [rooms]);
 
-    const selectedRoomLabel = useMemo(() => selectedRoomId
-        ? getName(rooms.find(r => r.id === selectedRoomId)?.localized_name, selectedRoomId)
-        : t("All Rooms"), [selectedRoomId, rooms, getName, t]);
-
     return (
         <div ref={containerRef} className="col-span-full mt-8">
             <Card>
@@ -107,41 +103,39 @@ const RoomUsageStatsComponent: FC<RoomUsageStatsProps> = ({ rooms }) => {
                     <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
                         {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
 
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-8 gap-1">
-                                    {selectedRoomLabel}
-                                    <ChevronDown className="h-4 w-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => setSelectedRoomId("")}>
-                                    {t("All Rooms")}
-                                </DropdownMenuItem>
+                        <Select
+                            value={selectedRoomId || "all"}
+                            onValueChange={(val) => setSelectedRoomId(val === "all" ? "" : val)}
+                        >
+                            <SelectTrigger className="w-[220px] h-8">
+                                <SelectValue placeholder={t("All Rooms")} />
+                            </SelectTrigger>
+                            <SelectContent align="end">
+                                <SelectItem value="all">{t("All Rooms")}</SelectItem>
                                 {filteredRooms.map((room) => (
-                                    <DropdownMenuItem key={room.id} onClick={() => setSelectedRoomId(room.id)}>
+                                    <SelectItem key={room.id} value={room.id}>
                                         {getName(room.localized_name, room.id)}
-                                    </DropdownMenuItem>
+                                    </SelectItem>
                                 ))}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                            </SelectContent>
+                        </Select>
 
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-8 gap-1">
-                                    {timeRange === "month" ? t("Last 60 Days") : t("Last 14 Days")}
-                                    <ChevronDown className="h-4 w-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => setTimeRange("month")}>
-                                    {t("Last 60 Days")} ({t("Daily")})
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setTimeRange("week")}>
+                        <Select
+                            value={timeRange}
+                            onValueChange={(val) => setTimeRange(val as "month" | "week")}
+                        >
+                            <SelectTrigger className="w-[240px] h-8">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent align="end">
+                                <SelectItem value="week">
                                     {t("Last 14 Days")} ({t("Hourly")})
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                                </SelectItem>
+                                <SelectItem value="month">
+                                    {t("Last 60 Days")} ({t("Daily")})
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                 </CardHeader>
                 <CardContent className="min-h-[300px] flex flex-col justify-center">
