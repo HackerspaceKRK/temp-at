@@ -83,10 +83,9 @@ func validateConfig(cfg *Config, path string) {
 			nameSeen[room.ID] = struct{}{}
 		}
 	}
-	// Example of a hard check (uncomment if desired):
-	// if len(cfg.Rooms) == 0 {
-	//	log.Fatalf("No rooms defined in %s", path)
-	// }
+	if len(cfg.Rooms) == 0 {
+		log.Printf("warning: No rooms defined in %s", path)
+	}
 }
 
 func loadSecret(target *string, file string) {
