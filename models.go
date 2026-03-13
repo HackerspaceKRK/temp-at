@@ -61,9 +61,26 @@ func GenerateUUIDv7() string {
 	return id.String()
 }
 
+// UsageStatsDayCache stores pre-computed daily usage stats per room.
+// RoomID is "" when the cache covers all rooms combined.
+// Date is stored as "2006-01-02" in the server's local timezone.
+type UsageStatsDayCache struct {
+	ID          uint    `gorm:"primaryKey;autoIncrement"`
+	RoomID      string  `gorm:"uniqueIndex:idx_cache_room_date;not null"`
+	Date        string  `gorm:"uniqueIndex:idx_cache_room_date;not null"`
+	MaxPeople   int     `gorm:"not null"`
+	ManHours    float64 `gorm:"not null"`
+	ActiveHours float64 `gorm:"not null"`
+	HourlyData  string  `gorm:"type:text;not null"` // JSON-encoded []UsageHeatmapDataPoint (24 entries, one per hour)
+}
+
+func (UsageStatsDayCache) TableName() string {
+	return "usage_stats_day_caches"
+}
+
 // AutoMigrateModels runs GORM auto-migration for all models.
 func AutoMigrateModels(db *gorm.DB) error {
-	return db.AutoMigrate(&VirtualDeviceModel{}, &VirtualDeviceStateModel{}, &SessionModel{})
+	return db.AutoMigrate(&VirtualDeviceModel{}, &VirtualDeviceStateModel{}, &SessionModel{}, &UsageStatsDayCache{})
 }
 
 // CurrentTimestampMillis returns current time as Unix milliseconds.

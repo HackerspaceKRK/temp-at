@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // VirtualDeviceHistoryRepository stores virtual device state changes to the database.
@@ -214,6 +215,63 @@ func (r *VirtualDeviceHistoryRepository) GetDeviceHistory(deviceName string, dur
 		Find(&history).Error
 
 	return history, err
+}
+
+// GetDevicesHistoryInRange returns the state history for multiple devices within an absolute time range.
+// History is returned sorted by timestamp ascending.
+func (r *VirtualDeviceHistoryRepository) GetDevicesHistoryInRange(deviceNames []string, fromMs, toMs int64) ([]VirtualDeviceStateModel, error) {
+	if len(deviceNames) == 0 {
+		return nil, nil
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	var devices []VirtualDeviceModel
+	if err := r.db.Where("name IN ?", deviceNames).Find(&devices).Error; err != nil {
+		return nil, err
+	}
+	if len(devices) == 0 {
+		return nil, nil
+	}
+
+	deviceIDs := make([]uint, len(devices))
+	for i, d := range devices {
+		deviceIDs[i] = d.ID
+	}
+
+	var history []VirtualDeviceStateModel
+	err := r.db.Preload("VirtualDevice").
+		Where("virtual_device_id IN ? AND timestamp >= ? AND timestamp < ?", deviceIDs, fromMs, toMs).
+		Order("timestamp ASC").
+		Find(&history).Error
+	return history, err
+}
+
+// GetDayCaches returns cached daily stats for the given roomID and date strings ("2006-01-02").
+// The returned map is keyed by date string.
+func (r *VirtualDeviceHistoryRepository) GetDayCaches(roomID string, dates []string) (map[string]*UsageStatsDayCache, error) {
+	if len(dates) == 0 {
+		return map[string]*UsageStatsDayCache{}, nil
+	}
+
+	var rows []UsageStatsDayCache
+	if err := r.db.Where("room_id = ? AND date IN ?", roomID, dates).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]*UsageStatsDayCache, len(rows))
+	for i := range rows {
+		result[rows[i].Date] = &rows[i]
+	}
+	return result, nil
+}
+
+// UpsertDayCache inserts or updates a daily cache entry identified by (RoomID, Date).
+func (r *VirtualDeviceHistoryRepository) UpsertDayCache(cache *UsageStatsDayCache) error {
+	return r.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "room_id"}, {Name: "date"}},
+		DoUpdates: clause.AssignmentColumns([]string{"max_people", "man_hours", "active_hours", "hourly_data"}),
+	}).Create(cache).Error
 }
 
 // GetDevicesHistory returns the state history for multiple devices within a specific duration.

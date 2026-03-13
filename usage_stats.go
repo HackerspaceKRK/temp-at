@@ -72,6 +72,22 @@ func handleUsageHeatmap(c *fiber.Ctx) error {
 		rooms = cfg.Rooms
 	}
 
+	resp, err := computeUsageHeatmap(vdevHistoryRepo, rooms, roomId, resolution, durationHours)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	}
+	return c.JSON(resp)
+}
+
+// computedDayData holds the pre-computed results for a single calendar day.
+type computedDayData struct {
+	daily  UsageHeatmapDataPoint
+	hourly []UsageHeatmapDataPoint // always 24 entries (one per hour, 0–23)
+}
+
+// computeUsageHeatmap is the core logic, extracted for testability.
+// cacheKey is the roomId (or "" for all rooms).
+func computeUsageHeatmap(repo *VirtualDeviceHistoryRepository, rooms []RoomConfig, cacheKey, resolution string, durationHours int) (*UsageHeatmapResponse, error) {
 	var sensorNames []string
 	roomToSensors := make(map[string][]string)
 	for _, r := range rooms {
@@ -84,17 +100,194 @@ func handleUsageHeatmap(c *fiber.Ctx) error {
 	}
 
 	if len(sensorNames) == 0 {
-		// Return empty response if no presence sensors are configured
-		return c.JSON(UsageHeatmapResponse{DataPoints: []UsageHeatmapDataPoint{}})
+		return &UsageHeatmapResponse{DataPoints: []UsageHeatmapDataPoint{}}, nil
 	}
 
+	now := time.Now()
 	durationMs := int64(durationHours) * 60 * 60 * 1000
-	history, err := vdevHistoryRepo.GetDevicesHistory(sensorNames, durationMs)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+
+	// Round start time to resolution boundary.
+	t := time.UnixMilli(now.UnixMilli() - durationMs)
+	var startTime time.Time
+	var bucketDuration time.Duration
+	if resolution == "day" {
+		startTime = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+		bucketDuration = 24 * time.Hour
+	} else {
+		startTime = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
+		bucketDuration = time.Hour
 	}
 
-	// Group history by room
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	// Enumerate all bucket start times.
+	var bucketTimes []time.Time
+	for bt := startTime; bt.Before(now); bt = bt.Add(bucketDuration) {
+		bucketTimes = append(bucketTimes, bt)
+	}
+	if len(bucketTimes) == 0 {
+		return &UsageHeatmapResponse{DataPoints: []UsageHeatmapDataPoint{}}, nil
+	}
+
+	// --- Cache lookup for complete days ---
+
+	// Collect the distinct calendar days covered, split by complete vs today.
+	completeDaySet := make(map[string]time.Time) // dateStr -> day start (only past days)
+	includeToday := false
+	for _, bt := range bucketTimes {
+		dayStart := time.Date(bt.Year(), bt.Month(), bt.Day(), 0, 0, 0, 0, bt.Location())
+		if dayStart.Before(todayStart) {
+			completeDaySet[dayStart.Format("2006-01-02")] = dayStart
+		} else {
+			includeToday = true
+		}
+	}
+
+	completeDates := make([]string, 0, len(completeDaySet))
+	for dateStr := range completeDaySet {
+		completeDates = append(completeDates, dateStr)
+	}
+
+	caches, err := repo.GetDayCaches(cacheKey, completeDates)
+	if err != nil {
+		return nil, err
+	}
+
+	// Days that need DB computation: complete days not in cache, plus today.
+	daysToCompute := make(map[string]time.Time)
+	for dateStr, dayStart := range completeDaySet {
+		if caches[dateStr] == nil {
+			daysToCompute[dateStr] = dayStart
+		}
+	}
+	todayDateStr := todayStart.Format("2006-01-02")
+	if includeToday {
+		daysToCompute[todayDateStr] = todayStart
+	}
+
+	// --- DB query for uncached days ---
+
+	computedResults := make(map[string]computedDayData)
+	if len(daysToCompute) > 0 {
+		var minDay, maxDay time.Time
+		first := true
+		for _, d := range daysToCompute {
+			if first || d.Before(minDay) {
+				minDay = d
+			}
+			if first || d.After(maxDay) {
+				maxDay = d
+			}
+			first = false
+		}
+
+		// Query from 2 hours before the earliest day to capture sensors active around midnight.
+		queryFrom := minDay.Add(-2 * time.Hour)
+		queryTo := maxDay.Add(24 * time.Hour)
+		if queryTo.After(now) {
+			queryTo = now
+		}
+
+		history, err := repo.GetDevicesHistoryInRange(sensorNames, queryFrom.UnixMilli(), queryTo.UnixMilli())
+		if err != nil {
+			return nil, err
+		}
+
+		for dateStr, dayStart := range daysToCompute {
+			dayEnd := dayStart.Add(24 * time.Hour)
+			if dayEnd.After(now) {
+				dayEnd = now
+			}
+
+			// Filter sorted history to [dayStart-2h, dayEnd) using binary search.
+			lookbackMs := dayStart.Add(-2 * time.Hour).UnixMilli()
+			dayHistory := filterHistoryInRange(history, lookbackMs, dayEnd.UnixMilli())
+
+			daily, hourly := computeDayBuckets(dayHistory, roomToSensors, dayStart, dayEnd)
+			computedResults[dateStr] = computedDayData{daily: daily, hourly: hourly}
+
+			// Upsert cache only for complete (past) days.
+			if dayStart.Before(todayStart) {
+				hourlyJSON, _ := json.Marshal(hourly)
+				_ = repo.UpsertDayCache(&UsageStatsDayCache{
+					RoomID:      cacheKey,
+					Date:        dateStr,
+					MaxPeople:   daily.MaxPeople,
+					ManHours:    daily.ManHours,
+					ActiveHours: daily.ActiveHours,
+					HourlyData:  string(hourlyJSON),
+				})
+			}
+		}
+	}
+
+	// --- Assemble response ---
+
+	dataPoints := make([]UsageHeatmapDataPoint, 0, len(bucketTimes))
+	for _, bt := range bucketTimes {
+		dateStr := time.Date(bt.Year(), bt.Month(), bt.Day(), 0, 0, 0, 0, bt.Location()).Format("2006-01-02")
+		dp := UsageHeatmapDataPoint{StartsAt: bt.UnixMilli()}
+
+		if resolution == "day" {
+			if cached, ok := caches[dateStr]; ok {
+				dp.MaxPeople = cached.MaxPeople
+				dp.ManHours = cached.ManHours
+				dp.ActiveHours = cached.ActiveHours
+			} else if computed, ok := computedResults[dateStr]; ok {
+				dp.MaxPeople = computed.daily.MaxPeople
+				dp.ManHours = computed.daily.ManHours
+				dp.ActiveHours = computed.daily.ActiveHours
+			}
+		} else { // hourly
+			if cached, ok := caches[dateStr]; ok {
+				var hourlyData []UsageHeatmapDataPoint
+				if err := json.Unmarshal([]byte(cached.HourlyData), &hourlyData); err == nil {
+					for _, h := range hourlyData {
+						if h.StartsAt == bt.UnixMilli() {
+							dp = h
+							break
+						}
+					}
+				}
+			} else if computed, ok := computedResults[dateStr]; ok {
+				for _, h := range computed.hourly {
+					if h.StartsAt == bt.UnixMilli() {
+						dp = h
+						break
+					}
+				}
+			}
+		}
+
+		dataPoints = append(dataPoints, dp)
+	}
+
+	return &UsageHeatmapResponse{DataPoints: dataPoints}, nil
+}
+
+// filterHistoryInRange returns the slice of history records with timestamp in [fromMs, toMs).
+// Assumes history is sorted by timestamp ascending.
+func filterHistoryInRange(history []VirtualDeviceStateModel, fromMs, toMs int64) []VirtualDeviceStateModel {
+	lo := sort.Search(len(history), func(i int) bool { return history[i].Timestamp >= fromMs })
+	hi := sort.Search(len(history), func(i int) bool { return history[i].Timestamp >= toMs })
+	return history[lo:hi]
+}
+
+// computeDayBuckets computes hourly stats for a single calendar day and derives the daily aggregate.
+// history must be pre-filtered to include events from dayStart-2h onwards.
+// dayEnd is the exclusive end (either dayStart+24h or now for today).
+func computeDayBuckets(history []VirtualDeviceStateModel, roomToSensors map[string][]string, dayStart, dayEnd time.Time) (UsageHeatmapDataPoint, []UsageHeatmapDataPoint) {
+	dayStartMs := dayStart.UnixMilli()
+	dayEndMs := dayEnd.UnixMilli()
+	hourMs := int64(time.Hour / time.Millisecond)
+
+	// 24 hourly buckets for the day.
+	hourlyPoints := make([]UsageHeatmapDataPoint, 24)
+	for i := range hourlyPoints {
+		hourlyPoints[i].StartsAt = dayStartMs + int64(i)*hourMs
+	}
+
+	// Group history records by room.
 	roomHistory := make(map[string][]VirtualDeviceStateModel)
 	for _, h := range history {
 		for rid, sensors := range roomToSensors {
@@ -107,41 +300,22 @@ func handleUsageHeatmap(c *fiber.Ctx) error {
 		}
 	}
 
-	now := time.Now().UnixMilli()
-	startTime := now - durationMs
-
-	// Round start time to resolution boundary
-	t := time.UnixMilli(startTime)
-	if resolution == "day" {
-		startTime = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).UnixMilli()
-	} else {
-		startTime = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location()).UnixMilli()
-	}
-
-	var bucketDuration int64
-	if resolution == "day" {
-		bucketDuration = 24 * 60 * 60 * 1000
-	} else {
-		bucketDuration = 60 * 60 * 1000
-	}
-
-	numBuckets := int((now - startTime) / bucketDuration)
-	if (now-startTime)%bucketDuration != 0 {
-		numBuckets++
-	}
-
-	dataPoints := make([]UsageHeatmapDataPoint, numBuckets)
-	for i := 0; i < numBuckets; i++ {
-		dataPoints[i] = UsageHeatmapDataPoint{
-			StartsAt: startTime + int64(i)*bucketDuration,
-		}
-	}
-
+	// Accumulate each room's contribution into the shared hourly buckets.
 	for _, events := range roomHistory {
-		processRoomHistory(events, dataPoints, bucketDuration, now)
+		processRoomHistory(events, hourlyPoints, hourMs, dayEndMs)
 	}
 
-	return c.JSON(UsageHeatmapResponse{DataPoints: dataPoints})
+	// Derive daily aggregate from hourly buckets.
+	daily := UsageHeatmapDataPoint{StartsAt: dayStartMs}
+	for _, h := range hourlyPoints {
+		if h.MaxPeople > daily.MaxPeople {
+			daily.MaxPeople = h.MaxPeople
+		}
+		daily.ManHours += h.ManHours
+		daily.ActiveHours += h.ActiveHours
+	}
+
+	return daily, hourlyPoints
 }
 
 type event struct {
@@ -155,8 +329,6 @@ func processRoomHistory(history []VirtualDeviceStateModel, dataPoints []UsageHea
 		return
 	}
 
-	// Parse events and group by sensor to know initial states if needed
-	// But it's easier to just sort all events and maintain current state per sensor
 	var events []event
 	sensorStates := make(map[string]int)
 
