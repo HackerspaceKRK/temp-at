@@ -81,7 +81,7 @@ export default function useWebsocket(
     message: string | ArrayBuffer | Blob | ArrayBufferView,
   ) => {
     if (webSocket && readyState === ReadyState.OPEN) {
-      webSocket.send(message);
+      webSocket.send(message as string | Blob | BufferSource);
     }
   };
   return { sendMessage, readyState };
