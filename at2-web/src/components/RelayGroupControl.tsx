@@ -1,5 +1,5 @@
 import type { FC } from "react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Lightbulb, Fan } from "lucide-react";
 import { useLocale } from "../locale";
 import type { RelayEntity } from "../schema";
@@ -74,8 +74,30 @@ export const RelayGroupControl: FC<RelayGroupControlProps> = ({
   const { user, login } = useAuth();
   const { t } = useTranslation();
 
+  const [open, setOpen] = useState(false);
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+
+  const pointerTypeRef = useRef('');
+  const touchStartY = useRef<number | null>(null);
+  const didScrollRef = useRef(false);
+  const wasOpenAtTouchStart = useRef(false);
+
+  const handleOpenChange = (newOpen: boolean) => {
+    if (pointerTypeRef.current === 'touch' && newOpen) {
+      // For touch, ignore Radix's pointerdown-triggered open; touchend handles it.
+      pointerTypeRef.current = '';
+      return;
+    }
+    pointerTypeRef.current = '';
+    setOpen(newOpen);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartY.current !== null && Math.abs(e.touches[0].clientY - touchStartY.current) > 10) {
+      didScrollRef.current = true;
+    }
+  };
   const [pendingRelay, setPendingRelay] = useState<{
     id: string;
     localizedName: string;
@@ -153,8 +175,21 @@ export const RelayGroupControl: FC<RelayGroupControlProps> = ({
   };
 
   return (
-    <div className={className}>
-      <DropdownMenu modal={true}>
+    <div
+      className={className}
+      onTouchStart={(e) => {
+        touchStartY.current = e.touches[0].clientY;
+        didScrollRef.current = false;
+        wasOpenAtTouchStart.current = open;
+      }}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={() => {
+        if (!didScrollRef.current && !wasOpenAtTouchStart.current) {
+          setOpen(true);
+        }
+      }}
+    >
+      <DropdownMenu modal={true} open={open} onOpenChange={handleOpenChange}>
         <DropdownMenuTrigger asChild>
           <Button
             variant={variant}
@@ -164,6 +199,7 @@ export const RelayGroupControl: FC<RelayGroupControlProps> = ({
             aria-expanded="false"
             aria-controls={`${roomId ?? "room"}-${kind}-relay-menu`}
             className="relative"
+            onPointerDown={(e) => { pointerTypeRef.current = e.pointerType; }}
           >
             {icon}
 
