@@ -1,9 +1,9 @@
-import { type FC, useMemo, memo, useRef, useLayoutEffect } from "react";
+import { type FC, useMemo, memo, useRef, useLayoutEffect, useState, useEffect } from "react";
 import type { UsageHeatmapDataPoint } from "../schema";
 import { useTranslation } from "react-i18next";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { format, startOfISOWeek, differenceInCalendarWeeks, getISODay, startOfDay, differenceInCalendarDays, getHours, addDays } from "date-fns";
+import { format, startOfISOWeek, differenceInCalendarWeeks, getISODay, startOfDay, differenceInCalendarDays, getHours, getMinutes, addDays } from "date-fns";
 import { enUS, pl } from "date-fns/locale";
 import {
     Tooltip,
@@ -38,7 +38,8 @@ const HeatmapCell = memo(({ dp, getColor, formatDate, sizeClass, t }: HeatmapCel
                 <div
                     className={cn(
                         sizeClass,
-                        "rounded-sm transition-colors cursor-help border border-transparent hover:border-border"
+                        "rounded-sm transition-colors cursor-help hover:border-border",
+                        dp.manHours === 0 ? "border-2 border-border/25" : "border border-transparent"
                     )}
                     style={{ backgroundColor: getColor(dp.manHours) }}
                 />
@@ -84,6 +85,12 @@ const Legend = memo(({ maxManHours, getColor }: { maxManHours: number; getColor:
 const HeatmapChartComponent: FC<HeatmapChartProps> = ({ data, resolution }) => {
     const { t, i18n } = useTranslation();
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    const [now, setNow] = useState(() => new Date());
+    useEffect(() => {
+        const interval = setInterval(() => setNow(new Date()), 60_000);
+        return () => clearInterval(interval);
+    }, []);
 
     useLayoutEffect(() => {
         if (scrollContainerRef.current) {
@@ -159,6 +166,15 @@ const HeatmapChartComponent: FC<HeatmapChartProps> = ({ data, resolution }) => {
         return { hours, numDays, grid, dayHeaders, firstDataMoment };
     }, [data, resolution, i18n.language]);
 
+    // cell height h-4=16px, gap-1=4px → stride 20px per row
+    const todayLine = useMemo(() => {
+        if (resolution !== "hour" || !hourlyConfig) return null;
+        const todayIdx = differenceInCalendarDays(startOfDay(now), hourlyConfig.firstDataMoment);
+        if (todayIdx < 0 || todayIdx >= hourlyConfig.numDays) return null;
+        const top = getHours(now) * 20 + (getMinutes(now) / 60) * 16;
+        return { todayIdx, top };
+    }, [now, resolution, hourlyConfig]);
+
     if (data.length === 0) return <div className="p-8 text-center text-muted-foreground">{t("No data available")}</div>;
 
     return (
@@ -209,16 +225,27 @@ const HeatmapChartComponent: FC<HeatmapChartProps> = ({ data, resolution }) => {
                                             <div className="text-[10px] text-muted-foreground font-medium mb-1 truncate w-10 text-center">
                                                 {hourlyConfig.dayHeaders[d]}
                                             </div>
-                                            {Array.from({ length: 24 }).map((_, h) => (
-                                                <HeatmapCell
-                                                    key={h}
-                                                    dp={hourlyConfig.grid[h][d]}
-                                                    getColor={getColor}
-                                                    formatDate={formatDate}
-                                                    sizeClass="w-10 h-4"
-                                                    t={t}
-                                                />
-                                            ))}
+                                            <div className="relative flex flex-col gap-1">
+                                                {todayLine && d === todayLine.todayIdx && (
+                                                    <div
+                                                        className="absolute left-0 right-0 flex items-center pointer-events-none z-10"
+                                                        style={{ top: todayLine.top }}
+                                                    >
+                                                        <div className="flex-1 h-0.5 bg-destructive/50" />
+                                                        <div className="w-2 h-2 rounded-full bg-destructive/50 shrink-0 -mr-1" />
+                                                    </div>
+                                                )}
+                                                {Array.from({ length: 24 }).map((_, h) => (
+                                                    <HeatmapCell
+                                                        key={h}
+                                                        dp={hourlyConfig.grid[h][d]}
+                                                        getColor={getColor}
+                                                        formatDate={formatDate}
+                                                        sizeClass="w-10 h-4"
+                                                        t={t}
+                                                    />
+                                                ))}
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
