@@ -104,7 +104,7 @@ const HeatmapChartComponent: FC<HeatmapChartProps> = ({ data, resolution }) => {
 
     const getColor = useMemo(() => (manHours: number) => {
         if (manHours === 0) return "transparent";
-        const ratio = Math.min(manHours / maxManHours, 1);
+        const ratio = Math.min(manHours / Math.min(maxManHours, 5), 1);
         const opacity = 0.1 + ratio * 0.9;
         return `oklch(from var(--primary) l c h / ${opacity})`;
     }, [maxManHours]);

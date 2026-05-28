@@ -185,7 +185,7 @@ func (s *FrigateSnapshotMapper) fetchCameraSnapshot(cameraName string) ([]Snapsh
 		}
 		h := int(float64(origH) * (float64(w) / float64(origW)))
 		dst := image.NewRGBA(image.Rect(0, 0, w, h))
-		draw.CatmullRom.Scale(dst, dst.Bounds(), srcImg, origBounds, draw.Over, nil)
+		draw.ApproxBiLinear.Scale(dst, dst.Bounds(), srcImg, origBounds, draw.Over, nil)
 
 		var buf bytes.Buffer
 		if err := jpeg.Encode(&buf, dst, &jpeg.Options{Quality: 85}); err != nil {
@@ -211,7 +211,7 @@ func (s *FrigateSnapshotMapper) fetchCameraSnapshot(cameraName string) ([]Snapsh
 	}
 
 	dstLow := image.NewRGBA(image.Rect(0, 0, lowResW, lowResH))
-	draw.CatmullRom.Scale(dstLow, dstLow.Bounds(), srcImg, origBounds, draw.Over, nil)
+	draw.ApproxBiLinear.Scale(dstLow, dstLow.Bounds(), srcImg, origBounds, draw.Over, nil)
 
 	var lowResBuf bytes.Buffer
 	var lowResPreview string
@@ -253,7 +253,6 @@ func (s *FrigateSnapshotMapper) HandleSnapshot(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).Send(data)
 }
 
-// Removed nearest-neighbor helper; using golang.org/x/image/draw CatmullRom for resizing.
 
 // FrigateConfigResponse is an incomplete schema for the /api/config response from Frigate.
 type FrigateConfigResponse struct {

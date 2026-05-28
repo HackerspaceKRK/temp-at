@@ -34,6 +34,7 @@ var (
 	mqttAdapter           *MQTTAdapter
 	frigateSnapshotMapper *FrigateSnapshotMapper
 	vdevHistoryRepo       *VirtualDeviceHistoryRepository
+	gormDB                *gorm.DB
 )
 
 func main() {
@@ -54,9 +55,15 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatalf("failed to get sql.DB: %v", err)
+	}
+	sqlDB.SetMaxOpenConns(1) // SQLite does not support concurrent writers
 	if err := AutoMigrateModels(db); err != nil {
 		log.Fatalf("failed to run database migrations: %v", err)
 	}
+	gormDB = db
 	log.Printf("Database initialized at %s", cfg.Database.Path)
 
 	// Create history repository (registers itself as listener)

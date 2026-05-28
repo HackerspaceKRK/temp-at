@@ -10,8 +10,6 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/oauth2"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
 var (
@@ -118,10 +116,7 @@ func handleAuthCallback(c *fiber.Ctx) error {
 	}
 	cachedClaimsJSON, _ := json.Marshal(allClaims)
 
-	db, err := gorm.Open(sqlite.Open(ConfigInstance.Database.Path), &gorm.Config{})
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to connect to database: " + err.Error()})
-	}
+	db := gormDB
 
 	session := SessionModel{
 		ID:           GenerateUUIDv7(),
@@ -154,10 +149,7 @@ func handleAuthCallback(c *fiber.Ctx) error {
 func handleLogout(c *fiber.Ctx) error {
 	cookie := c.Cookies(CookieName)
 	if cookie != "" {
-		db, err := gorm.Open(sqlite.Open(ConfigInstance.Database.Path), &gorm.Config{})
-		if err == nil {
-			db.Delete(&SessionModel{}, "id = ?", cookie)
-		}
+		gormDB.Delete(&SessionModel{}, "id = ?", cookie)
 	}
 
 	c.Cookie(&fiber.Cookie{
@@ -174,10 +166,7 @@ func handleMe(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Not logged in"})
 	}
 
-	db, err := gorm.Open(sqlite.Open(ConfigInstance.Database.Path), &gorm.Config{})
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error"})
-	}
+	db := gormDB
 
 	var session SessionModel
 	if err := db.First(&session, "id = ?", cookie).Error; err != nil {
@@ -287,10 +276,7 @@ func AuthMiddleware(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Not logged in"})
 	}
 
-	db, err := gorm.Open(sqlite.Open(ConfigInstance.Database.Path), &gorm.Config{})
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error"})
-	}
+	db := gormDB
 
 	var session SessionModel
 	if err := db.First(&session, "id = ?", cookie).Error; err != nil {
@@ -416,10 +402,7 @@ func handleBackchannelLogout(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Failed to parse claims"})
 	}
 
-	db, err := gorm.Open(sqlite.Open(ConfigInstance.Database.Path), &gorm.Config{})
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error"})
-	}
+	db := gormDB
 
 	if claims.Sid != "" {
 		db.Delete(&SessionModel{}, "id_p_session_id = ?", claims.Sid)
