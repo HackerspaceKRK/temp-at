@@ -174,6 +174,7 @@ export type Entity =
 export interface RoomState {
   id: string;
   localized_name: LocalizedName;
+  exclude_from_entrance_tablet: boolean;
   people_count: number;
   latest_person_detected_at: string | null;
   entities: Entity[];

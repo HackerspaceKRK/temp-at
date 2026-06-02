@@ -38,6 +38,7 @@ mqtt:
 # Room definitions
 rooms:
   - id: "living_room"
+    exclude_from_entrance_tablet: false
     localized_name:
       en: "Living Room"
       de: "Wohnzimmer"

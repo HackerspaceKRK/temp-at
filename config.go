@@ -108,6 +108,7 @@ type EntityConfig struct {
 type RoomConfig struct {
 	ID            string          `yaml:"id"`
 	LocalizedName LocalizedString `yaml:"localized_name"`
+	ExcludeFromEntranceTablet bool `yaml:"exclude_from_entrance_tablet"`
 
 	Cameras  []string       `yaml:"cameras"`
 	Entities []EntityConfig `yaml:"entities"`

@@ -60,5 +60,18 @@
     "Licensed under MIT": "Licencja MIT",
     "Source code": "Kod źródłowy",
     "Logo": "Logo",
-    "Version": "Wersja"
+    "Version": "Wersja",
+    "Lights on: {{count}}": "Światło: {{count}}",
+    "Fans on: {{count}}": "Wentylacja: {{count}}",
+    "Windows open: {{count}}": "Okna: {{count}}",
+    "Devices on: {{count}}": "Urządzenia: {{count}}",
+    "Disabled": "Wyłączone",
+    "All windows closed": "Wszystkie okna zamknięte",
+    "All lights off": "Wszystkie światła wyłączone",
+    "All fans off": "Wszystkie wentylatory wyłączone",
+    "People inside: {{count}}": "Obecne osoby: {{count}}",
+    "Last seen {{time}} ago": "Ostatnio {{time}} temu",
+    "No recent presence": "Brak ostatniej obecności",
+    "Occupied": "Zajęte",
+    "Empty": "Puste"
 }

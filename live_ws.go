@@ -21,6 +21,7 @@ type EntityState struct {
 type RoomState struct {
 	ID            string          `json:"id"`
 	LocalizedName LocalizedString `json:"localized_name"`
+	ExcludeFromEntranceTablet bool `json:"exclude_from_entrance_tablet"`
 	// PeopleCount is the number of people in the room
 	// (it is calculated by taking the maximum as reported by each camera)
 	PeopleCount int `json:"people_count"`
@@ -36,6 +37,7 @@ func buildRoomState(id string) *RoomState {
 			rs := &RoomState{
 				ID:            id,
 				LocalizedName: r.LocalizedName,
+				ExcludeFromEntranceTablet: r.ExcludeFromEntranceTablet,
 				Entities:      []EntityState{},
 			}
 

@@ -76,9 +76,9 @@ func main() {
 
 	frigateSnapshotMapper = NewFrigateSnapshotMapper(vdevManager, cfg)
 	err = frigateSnapshotMapper.Start()
-	if err != nil {
-		log.Fatalf("failed to start Frigate snapshot mapper: %v", err)
-	}
+	// if err != nil {
+	// 	log.Fatalf("failed to start Frigate snapshot mapper: %v", err)
+	// }
 
 	vdevManager.OnVirtualDeviceUpdated = append(
 		vdevManager.OnVirtualDeviceUpdated,
