@@ -43,7 +43,7 @@ const Piece: FC<PieceProps> = ({
   subtitle,
 }) => (
   <div
-    className={`${positionClassName} ${stateClassName} flex min-h-[106px] flex-col items-center justify-center gap-2 rounded-xl border p-3`}
+    className={`${positionClassName} ${stateClassName} flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-xl border p-3`}
   >
     <div>{icon}</div>
     <div className="text-center text-xs font-semibold leading-tight">{subtitle}</div>
@@ -106,7 +106,7 @@ export const RoomStatusTabletTile: FC<{ room: RoomState }> = ({ room }) => {
       : t("No recent presence");
 
   return (
-    <Card className="min-h-[248px] gap-3 border-border bg-card p-4 shadow-sm">
+    <Card className="h-full gap-3 border-border bg-card p-4 shadow-sm">
       <div className="text-base font-semibold tracking-tight text-foreground">
         {getName(room.localized_name, room.id)}
       </div>
