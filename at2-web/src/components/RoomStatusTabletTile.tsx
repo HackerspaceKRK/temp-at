@@ -43,10 +43,12 @@ const Piece: FC<PieceProps> = ({
   subtitle,
 }) => (
   <div
-    className={`${positionClassName} ${stateClassName} flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-xl border p-3`}
+    className={`${positionClassName} ${stateClassName} flex h-full min-h-0 flex-col items-center justify-center gap-1 rounded-xl border p-2 sm:gap-2 sm:p-3`}
   >
     <div>{icon}</div>
-    <div className="text-center text-xs font-semibold leading-tight">{subtitle}</div>
+    <div className="break-words px-1 text-center text-[11px] font-semibold leading-tight sm:text-xs">
+      {subtitle}
+    </div>
   </div>
 );
 
@@ -106,8 +108,8 @@ export const RoomStatusTabletTile: FC<{ room: RoomState }> = ({ room }) => {
       : t("No recent presence");
 
   return (
-    <Card className="h-full gap-3 border-border bg-card p-4 shadow-sm">
-      <div className="text-base font-semibold tracking-tight text-foreground">
+    <Card className="h-full gap-2 border-border bg-card p-3 shadow-sm sm:gap-3 sm:p-4">
+      <div className="text-sm font-semibold tracking-tight text-foreground sm:text-base">
         {getName(room.localized_name, room.id)}
       </div>
 
@@ -120,7 +122,7 @@ export const RoomStatusTabletTile: FC<{ room: RoomState }> = ({ room }) => {
                 ? "border-4 border-emerald-500 bg-transparent text-emerald-400"
                 : "border-border bg-muted text-muted-foreground"
             }
-            icon={<User className="size-10" />}
+            icon={<User className="size-8 sm:size-10" />}
             subtitle={peopleSubtitle}
           />
         )}
@@ -133,7 +135,7 @@ export const RoomStatusTabletTile: FC<{ room: RoomState }> = ({ room }) => {
                 ? mutedProblemClass
                 : "border-4 border-emerald-500 bg-transparent text-emerald-400"
             }
-            icon={<Grid2X2 className="size-10" />}
+            icon={<Grid2X2 className="size-8 sm:size-10" />}
             subtitle={windowsOpen > 0 ? t("Open") : t("Closed")}
           />
         )}
@@ -146,7 +148,7 @@ export const RoomStatusTabletTile: FC<{ room: RoomState }> = ({ room }) => {
                 ? mutedProblemClass
                 : "border-4 border-emerald-500 bg-transparent text-emerald-400"
             }
-            icon={<Lightbulb className="size-10" />}
+            icon={<Lightbulb className="size-8 sm:size-10" />}
             subtitle={
               lightsOn > 0
                 ? t("Lights on: {{count}}", { count: lightsOn })
@@ -163,7 +165,7 @@ export const RoomStatusTabletTile: FC<{ room: RoomState }> = ({ room }) => {
                 ? mutedProblemClass
                 : "border-4 border-emerald-500 bg-transparent text-emerald-400"
             }
-            icon={<Fan className="size-10" />}
+            icon={<Fan className="size-8 sm:size-10" />}
             subtitle={
               fansOn > 0
                 ? t("Fans on: {{count}}", { count: fansOn })
