@@ -76,13 +76,17 @@ func SetupFrontend(app *fiber.App, devMode bool) {
 
 			// If not found, serve index.html
 			c.Status(fiber.StatusOK)
+			c.Type("html", "utf-8")
 			index, err := distFS.Open("index.html")
 			if err != nil {
 				return c.Status(fiber.StatusInternalServerError).SendString("index.html not found")
 			}
+			defer index.Close()
 			stat, _ := index.Stat()
 			content := make([]byte, stat.Size())
-			index.Read(content)
+			if _, err := index.Read(content); err != nil {
+				return c.Status(fiber.StatusInternalServerError).SendString("failed to read index.html")
+			}
 			return c.Send(content)
 		})
 	}
