@@ -21,7 +21,8 @@ export function apiPath(...segments: string[]): string {
  * Converts http/https base to ws/wss automatically.
  */
 export function liveWebsocketUrl(): string {
-  const wsBase = API_URL.replace(/^http/, "ws");
+  const baseUrl = API_URL || window.location.origin;
+  const wsBase = baseUrl.replace(/^http/, "ws").replace(/\/+$/, "");
   return `${wsBase}/api/v1/live-ws`;
 }
 

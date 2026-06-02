@@ -11,7 +11,7 @@ import useWebsocket from "./useWebsocket";
 import type { RoomState } from "./schema";
 import RoomCard from "./components/RoomCard";
 import Footer from "./components/Footer";
-import { API_URL } from "./config";
+import { liveWebsocketUrl } from "./config";
 import { AuthProvider } from "./AuthContext";
 import { AppConfigProvider, useAppConfig } from "./AppConfigContext";
 import { useTranslation } from "react-i18next";
@@ -45,7 +45,7 @@ const AppContent: FC = () => {
     {},
   );
   const [roomScores, setRoomScores] = useState<{ [key: string]: number }>({});
-  const { } = useWebsocket(`${API_URL.replace(/\/$/, "")}/api/v1/live-ws`, {
+  const { } = useWebsocket(liveWebsocketUrl(), {
     binaryType: "arraybuffer",
     onMessage: (msgEvt) => {
       if (msgEvt.data) {
