@@ -10,13 +10,13 @@ export const EntranceTabletPage: FC = () => {
   );
 
   return (
-    <main className="mx-auto flex h-[calc(100vh-78px)] w-full max-w-[1280px] flex-col px-4 py-4">
+    <main className="mx-auto flex min-h-0 w-full max-w-[1280px] flex-1 flex-col px-4 py-4">
       {rooms.length === 0 ? (
         <div className="flex flex-1 items-center justify-center rounded-3xl border border-dashed border-border bg-card text-lg text-muted-foreground">
           {t("Waiting for data...")}
         </div>
       ) : (
-        <div className="grid h-full flex-1 auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {rooms.map((room) => (
             <RoomStatusTabletTile key={room.id} room={room} />
           ))}

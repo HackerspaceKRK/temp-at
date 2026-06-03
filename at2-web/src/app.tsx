@@ -49,7 +49,7 @@ const DefaultLayout: FC = () => (
 );
 
 const TabletLayout: FC = () => (
-  <div className="min-h-screen bg-background text-foreground">
+  <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
     <TabletNavbar />
     <Outlet />
   </div>
