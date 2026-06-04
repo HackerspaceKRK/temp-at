@@ -3,16 +3,14 @@ import {
   KIOSK_EVENT_NAMES,
   isKioskAvailable,
   kioskAnswerCall,
-  kioskGetProximity,
   kioskHangupCall,
   kioskListAudioDevices,
   kioskMakeCall,
-  kioskProximityStart,
-  kioskProximityStop,
   kioskRejectCall,
   kioskScreenOff,
   kioskScreenOn,
   kioskSetBrightness,
+  kioskSetLeds,
   kioskWatchdogEnable,
   kioskWatchdogFeed,
   onKioskEvent,
@@ -28,6 +26,18 @@ interface LogEntry {
   name: string;
   detail: string;
 }
+
+// Two LED driver chips, 144 channels each. The sweep walks every channel in
+// order so you can map channel index → physical LED / colour on the unit.
+const LED_CHIPS: (1 | 2)[] = [1, 2];
+const LED_CHANNELS_PER_CHIP = 144;
+const LED_SWEEP_INTERVAL_MS = 1000;
+const LED_SWEEP: { chip: 1 | 2; channel: number }[] = LED_CHIPS.flatMap((chip) =>
+  Array.from({ length: LED_CHANNELS_PER_CHIP }, (_, channel) => ({
+    chip,
+    channel,
+  })),
+);
 
 const Panel: FC<{ title: string; children: ReactNode }> = ({
   title,
@@ -53,6 +63,8 @@ export const TabletDebugPage: FC = () => {
   );
   const [registration, setRegistration] = useState<string>("unknown");
   const [log, setLog] = useState<LogEntry[]>([]);
+  const [ledSweeping, setLedSweeping] = useState(false);
+  const [ledIndex, setLedIndex] = useState(0);
 
   const addLog = (name: string, detail: unknown) => {
     setLog((prev) =>
@@ -83,6 +95,37 @@ export const TabletDebugPage: FC = () => {
     );
     return () => unsubscribers.forEach((u) => u());
   }, []);
+
+  // LED channel sweep: light one channel at a time (full white) for 1s, turning
+  // the previous one off, so each physical LED / colour can be identified.
+  const ledIndexRef = useRef(ledIndex);
+  ledIndexRef.current = ledIndex;
+  useEffect(() => {
+    if (!ledSweeping) return;
+
+    const light = (i: number) => {
+      const cur = LED_SWEEP[i];
+      const prev = LED_SWEEP[(i - 1 + LED_SWEEP.length) % LED_SWEEP.length];
+      kioskSetLeds([
+        { ...prev, value: 0 },
+        { ...cur, value: 255 },
+      ]);
+      ledIndexRef.current = i;
+      setLedIndex(i);
+    };
+
+    light(ledIndexRef.current);
+    const id = window.setInterval(() => {
+      light((ledIndexRef.current + 1) % LED_SWEEP.length);
+    }, LED_SWEEP_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(id);
+      const cur = LED_SWEEP[ledIndexRef.current];
+      kioskSetLeds([{ ...cur, value: 0 }]);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ledSweeping]);
 
   // Optional watchdog auto-feed (feed every 5s, comfortably within 20s).
   const autoFeedRef = useRef(autoFeed);
@@ -136,22 +179,52 @@ export const TabletDebugPage: FC = () => {
         </Panel>
 
         <Panel title="Proximity">
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={kioskProximityStart}>Start</Button>
-            <Button variant="outline" onClick={kioskProximityStop}>
-              Stop
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setProximity(kioskGetProximity())}
-            >
-              Get
-            </Button>
+          <div className="text-sm text-muted-foreground">
+            Streams automatically — nothing to start or stop. Baseline ≈ 300, a
+            near object jumps to tens of thousands.
           </div>
           <div className="text-sm text-muted-foreground">
             Latest value:{" "}
             <span className="font-mono text-foreground">
               {proximity ?? "—"}
+            </span>
+          </div>
+        </Panel>
+
+        <Panel title="Side RGB LEDs">
+          <div className="text-sm text-muted-foreground">
+            Sweeps every channel (both chips, 0–143) one at a time at full white
+            for 1s, to map channel → physical LED / colour.
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={() => setLedSweeping(true)} disabled={ledSweeping}>
+              Start sweep
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setLedSweeping(false)}
+              disabled={!ledSweeping}
+            >
+              Stop
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setLedSweeping(false);
+                setLedIndex(0);
+              }}
+            >
+              Reset
+            </Button>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            Current:{" "}
+            <span className="font-mono text-foreground">
+              chip {LED_SWEEP[ledIndex].chip} · channel{" "}
+              {LED_SWEEP[ledIndex].channel}
+            </span>{" "}
+            <span className="text-xs">
+              ({ledIndex + 1}/{LED_SWEEP.length})
             </span>
           </div>
         </Panel>

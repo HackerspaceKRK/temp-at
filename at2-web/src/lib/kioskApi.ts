@@ -32,6 +32,21 @@ export interface KioskProximityDetail {
   near: boolean;
 }
 
+export interface KioskScreenWokenDetail {
+  /** `"tap"` (screen-off overlay tapped) or `"incoming_call"`. */
+  source: string;
+}
+
+/** A single LED PWM channel write. See {@link kioskSetLeds}. */
+export interface KioskLedWrite {
+  /** `1` (one side) or `2` (the other side). */
+  chip: 1 | 2;
+  /** Channel index `0–143`. Consecutive channels are R/G/B of one LED. */
+  channel: number;
+  /** PWM value `0–255`. */
+  value: number;
+}
+
 interface KioskBridge {
   kiosk_make_call?: (dest: string) => void;
   kiosk_answer_call?: () => void;
@@ -41,9 +56,7 @@ interface KioskBridge {
   kiosk_screen_on?: () => void;
   kiosk_screen_off?: () => void;
   kiosk_set_brightness?: (fraction: number) => void;
-  kiosk_proximity_start?: () => void;
-  kiosk_proximity_stop?: () => void;
-  kiosk_get_proximity?: () => number;
+  kiosk_set_leds?: (writes: KioskLedWrite[]) => void;
   kiosk_watchdog_enable?: () => void;
   kiosk_watchdog_feed?: () => void;
 }
@@ -55,6 +68,7 @@ export interface KioskEventMap {
   kiosk_call_answered: KioskCallDetail;
   kiosk_call_hangup: KioskCallDetail;
   kiosk_proximity: KioskProximityDetail;
+  kiosk_screen_woken: KioskScreenWokenDetail;
 }
 
 export const KIOSK_EVENT_NAMES: (keyof KioskEventMap)[] = [
@@ -63,6 +77,7 @@ export const KIOSK_EVENT_NAMES: (keyof KioskEventMap)[] = [
   "kiosk_call_answered",
   "kiosk_call_hangup",
   "kiosk_proximity",
+  "kiosk_screen_woken",
 ];
 
 function bridge(): KioskBridge {
@@ -104,16 +119,22 @@ export function kioskSetBrightness(fraction: number): void {
   bridge().kiosk_set_brightness?.(fraction);
 }
 
+/* --- Side RGB LEDs --- */
+/**
+ * Write one or more LED PWM channels. Both chips can be addressed in a single
+ * call; invalid entries are skipped natively. Each chip is taken out of
+ * shutdown and put in picture mode the first time it is written.
+ */
+export function kioskSetLeds(writes: KioskLedWrite[]): void {
+  bridge().kiosk_set_leds?.(writes);
+}
+
 /* --- Proximity --- */
-export function kioskProximityStart(): void {
-  bridge().kiosk_proximity_start?.();
-}
-export function kioskProximityStop(): void {
-  bridge().kiosk_proximity_stop?.();
-}
-export function kioskGetProximity(): number {
-  return bridge().kiosk_get_proximity?.() ?? 0;
-}
+/**
+ * The proximity sensor streams automatically for the whole app lifetime; there
+ * is nothing to start or stop. Subscribe to the `kiosk_proximity` event via
+ * {@link onKioskEvent} to read samples.
+ */
 
 /* --- Watchdog --- */
 export function kioskWatchdogEnable(): void {

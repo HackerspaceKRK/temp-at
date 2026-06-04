@@ -16,6 +16,7 @@ import { LiveStateProvider } from "./useLiveRoomStates";
 import { TabletAuthGate } from "./components/tablet/TabletAuthGate";
 import { TabletSessionProvider } from "./components/tablet/TabletSessionContext";
 import { InactivityRedirect } from "./components/tablet/InactivityRedirect";
+import { ScreenSleepManager } from "./components/tablet/ScreenSleepManager";
 
 export function App() {
   return (
@@ -76,6 +77,7 @@ const TabletLayout: FC = () => (
         <TabletNavbar />
         <Outlet />
         <InactivityRedirect />
+        <ScreenSleepManager />
       </div>
     </TabletSessionProvider>
   </TabletAuthGate>
