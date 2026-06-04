@@ -1,9 +1,9 @@
 import { useEffect, useState, type FC, type ReactNode } from "react";
 import { Fan, Grid2X2, Lightbulb, User } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useLocale } from "../locale";
-import type { ContactEntity, RelayEntity, RoomState } from "../schema";
-import { Card } from "./ui/card";
+import { useLocale } from "../../locale";
+import type { ContactEntity, RelayEntity, RoomState } from "../../schema";
+import { Card } from "../ui/card";
 
 function formatElapsedTime(timestamp: string | null, now: Date): string | null {
   if (!timestamp) {

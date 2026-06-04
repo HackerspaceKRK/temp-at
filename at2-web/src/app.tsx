@@ -6,9 +6,12 @@ import { AppConfigProvider } from "./AppConfigContext";
 import { ThemeProvider } from "./theme";
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { AppNavbar } from "./components/AppNavbar";
-import { TabletNavbar } from "./components/TabletNavbar";
-import { EntranceTabletPage } from "./pages/EntranceTabletPage";
+import { TabletNavbar } from "./components/tablet/TabletNavbar";
+import { OverviewTabletPage } from "./pages/OverviewTabletPage";
+import { TabletDebugPage } from "./pages/TabletDebugPage";
+import { TabletRoomPage } from "./pages/TabletRoomPage";
 import { RoomStatesPage } from "./pages/RoomStatesPage";
+import { LiveStateProvider } from "./useLiveRoomStates";
 
 export function App() {
   return (
@@ -19,8 +22,19 @@ export function App() {
             <Route path="/" element={<RoomStatesPage />} />
           </Route>
           <Route element={<TabletLayout />}>
-            <Route path="/tablet/entrance" element={<EntranceTabletPage />} />
+            <Route path="/tablet/overview" element={<OverviewTabletPage />} />
+            <Route path="/tablet/debug" element={<TabletDebugPage />} />
+            <Route path="/tablet/room/:id" element={<TabletRoomPage />} />
           </Route>
+          {/* Redirect legacy / bare tablet URLs to the overview page */}
+          <Route
+            path="/tablet"
+            element={<Navigate to="/tablet/overview" replace />}
+          />
+          <Route
+            path="/tablet/entrance"
+            element={<Navigate to="/tablet/overview" replace />}
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
@@ -32,7 +46,9 @@ const AppProviders: FC<PropsWithChildren> = ({ children }) => {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AppConfigProvider>{children}</AppConfigProvider>
+        <AppConfigProvider>
+          <LiveStateProvider>{children}</LiveStateProvider>
+        </AppConfigProvider>
       </AuthProvider>
     </ThemeProvider>
   );

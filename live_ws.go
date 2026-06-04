@@ -143,6 +143,13 @@ var socketChansMutex = sync.Mutex{}
 
 func handleLiveWs(c *websocket.Conn) {
 
+	// Send the running server version first, so the frontend can detect a
+	// redeployment after a reconnect and reload itself.
+	if err := c.WriteJSON(fiber.Map{"type": "server_info", "version": GitCommitHash}); err != nil {
+		log.Printf("Failed to send server_info to WS: %v", err)
+		return
+	}
+
 	// First of all send all room states as an initial message
 	for _, room := range ConfigInstance.Rooms {
 		rs := buildRoomState(room.ID)
