@@ -49,7 +49,7 @@ export const TabletRoomPage: FC = () => {
   return (
     <div className="flex h-[calc(100vh-62px)] flex-col gap-4 p-4 md:flex-row">
       {/* Left: sensors + relay controls */}
-      <div className="flex w-full flex-col gap-4 overflow-y-auto md:w-1/2">
+      <div className="flex w-full flex-col gap-4 overflow-y-auto md:w-2/5">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
           {getName(room.localized_name, room.id)}
         </h1>
@@ -138,7 +138,7 @@ export const TabletRoomPage: FC = () => {
       </div>
 
       {/* Right: reservations */}
-      <div className="w-full md:w-1/2">
+      <div className="w-full md:w-3/5">
         <ReservationsPanel roomId={room.id} />
       </div>
     </div>

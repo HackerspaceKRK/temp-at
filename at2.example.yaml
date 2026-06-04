@@ -9,6 +9,17 @@ web:
   # jwt_secret_file: "/run/secrets/jwt_secret" # Alternative: Load secret from file
   spaceapi_domains:
     - "space.example.com"
+  # IPs/CIDRs of trusted reverse proxies (e.g. Traefik). When set, the real
+  # client IP is read from the X-Forwarded-For header instead of the peer IP.
+  # trusted_proxies:
+  #   - "10.0.0.0/8"
+
+# Tablet / kiosk mode configuration
+tablet:
+  # Tablets connecting from any of these subnets (CIDRs) are granted a
+  # long-lived (1 year) session that may control devices, without OIDC login.
+  trusted_subnets:
+    - "10.12.20.0/24"
 
 # OIDC Authentication configuration
 oidc:
@@ -39,6 +50,8 @@ mqtt:
 rooms:
   - id: "living_room"
     exclude_from_entrance_tablet: false
+    # SIP extension/number to dial to reach this room from the tablet phone page.
+    voip_phone_number: "21"
     localized_name:
       en: "Living Room"
       de: "Wohnzimmer"

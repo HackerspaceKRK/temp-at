@@ -10,8 +10,10 @@ import { TabletNavbar } from "./components/tablet/TabletNavbar";
 import { OverviewTabletPage } from "./pages/OverviewTabletPage";
 import { TabletDebugPage } from "./pages/TabletDebugPage";
 import { TabletRoomPage } from "./pages/TabletRoomPage";
+import { TabletPhonePage } from "./pages/TabletPhonePage";
 import { RoomStatesPage } from "./pages/RoomStatesPage";
 import { LiveStateProvider } from "./useLiveRoomStates";
+import { TabletAuthGate } from "./components/tablet/TabletAuthGate";
 
 export function App() {
   return (
@@ -24,6 +26,7 @@ export function App() {
           <Route element={<TabletLayout />}>
             <Route path="/tablet/overview" element={<OverviewTabletPage />} />
             <Route path="/tablet/debug" element={<TabletDebugPage />} />
+            <Route path="/tablet/phone" element={<TabletPhonePage />} />
             <Route path="/tablet/room/:id" element={<TabletRoomPage />} />
           </Route>
           {/* Redirect legacy / bare tablet URLs to the overview page */}
@@ -65,8 +68,10 @@ const DefaultLayout: FC = () => (
 );
 
 const TabletLayout: FC = () => (
-  <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
-    <TabletNavbar />
-    <Outlet />
-  </div>
+  <TabletAuthGate>
+    <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+      <TabletNavbar />
+      <Outlet />
+    </div>
+  </TabletAuthGate>
 );

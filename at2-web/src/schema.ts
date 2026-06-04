@@ -177,6 +177,7 @@ export interface RoomState {
   exclude_from_entrance_tablet: boolean;
   people_count: number;
   latest_person_detected_at: string | null;
+  voip_phone_number?: string;
   entities: Entity[];
 }
 

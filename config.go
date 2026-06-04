@@ -9,6 +9,14 @@ type Config struct {
 	Web      WebConfig      `yaml:"web"`
 	SpaceAPI SpaceAPIConfig `yaml:"spaceapi"`
 	Branding BrandingConfig `yaml:"branding"`
+	Tablet   TabletConfig   `yaml:"tablet"`
+}
+
+// TabletConfig controls the wall-mounted tablet/kiosk mode.
+type TabletConfig struct {
+	// TrustedSubnets is a list of CIDRs. A tablet connecting from one of these
+	// subnets is granted a long-lived session that may control devices.
+	TrustedSubnets []string `yaml:"trusted_subnets"`
 }
 
 type BrandingConfig struct {
@@ -62,6 +70,10 @@ type WebConfig struct {
 	ListenAddress   string   `yaml:"listen_address"`
 	PublicURL       string   `yaml:"public_url"`
 	SpaceapiDomains []string `yaml:"spaceapi_domains"`
+	// TrustedProxies is a list of IPs/CIDRs of reverse proxies (e.g. Traefik)
+	// allowed to set the X-Forwarded-For header. When set, the real client IP
+	// is taken from that header instead of the immediate peer.
+	TrustedProxies []string `yaml:"trusted_proxies"`
 }
 
 type OidcConfig struct {
@@ -106,9 +118,13 @@ type EntityConfig struct {
 }
 
 type RoomConfig struct {
-	ID            string          `yaml:"id"`
-	LocalizedName LocalizedString `yaml:"localized_name"`
-	ExcludeFromEntranceTablet bool `yaml:"exclude_from_entrance_tablet"`
+	ID                        string          `yaml:"id"`
+	LocalizedName             LocalizedString `yaml:"localized_name"`
+	ExcludeFromEntranceTablet bool            `yaml:"exclude_from_entrance_tablet"`
+
+	// VoipPhoneNumber is the SIP extension/number to dial to reach this room.
+	// Optional; rooms without it are not shown on the tablet phone page.
+	VoipPhoneNumber string `yaml:"voip_phone_number"`
 
 	Cameras  []string       `yaml:"cameras"`
 	Entities []EntityConfig `yaml:"entities"`

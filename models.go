@@ -44,6 +44,9 @@ type SessionModel struct {
 	CachedClaims string    `gorm:"type:text"` // JSON-encoded claims
 	ExpiresAt    time.Time `gorm:"not null;index"`
 	CreatedAt    time.Time `gorm:"autoCreateTime"`
+	// IsTablet marks a long-lived session granted to a trusted kiosk tablet.
+	// Such sessions have no OIDC tokens and are not refreshed.
+	IsTablet bool `gorm:"not null;default:false"`
 }
 
 // TableName overrides the default table name.

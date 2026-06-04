@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FC } from "react";
-import { ChevronDown, LayoutGrid, Wrench, DoorOpen } from "lucide-react";
+import { ChevronDown, LayoutGrid, Wrench, DoorOpen, Phone } from "lucide-react";
 import { NavLink, useMatch, useNavigate } from "react-router-dom";
 import { useAppConfig } from "../../AppConfigContext";
 import { useTheme } from "../../theme";
@@ -78,7 +78,7 @@ export const TabletNavbar: FC = () => {
           <img
             src={logoUrl}
             alt={branding?.logo_alt || "Logo"}
-            className="max-h-[30px] w-auto"
+            className="h-full w-auto py-2"
           />
         ) : null}
 
@@ -126,6 +126,10 @@ export const TabletNavbar: FC = () => {
           <NavLink to="/tablet/overview" className={navItemClass}>
             <LayoutGrid className="h-4 w-4" />
             Overview
+          </NavLink>
+          <NavLink to="/tablet/phone" className={navItemClass}>
+            <Phone className="h-4 w-4" />
+            Phone
           </NavLink>
           <NavLink to="/tablet/debug" className={navItemClass}>
             <Wrench className="h-4 w-4" />

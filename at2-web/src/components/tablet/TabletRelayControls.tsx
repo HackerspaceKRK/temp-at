@@ -1,11 +1,10 @@
-import { useState, type FC } from "react";
+import { type FC } from "react";
 import { Fan, Lightbulb } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useLocale } from "../../locale";
-import { useAuth } from "../../AuthContext";
 import { apiPath } from "../../config";
 import type { RelayEntity } from "../../schema";
-import { LoginDialog } from "../LoginDialog";
+import { Switch } from "../ui/switch";
 
 interface TabletRelayControlsProps {
   /** All entities in the room; lights and fans are filtered out internally. */
@@ -13,19 +12,20 @@ interface TabletRelayControlsProps {
 }
 
 /**
- * TabletRelayControls renders one large square button per light/fan relay in a
- * room, suited for touch on a wall tablet. Tapping toggles the relay.
+ * TabletRelayControls renders one full-width row per light/fan relay in a room,
+ * suited for touch on a wall tablet. Each row is a card with the device label
+ * on the left and a large Switch on the right; tapping anywhere on the row
+ * toggles the relay.
  *
- * Controlling devices requires authentication; while logged out a tap opens the
- * login dialog (proper kiosk auth handling comes later).
+ * Authorization is handled at the page level by TabletAuthGate (the tablet
+ * holds a long-lived control session), so toggles call the control API
+ * directly.
  */
 export const TabletRelayControls: FC<TabletRelayControlsProps> = ({
   entities,
 }) => {
   const { t } = useTranslation();
   const { getName } = useLocale();
-  const { user, login } = useAuth();
-  const [loginDialogOpen, setLoginDialogOpen] = useState(false);
 
   const relays = entities.filter(
     (e) => e.representation === "light" || e.representation === "fan",
@@ -44,10 +44,6 @@ export const TabletRelayControls: FC<TabletRelayControlsProps> = ({
   };
 
   const handleTap = (relay: RelayEntity) => {
-    if (!user) {
-      setLoginDialogOpen(true);
-      return;
-    }
     if (relay.prohibit_control) return;
     executeControl(relay.id, !(relay.state === "ON"));
   };
@@ -61,48 +57,36 @@ export const TabletRelayControls: FC<TabletRelayControlsProps> = ({
   }
 
   return (
-    <>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {relays.map((relay) => {
-          const on = relay.state === "ON";
-          const isFan = relay.representation === "fan";
-          const Icon = isFan ? Fan : Lightbulb;
-          return (
-            <button
-              key={relay.id}
-              type="button"
-              onClick={() => handleTap(relay)}
-              disabled={!!relay.prohibit_control}
-              className={[
-                "flex aspect-square flex-col items-center justify-center gap-2 rounded-2xl border-2 p-3 text-center transition-colors",
-                on
-                  ? "border-amber-400 bg-amber-400/15 text-amber-500"
-                  : "border-border bg-card text-muted-foreground",
-                relay.prohibit_control
-                  ? "cursor-not-allowed opacity-50"
-                  : "active:scale-[0.98]",
-              ].join(" ")}
-            >
-              <Icon
-                className={`size-10 ${isFan && on ? "spin-slow" : ""}`}
-              />
-              <span className="line-clamp-2 text-sm font-semibold leading-tight">
-                {getName(relay.localized_name, relay.id)}
+    <div className="flex flex-col gap-1.5">
+      {relays.map((relay) => {
+        const on = relay.state === "ON";
+        const isFan = relay.representation === "fan";
+        const Icon = isFan ? Fan : Lightbulb;
+        const name = getName(relay.localized_name, relay.id);
+        return (
+          <button
+            key={relay.id}
+            type="button"
+            onClick={() => handleTap(relay)}
+            disabled={!!relay.prohibit_control}
+            className={[
+              "flex w-full items-center justify-between gap-4 rounded-xl border-2 border-border bg-card px-5 py-4 text-left text-foreground transition-colors",
+              relay.prohibit_control ? "cursor-not-allowed opacity-50" : "",
+            ].join(" ")}
+          >
+            <div className="flex items-center gap-3">
+              <Icon className={`size-7 ${isFan && on ? "spin-slow" : ""}`} />
+              <span className="text-lg font-semibold leading-tight">
+                {name}
               </span>
-              <span className="text-xs font-medium uppercase tracking-wide">
-                {on ? t("On") : t("Off")}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      <LoginDialog
-        open={loginDialogOpen}
-        onOpenChange={setLoginDialogOpen}
-        onLogin={login}
-      />
-    </>
+            </div>
+            <div className="pointer-events-none flex items-center justify-center pr-3 scale-[1.7]">
+              <Switch checked={on} disabled={!!relay.prohibit_control} />
+            </div>
+          </button>
+        );
+      })}
+    </div>
   );
 };
 

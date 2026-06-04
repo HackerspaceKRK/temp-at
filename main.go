@@ -88,7 +88,15 @@ func main() {
 	// Wire up the state provider for persistence restoration
 	vdevManager.SetStateProvider(vdevHistoryRepo)
 
-	app := fiber.New()
+	fiberCfg := fiber.Config{}
+	// When behind a trusted reverse proxy (e.g. Traefik), derive the real
+	// client IP from the X-Forwarded-For header instead of the proxy's IP.
+	if len(cfg.Web.TrustedProxies) > 0 {
+		fiberCfg.EnableTrustedProxyCheck = true
+		fiberCfg.TrustedProxies = cfg.Web.TrustedProxies
+		fiberCfg.ProxyHeader = fiber.HeaderXForwardedFor
+	}
+	app := fiber.New(fiberCfg)
 
 	// Prometheus
 	promRegistry := prometheus.NewRegistry()
@@ -118,6 +126,7 @@ func main() {
 	app.Get("/api/v1/auth/me", handleMe)
 	app.Post("/api/v1/auth/logout", handleLogout)
 	app.Post("/api/v1/auth/backchannel-logout", handleBackchannelLogout)
+	app.Post("/api/v1/auth/tablet-auth", handleTabletAuth)
 	app.Post("/api/v1/control-relay", AuthMiddleware, handleControlRelay)
 	app.Get("/api/v1/spaceapi", handleSpaceAPI)
 	app.Get("/api/v1/app-config", handleAppConfig)

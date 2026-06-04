@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -146,6 +147,76 @@ func handleAuthCallback(c *fiber.Ctx) error {
 	return c.Redirect("/")
 }
 
+// tabletSessionDuration is how long a kiosk tablet session stays valid.
+const tabletSessionDuration = 365 * 24 * time.Hour
+
+// tabletSessionCookie builds the session cookie used for tablet sessions.
+func tabletSessionCookie(sessionID string) *fiber.Cookie {
+	return &fiber.Cookie{
+		Name:     CookieName,
+		Value:    sessionID,
+		Expires:  time.Now().Add(tabletSessionDuration),
+		HTTPOnly: true,
+		Secure:   false, // set to true if using HTTPS
+		SameSite: "Lax",
+	}
+}
+
+// ipInTrustedSubnets reports whether the given IP falls inside any of the
+// configured tablet trusted subnets (CIDRs).
+func ipInTrustedSubnets(ipStr string) bool {
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return false
+	}
+	for _, cidr := range ConfigInstance.Tablet.TrustedSubnets {
+		_, network, err := net.ParseCIDR(cidr)
+		if err != nil {
+			log.Printf("Invalid tablet trusted_subnet %q: %v", cidr, err)
+			continue
+		}
+		if network.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+// handleTabletAuth grants a long-lived control session to a tablet connecting
+// from a trusted subnet. Requests from outside those subnets get 401.
+func handleTabletAuth(c *fiber.Ctx) error {
+	clientIP := c.IP()
+	if !ipInTrustedSubnets(clientIP) {
+		log.Printf("Tablet auth denied for IP %s (not in a trusted subnet)", clientIP)
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Not in a trusted subnet"})
+	}
+
+	// Reuse an existing valid tablet session from this client if the cookie is
+	// still good, otherwise mint a new one.
+	if cookie := c.Cookies(CookieName); cookie != "" {
+		var existing SessionModel
+		if err := gormDB.First(&existing, "id = ? AND is_tablet = ?", cookie, true).Error; err == nil {
+			c.Cookie(tabletSessionCookie(existing.ID))
+			return c.JSON(fiber.Map{"ok": true})
+		}
+	}
+
+	session := SessionModel{
+		ID:        GenerateUUIDv7(),
+		Subject:   "tablet",
+		Username:  "tablet",
+		ExpiresAt: time.Now().Add(tabletSessionDuration),
+		IsTablet:  true,
+	}
+	if err := gormDB.Create(&session).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create session: " + err.Error()})
+	}
+
+	c.Cookie(tabletSessionCookie(session.ID))
+	log.Printf("Granted tablet session to IP %s", clientIP)
+	return c.JSON(fiber.Map{"ok": true})
+}
+
 func handleLogout(c *fiber.Ctx) error {
 	cookie := c.Cookies(CookieName)
 	if cookie != "" {
@@ -171,6 +242,16 @@ func handleMe(c *fiber.Ctx) error {
 	var session SessionModel
 	if err := db.First(&session, "id = ?", cookie).Error; err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid session"})
+	}
+
+	// Tablet sessions have no OIDC tokens; return their identity directly.
+	if session.IsTablet {
+		c.Cookie(tabletSessionCookie(session.ID))
+		return c.JSON(fiber.Map{
+			"username":                      session.Username,
+			"membershipExpirationTimestamp": nil,
+			"isTablet":                      true,
+		})
 	}
 
 	fast := c.Query("fast") == "true"
