@@ -72,7 +72,8 @@ export const RoomStatusTabletTile: FC<{ room: RoomState }> = ({ room }) => {
       entity.representation === "fan",
   );
   const contactSensors = room.entities.filter(
-    (entity): entity is ContactEntity => entity.representation === "contact",
+    (entity): entity is ContactEntity =>
+      entity.type === "contact" || entity.representation === "contact",
   );
 
   const hasPresence = room.entities.some(
