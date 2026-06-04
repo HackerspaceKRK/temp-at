@@ -5,6 +5,7 @@ import { useAppConfig } from "../../AppConfigContext";
 import { useTheme } from "../../theme";
 import { useLocale } from "../../locale";
 import { useLiveRoomStates } from "../../useLiveRoomStates";
+import { useTabletSession } from "./TabletSessionContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,13 +23,13 @@ function formatHour(value: Date): string {
   }).format(value);
 }
 
+const NAV_ITEM_BASE =
+  "flex h-full items-center gap-2 px-4 text-sm font-medium transition-colors";
+const navItemInactive = "text-foreground hover:bg-muted";
+const navItemActive = "bg-primary text-primary-foreground";
+
 const navItemClass = ({ isActive }: { isActive: boolean }) =>
-  [
-    "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-    isActive
-      ? "bg-primary text-primary-foreground"
-      : "text-foreground hover:bg-muted",
-  ].join(" ");
+  `${NAV_ITEM_BASE} ${isActive ? navItemActive : navItemInactive}`;
 
 export const TabletNavbar: FC = () => {
   const [now, setNow] = useState(() => new Date());
@@ -37,11 +38,17 @@ export const TabletNavbar: FC = () => {
   const { getName } = useLocale();
   const navigate = useNavigate();
   const rooms = useLiveRoomStates();
+  const { initialRoomId } = useTabletSession();
   const branding = config?.branding;
 
   const roomMatch = useMatch("/tablet/room/:id");
   const selectedRoomId = roomMatch?.params.id;
   const selectedRoom = rooms.find((room) => room.id === selectedRoomId);
+  const initialRoom = rooms.find((room) => room.id === initialRoomId);
+
+  // When the kiosk's initial page was a room and we've navigated away from any
+  // room page, the Room control collapses into a quick link back to that room.
+  const showRoomLink = !!initialRoomId && !roomMatch;
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -61,6 +68,10 @@ export const TabletNavbar: FC = () => {
       ? branding.logo_dark_url
       : branding?.logo_url;
 
+  const homePath = initialRoomId
+    ? `/tablet/room/${initialRoomId}`
+    : "/tablet/overview";
+
   const sortedRooms = useMemo(
     () =>
       [...rooms].sort((a, b) =>
@@ -73,55 +84,69 @@ export const TabletNavbar: FC = () => {
 
   return (
     <header className="flex h-[62px] items-stretch border-b border-border bg-background">
-      <div className="flex flex-1 items-center gap-4 px-5">
+      <div className="flex flex-1 items-stretch">
         {logoUrl ? (
-          <img
-            src={logoUrl}
-            alt={branding?.logo_alt || "Logo"}
-            className="h-full w-auto py-2"
-          />
+          <button
+            type="button"
+            onClick={() => navigate(homePath)}
+            className="flex items-center pl-5 pr-2"
+            aria-label="Home"
+          >
+            <img
+              src={logoUrl}
+              alt={branding?.logo_alt || "Logo"}
+              className="h-full w-auto py-2"
+            />
+          </button>
         ) : null}
 
-        <nav className="flex items-center gap-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className={[
-                  "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                  selectedRoom
-                    ? "bg-primary text-primary-foreground"
-                    : "text-foreground hover:bg-muted",
-                ].join(" ")}
-              >
-                <DoorOpen className="h-4 w-4" />
-                {selectedRoom
-                  ? getName(selectedRoom.localized_name, selectedRoom.id)
-                  : "Room"}
-                <ChevronDown className="h-4 w-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              className="max-h-[70vh] overflow-y-auto"
+        <nav className="flex items-stretch">
+          {showRoomLink ? (
+            <button
+              type="button"
+              onClick={() => navigate(homePath)}
+              className={`${NAV_ITEM_BASE} ${navItemInactive}`}
             >
-              <DropdownMenuLabel>Rooms</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {sortedRooms.length === 0 ? (
-                <DropdownMenuItem disabled>No rooms</DropdownMenuItem>
-              ) : (
-                sortedRooms.map((room) => (
-                  <DropdownMenuItem
-                    key={room.id}
-                    onSelect={() => navigate(`/tablet/room/${room.id}`)}
-                    className="cursor-pointer"
-                  >
-                    {getName(room.localized_name, room.id)}
-                  </DropdownMenuItem>
-                ))
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <DoorOpen className="h-4 w-4" />
+              {getName(initialRoom?.localized_name, initialRoomId ?? undefined) ||
+                "Room"}
+            </button>
+          ) : (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={`${NAV_ITEM_BASE} ${selectedRoom ? navItemActive : navItemInactive}`}
+                >
+                  <DoorOpen className="h-4 w-4" />
+                  {selectedRoom
+                    ? getName(selectedRoom.localized_name, selectedRoom.id)
+                    : "Room"}
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                className="max-h-[70vh] overflow-y-auto"
+              >
+                <DropdownMenuLabel>Rooms</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {sortedRooms.length === 0 ? (
+                  <DropdownMenuItem disabled>No rooms</DropdownMenuItem>
+                ) : (
+                  sortedRooms.map((room) => (
+                    <DropdownMenuItem
+                      key={room.id}
+                      onSelect={() => navigate(`/tablet/room/${room.id}`)}
+                      className="cursor-pointer"
+                    >
+                      {getName(room.localized_name, room.id)}
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
           <NavLink to="/tablet/overview" className={navItemClass}>
             <LayoutGrid className="h-4 w-4" />

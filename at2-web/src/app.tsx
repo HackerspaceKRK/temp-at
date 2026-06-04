@@ -14,6 +14,8 @@ import { TabletPhonePage } from "./pages/TabletPhonePage";
 import { RoomStatesPage } from "./pages/RoomStatesPage";
 import { LiveStateProvider } from "./useLiveRoomStates";
 import { TabletAuthGate } from "./components/tablet/TabletAuthGate";
+import { TabletSessionProvider } from "./components/tablet/TabletSessionContext";
+import { InactivityRedirect } from "./components/tablet/InactivityRedirect";
 
 export function App() {
   return (
@@ -69,9 +71,12 @@ const DefaultLayout: FC = () => (
 
 const TabletLayout: FC = () => (
   <TabletAuthGate>
-    <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
-      <TabletNavbar />
-      <Outlet />
-    </div>
+    <TabletSessionProvider>
+      <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+        <TabletNavbar />
+        <Outlet />
+        <InactivityRedirect />
+      </div>
+    </TabletSessionProvider>
   </TabletAuthGate>
 );

@@ -21,6 +21,12 @@ tablet:
   trusted_subnets:
     - "10.12.20.0/24"
 
+# Phabricator/Phorge Calendar — shown as room reservations on the tablet.
+phabricator:
+  url: "https://phabricator.example.com"
+  api_token: "api-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  # api_token_file: "/run/secrets/phabricator_token" # Alternative: load from file
+
 # OIDC Authentication configuration
 oidc:
   client_id: "your-client-id"

@@ -371,6 +371,22 @@ func AuthMiddleware(c *fiber.Ctx) error {
 	return c.Next()
 }
 
+// TabletAuthMiddleware allows only requests carrying a valid tablet session
+// cookie (a session minted by handleTabletAuth from a trusted subnet).
+func TabletAuthMiddleware(c *fiber.Ctx) error {
+	cookie := c.Cookies(CookieName)
+	if cookie == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Not logged in"})
+	}
+
+	var session SessionModel
+	if err := gormDB.First(&session, "id = ? AND is_tablet = ?", cookie, true).Error; err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Not a tablet session"})
+	}
+
+	return c.Next()
+}
+
 func DebugAccessAuthMiddleware(c *fiber.Ctx) error {
 	// Ensure user is authenticated first
 	// We check if "username" is set, which AuthMiddleware does.

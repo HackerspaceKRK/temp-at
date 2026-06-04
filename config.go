@@ -1,15 +1,16 @@
 package main
 
 type Config struct {
-	Frigate  FrigateConfig  `yaml:"frigate"`
-	MQTT     MQTTConfig     `yaml:"mqtt"`
-	Rooms    []RoomConfig   `yaml:"rooms"`
-	Oidc     *OidcConfig    `yaml:"oidc"`
-	Database DatabaseConfig `yaml:"database"`
-	Web      WebConfig      `yaml:"web"`
-	SpaceAPI SpaceAPIConfig `yaml:"spaceapi"`
-	Branding BrandingConfig `yaml:"branding"`
-	Tablet   TabletConfig   `yaml:"tablet"`
+	Frigate     FrigateConfig     `yaml:"frigate"`
+	MQTT        MQTTConfig        `yaml:"mqtt"`
+	Rooms       []RoomConfig      `yaml:"rooms"`
+	Oidc        *OidcConfig       `yaml:"oidc"`
+	Database    DatabaseConfig    `yaml:"database"`
+	Web         WebConfig         `yaml:"web"`
+	SpaceAPI    SpaceAPIConfig    `yaml:"spaceapi"`
+	Branding    BrandingConfig    `yaml:"branding"`
+	Tablet      TabletConfig      `yaml:"tablet"`
+	Phabricator PhabricatorConfig `yaml:"phabricator"`
 }
 
 // TabletConfig controls the wall-mounted tablet/kiosk mode.
@@ -17,6 +18,14 @@ type TabletConfig struct {
 	// TrustedSubnets is a list of CIDRs. A tablet connecting from one of these
 	// subnets is granted a long-lived session that may control devices.
 	TrustedSubnets []string `yaml:"trusted_subnets"`
+}
+
+// PhabricatorConfig points at the Phabricator/Phorge instance whose Calendar
+// is shown as room reservations on the tablet.
+type PhabricatorConfig struct {
+	URL          string `yaml:"url"`
+	APIToken     string `yaml:"api_token"`
+	APITokenFile string `yaml:"api_token_file"`
 }
 
 type BrandingConfig struct {
