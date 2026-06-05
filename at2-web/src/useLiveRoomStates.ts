@@ -80,7 +80,10 @@ export function LiveStateProvider({ children }: { children: ReactNode }) {
         console.log(
           `Server version changed (${baselineVersionRef.current} -> ${version}), reloading`,
         );
-        window.location.reload();
+        // Allow the server to fully boot up before reloading
+        setTimeout(() => {
+          window.location.reload();
+        }, 10000);
       }
       return;
     }
@@ -106,7 +109,9 @@ export function LiveStateProvider({ children }: { children: ReactNode }) {
 export function useLiveRoomStates(): RoomState[] {
   const context = useContext(LiveStateContext);
   if (!context) {
-    throw new Error("useLiveRoomStates must be used within a LiveStateProvider");
+    throw new Error(
+      "useLiveRoomStates must be used within a LiveStateProvider",
+    );
   }
   return context.rooms;
 }
