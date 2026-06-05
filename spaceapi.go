@@ -125,6 +125,9 @@ func handleSpaceAPI(c *fiber.Ctx) error {
 			Name:  stringPtr("total"),
 			Value: totalPeople,
 		})
+		if totalPeople > 0 {
+			api.State.Open = boolPtr(true)
+		}
 	}
 
 	if len(api.Sensors.PowerConsumption) > 0 {
