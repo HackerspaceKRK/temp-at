@@ -131,22 +131,41 @@ export const CameraSnapshot: FunctionComponent<CameraSnapshotProps> = ({
   const src = hasImages ? pickDefaultSrc(validImages) : null;
   const srcSet = hasImages ? buildSrcSet(validImages) : undefined;
 
-  // Aspect ratio lock using padding-top trick
+  // Detect portrait images (taller than wide). These are letterboxed into a
+  // standard landscape (16:9) box instead of locking the card to their very
+  // tall native aspect ratio, which would blow up the grid row height.
+  const first = validImages[0];
+  const isPortrait = !!(first?.width && first?.height && first.height > first.width);
+
+  // For portrait images we contain (letterbox) so nothing is cropped; otherwise
+  // honor the requested fit.
+  const effectiveFit = isPortrait ? "contain" : fit;
+
+  // Aspect ratio lock using padding-top trick (landscape images only).
   let aspectWrapperStyle: React.CSSProperties = {};
-  if (lockAspectRatio && hasImages) {
-    const first = validImages[0];
+  if (lockAspectRatio && hasImages && !isPortrait) {
     if (first?.width && first?.height) {
       const ratio = (first.height / first.width) * 100;
       aspectWrapperStyle = { position: "relative", paddingTop: `${ratio}%` };
     }
   }
 
-  // Calculate target dimensions for the enlarged image
+  // Calculate target dimensions for the enlarged image. Constrain to both 90vw
+  // and 90vh so portrait (or otherwise tall) images stay fully on screen.
   const getTargetRect = () => {
-    const targetWidth = window.innerWidth * 0.9;
-    const first = validImages[0];
-    const aspectRatio = first?.height && first?.width ? first.height / first.width : 1;
-    const targetHeight = targetWidth * aspectRatio;
+    const aspectRatio =
+      first?.height && first?.width ? first.height / first.width : 1; // height / width
+
+    const maxWidth = window.innerWidth * 0.9;
+    const maxHeight = window.innerHeight * 0.9;
+
+    let targetWidth = maxWidth;
+    let targetHeight = targetWidth * aspectRatio;
+
+    if (targetHeight > maxHeight) {
+      targetHeight = maxHeight;
+      targetWidth = targetHeight / aspectRatio;
+    }
 
     return {
       width: targetWidth,
@@ -612,7 +631,7 @@ export const CameraSnapshot: FunctionComponent<CameraSnapshotProps> = ({
         loading={loading ?? (priority ? "eager" : "lazy")}
         className={
           "absolute inset-0 w-full h-full " +
-          (fit === "cover" ? "object-cover" : "object-contain") +
+          (effectiveFit === "cover" ? "object-cover" : "object-contain") +
           (isEnlarged ? " invisible" : " cursor-pointer")
         }
         decoding="async"
@@ -632,7 +651,11 @@ export const CameraSnapshot: FunctionComponent<CameraSnapshotProps> = ({
   const containerClass = (lockAspectRatio && !hasImages)
     ? "relative overflow-hidden bg-neutral-900 aspect-video"
     : ((lockAspectRatio && hasImages)
-      ? "overflow-hidden bg-neutral-900"
+      // Portrait images get a fixed landscape box (letterboxed via object-contain);
+      // landscape images use their native ratio via the padding-top wrapper.
+      ? (isPortrait
+        ? "relative overflow-hidden bg-neutral-900 aspect-video"
+        : "overflow-hidden bg-neutral-900")
       : "relative overflow-hidden bg-neutral-900 w-full");
 
   return (
