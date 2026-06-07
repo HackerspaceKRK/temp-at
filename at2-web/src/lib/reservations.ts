@@ -12,16 +12,24 @@ export interface ReservationEvent {
   end: number;
   timezone: string;
   url: string;
-  /** Display name of the creator; currently always empty (see backend TODO). */
+  /** Display name of the event host (resolved from hostPHID); may be empty. */
   created_by: string;
 }
 
 /**
- * Fetch today's room reservations from the tablet-only reservations endpoint.
- * Requires a tablet session (the endpoint returns 401 otherwise).
+ * Fetch room reservations overlapping the [startSec, endSec) window (Unix epoch
+ * seconds) from the tablet-only reservations endpoint. With no range it returns
+ * the server's current day. Requires a tablet session (401 otherwise).
  */
-export async function fetchReservations(): Promise<ReservationEvent[]> {
-  const res = await fetch(apiPath("/api/v1/reservations"));
+export async function fetchReservations(
+  startSec?: number,
+  endSec?: number,
+): Promise<ReservationEvent[]> {
+  let path = "/api/v1/reservations";
+  if (startSec !== undefined && endSec !== undefined) {
+    path += `?start=${Math.floor(startSec)}&end=${Math.floor(endSec)}`;
+  }
+  const res = await fetch(apiPath(path));
   if (!res.ok) {
     throw new Error(`Failed to fetch reservations: ${res.status}`);
   }

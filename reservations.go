@@ -24,11 +24,8 @@ type ReservationEvent struct {
 	End      int64  `json:"end"`
 	Timezone string `json:"timezone"`
 	URL      string `json:"url"`
-	// CreatedBy is the display name of the event creator. Currently always
-	// empty: the Conduit calendar.event.search API does not expose the
-	// host/creator for our token (not in fields, transactions, subscribers or
-	// phid.query).
-	// TODO: populate once a token/endpoint that exposes the creator is available.
+	// CreatedBy is the display name of the event host, resolved from the
+	// event's hostPHID via the phid.query Conduit method.
 	CreatedBy string `json:"created_by"`
 }
 
@@ -97,32 +94,42 @@ type conduitEventSearchResult struct {
 			EndDateTime struct {
 				Epoch int64 `json:"epoch"`
 			} `json:"endDateTime"`
+			HostPHID string `json:"hostPHID"`
 		} `json:"fields"`
 	} `json:"data"`
 }
 
+// reservationsCacheEntry is a cached result for one [rangeStart, rangeEnd) window.
+type reservationsCacheEntry struct {
+	events []ReservationEvent
+	at     time.Time
+}
+
 var (
 	reservationsCacheMutex sync.Mutex
-	reservationsCache      []ReservationEvent
-	reservationsCacheAt    time.Time
+	reservationsCache      = map[string]reservationsCacheEntry{}
 )
 
 const reservationsCacheTTL = 30 * time.Second
 
-// fetchReservations returns today's calendar events, cached briefly so that
-// many kiosks polling at once do not hammer Phabricator.
-func fetchReservations() ([]ReservationEvent, error) {
+// fetchReservations returns calendar events overlapping the [rangeStart,
+// rangeEnd) window (both Unix epoch seconds), cached briefly per-window so that
+// many kiosks polling at once do not hammer Phabricator. The Conduit
+// calendar.event.search constraints rangeStart ("Occurs After") and rangeEnd
+// ("Occurs Before") filter server-side.
+func fetchReservations(rangeStart, rangeEnd int64) ([]ReservationEvent, error) {
+	cacheKey := fmt.Sprintf("%d:%d", rangeStart, rangeEnd)
+
 	reservationsCacheMutex.Lock()
 	defer reservationsCacheMutex.Unlock()
 
-	if reservationsCache != nil && time.Since(reservationsCacheAt) < reservationsCacheTTL {
-		return reservationsCache, nil
+	if entry, ok := reservationsCache[cacheKey]; ok && time.Since(entry.at) < reservationsCacheTTL {
+		return entry.events, nil
 	}
 
 	form := url.Values{}
-	// Builtin "day" query returns today's events. The arbitrary-range
-	// constraints (rangeStart/rangeEnd) are not supported by this method.
-	form.Set("queryKey", "day")
+	form.Set("constraints[rangeStart]", fmt.Sprintf("%d", rangeStart))
+	form.Set("constraints[rangeEnd]", fmt.Sprintf("%d", rangeEnd))
 
 	raw, err := conduitCall("calendar.event.search", form)
 	if err != nil {
@@ -133,6 +140,8 @@ func fetchReservations() ([]ReservationEvent, error) {
 	if err := json.Unmarshal(raw, &parsed); err != nil {
 		return nil, fmt.Errorf("failed to parse event search result: %w", err)
 	}
+
+	hostNames := resolveHostNames(parsed)
 
 	base := strings.TrimRight(ConfigInstance.Phabricator.URL, "/")
 	events := make([]ReservationEvent, 0, len(parsed.Data))
@@ -146,19 +155,80 @@ func fetchReservations() ([]ReservationEvent, error) {
 			Start:       e.Fields.StartDateTime.Epoch,
 			End:         e.Fields.EndDateTime.Epoch,
 			Timezone:    e.Fields.StartDateTime.Timezone,
+			CreatedBy:   hostNames[e.Fields.HostPHID],
 			URL:         fmt.Sprintf("%s/E%d", base, e.ID),
 		})
 	}
 
-	reservationsCache = events
-	reservationsCacheAt = time.Now()
+	reservationsCache[cacheKey] = reservationsCacheEntry{events: events, at: time.Now()}
 	return events, nil
 }
 
-// handleReservations serves today's calendar reservations. It is registered
+// resolveHostNames resolves each event's hostPHID to a human-readable name via
+// the phid.query Conduit method. Failures are non-fatal: affected events simply
+// keep an empty CreatedBy.
+func resolveHostNames(parsed conduitEventSearchResult) map[string]string {
+	seen := map[string]bool{}
+	var phids []string
+	for _, e := range parsed.Data {
+		if p := e.Fields.HostPHID; p != "" && !seen[p] {
+			seen[p] = true
+			phids = append(phids, p)
+		}
+	}
+
+	names := map[string]string{}
+	if len(phids) == 0 {
+		return names
+	}
+
+	form := url.Values{}
+	for i, p := range phids {
+		form.Set(fmt.Sprintf("phids[%d]", i), p)
+	}
+	raw, err := conduitCall("phid.query", form)
+	if err != nil {
+		return names
+	}
+
+	var resolved map[string]struct {
+		Name     string `json:"name"`
+		FullName string `json:"fullName"`
+	}
+	if err := json.Unmarshal(raw, &resolved); err != nil {
+		return names
+	}
+	for phid, v := range resolved {
+		if v.FullName != "" {
+			names[phid] = v.FullName
+		} else {
+			names[phid] = v.Name
+		}
+	}
+	return names
+}
+
+// handleReservations serves calendar reservations overlapping the [start, end)
+// window passed as the `start` and `end` Unix-epoch-second query parameters.
+// When omitted it defaults to the server's current local day. It is registered
 // behind TabletAuthMiddleware so only kiosk tablets can read it.
 func handleReservations(c *fiber.Ctx) error {
-	events, err := fetchReservations()
+	now := time.Now()
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	rangeStart := startOfDay.Unix()
+	rangeEnd := startOfDay.AddDate(0, 0, 1).Unix()
+
+	if v := c.QueryInt("start", 0); v > 0 {
+		rangeStart = int64(v)
+	}
+	if v := c.QueryInt("end", 0); v > 0 {
+		rangeEnd = int64(v)
+	}
+	if rangeEnd <= rangeStart {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "end must be after start"})
+	}
+
+	events, err := fetchReservations(rangeStart, rangeEnd)
 	if err != nil {
 		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{"error": err.Error()})
 	}

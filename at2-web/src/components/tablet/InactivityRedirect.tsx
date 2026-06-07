@@ -2,17 +2,11 @@ import { useEffect, useRef, useState, type FC } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useTabletSession } from "./TabletSessionContext";
+import { ACTIVITY_EVENTS, TABLET_IDLE_MS } from "../../lib/tabletInactivity";
 
-const COUNTDOWN_START_MS = 35_000; // show overlay after this much inactivity
-const REDIRECT_AT_MS = 45_000; // navigate home at this much inactivity
+const REDIRECT_AT_MS = TABLET_IDLE_MS; // navigate home at this much inactivity
+const COUNTDOWN_START_MS = REDIRECT_AT_MS - 10_000; // show overlay for the final 10s
 const TICK_MS = 250;
-const ACTIVITY_EVENTS = [
-  "pointerdown",
-  "mousemove",
-  "keydown",
-  "touchstart",
-  "wheel",
-] as const;
 
 /**
  * InactivityRedirect returns the kiosk to its initial page after a period of
