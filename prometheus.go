@@ -102,25 +102,35 @@ func (pc *PrometheusCollector) Collect(ch chan<- prometheus.Metric) {
 
 
 		roomID := pc.deviceRoomMap[dev.ID]
-		// Metric name based on type
-		metricName := "at2_" + string(dev.Type)
 
+		// Metric name based on type, with the base unit encoded as a suffix
+		// following Prometheus naming conventions (e.g. _celsius, _watts).
+		metricName := "at2_" + string(dev.Type)
 		help := "Virtual device metric for " + string(dev.Type)
+		unit := ""
 		switch dev.Type {
 		case VdevTypeRelay:
 			help = "Relay state (0=off, 1=on)"
 		case VdevTypeContact:
 			help = "Contact sensor state (0=open, 1=closed)"
 		case VdevTypeTemperature:
+			unit = "celsius"
 			help = "Temperature in Celsius"
 		case VdevTypeHumidity:
+			unit = "percent"
 			help = "Humidity in %"
 		case VdevTypeCo:
+			unit = "ppm"
 			help = "Carbon Monoxide level in ppm"
 		case VdevTypeGas:
+			unit = "lel"
 			help = "Gas level in LEL"
 		case VdevTypePowerUsage:
+			unit = "watts"
 			help = "Power usage in Watts"
+		}
+		if unit != "" {
+			metricName += "_" + unit
 		}
 
 		desc := prometheus.NewDesc(
