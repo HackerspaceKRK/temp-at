@@ -31,6 +31,13 @@ type MQTTMapper interface {
 	Control(vdev *VirtualDevice, state any, client mqtt.Client) error
 } // MQTTMapper
 
+// MapperConnectHook is an optional interface a mapper can implement to be notified
+// when the MQTT client (re)connects, e.g. to publish a kick message. It is invoked
+// after the mapper's subscriptions have been (re)established.
+type MapperConnectHook interface {
+	OnConnect(client mqtt.Client)
+}
+
 // MQTTAdapter adapts mqtt messages coming from multiple sources (e.g. Zigbee2MQTT, Frigate)
 // into a unified list of VirtualDevice objects managed by VdevManager.
 type MQTTAdapter struct {
@@ -99,6 +106,12 @@ func NewMQTTAdapter(cfg *Config, vdevMgr *VdevManager) (*MQTTAdapter, error) {
 	opts.OnConnect = func(c mqtt.Client) {
 		log.Printf("[mqtt] connected to %s", cfg.MQTT.Broker)
 		a.subscribeAllMapperTopics()
+		// Notify mappers that implement the connect hook (e.g. Frigate kick publish).
+		for _, mapper := range a.mappers {
+			if hook, ok := mapper.(MapperConnectHook); ok {
+				hook.OnConnect(c)
+			}
+		}
 	}
 
 	opts.OnConnectionLost = func(c mqtt.Client, err error) {
