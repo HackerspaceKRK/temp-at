@@ -387,6 +387,47 @@ func TabletAuthMiddleware(c *fiber.Ctx) error {
 	return c.Next()
 }
 
+// getUserGroups extracts the user's OIDC groups from the cached claims that
+// AuthMiddleware stored in c.Locals. It returns an empty slice (not an error)
+// when the session carries no claims (e.g. tablet sessions) or no groups claim.
+// An error is only returned when the claims JSON is malformed.
+func getUserGroups(c *fiber.Ctx) ([]string, error) {
+	cachedClaimsStr, ok := c.Locals("cached_claims").(string)
+	if !ok || cachedClaimsStr == "" {
+		return nil, nil
+	}
+
+	var claims map[string]interface{}
+	if err := json.Unmarshal([]byte(cachedClaimsStr), &claims); err != nil {
+		return nil, err
+	}
+
+	groupsClaim := ConfigInstance.Oidc.GroupsClaim
+	if groupsClaim == "" {
+		groupsClaim = "groups"
+	}
+
+	userGroupsInterface, ok := claims[groupsClaim]
+	if !ok {
+		return nil, nil
+	}
+
+	switch v := userGroupsInterface.(type) {
+	case []interface{}:
+		groups := make([]string, 0, len(v))
+		for _, g := range v {
+			if s, ok := g.(string); ok {
+				groups = append(groups, s)
+			}
+		}
+		return groups, nil
+	case []string:
+		return v, nil
+	default:
+		return nil, nil
+	}
+}
+
 func DebugAccessAuthMiddleware(c *fiber.Ctx) error {
 	// Ensure user is authenticated first
 	// We check if "username" is set, which AuthMiddleware does.
@@ -404,42 +445,12 @@ func DebugAccessAuthMiddleware(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Not authenticated"})
 	}
 
-	cachedClaimsStr, ok := c.Locals("cached_claims").(string)
-	if !ok || cachedClaimsStr == "" {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "No claims found"})
-	}
-
-	var claims map[string]interface{}
-	if err := json.Unmarshal([]byte(cachedClaimsStr), &claims); err != nil {
+	userGroups, err := getUserGroups(c)
+	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse claims"})
 	}
-
-	groupsClaim := ConfigInstance.Oidc.GroupsClaim
-	if groupsClaim == "" {
-		// Default to "groups" if not configured, or maybe fail?
-		// Plan said "The GroupsClaim in OidcConfig must match the claim name".
-		// Let's default to "groups" for safety.
-		groupsClaim = "groups"
-	}
-
-	userGroupsInterface, ok := claims[groupsClaim]
-	if !ok {
+	if len(userGroups) == 0 {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "No groups in user claims"})
-	}
-
-	var userGroups []string
-	// Handle both []interface{} and []string just in case
-	switch v := userGroupsInterface.(type) {
-	case []interface{}:
-		for _, g := range v {
-			if s, ok := g.(string); ok {
-				userGroups = append(userGroups, s)
-			}
-		}
-	case []string:
-		userGroups = v
-	default:
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Invalid groups format"})
 	}
 
 	allowedGroups := ConfigInstance.Oidc.DebugAccessGroups

@@ -12,6 +12,7 @@ import { TabletDebugPage } from "./pages/TabletDebugPage";
 import { TabletRoomPage } from "./pages/TabletRoomPage";
 import { TabletPhonePage } from "./pages/TabletPhonePage";
 import { RoomStatesPage } from "./pages/RoomStatesPage";
+import { DhcpPage } from "./pages/DhcpPage";
 import { LiveStateProvider } from "./useLiveRoomStates";
 import { TabletAuthGate } from "./components/tablet/TabletAuthGate";
 import { TabletSessionProvider } from "./components/tablet/TabletSessionContext";
@@ -25,6 +26,7 @@ export function App() {
         <Routes>
           <Route element={<DefaultLayout />}>
             <Route path="/" element={<RoomStatesPage />} />
+            <Route path="/dhcp" element={<DhcpPage />} />
           </Route>
           <Route element={<TabletLayout />}>
             <Route path="/tablet/overview" element={<OverviewTabletPage />} />

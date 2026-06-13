@@ -11,6 +11,81 @@ type Config struct {
 	Branding    BrandingConfig    `yaml:"branding"`
 	Tablet      TabletConfig      `yaml:"tablet"`
 	Phabricator PhabricatorConfig `yaml:"phabricator"`
+	// Dhcp is optional. When nil, the DHCP lease tracking feature is disabled
+	// and the /api/v1/dhcp/leases endpoint returns 503.
+	Dhcp *DhcpConfig `yaml:"dhcp"`
+}
+
+// DhcpConfig configures the DHCP lease tracking feature: a background scraper
+// that polls a router's DHCP server, enriches leases with switch-port and WiFi
+// info, and exposes them on an authenticated, CIDR-filtered API.
+type DhcpConfig struct {
+	// ScrapeInterval is a Go duration (e.g. "1m") between lease scrapes. Default "1m".
+	ScrapeInterval string `yaml:"scrape_interval"`
+	// OfflineThreshold is a Go duration (e.g. "3m"). A device absent from the
+	// lease table for longer than this is considered offline, and its next
+	// reappearance starts a new continuous lease period. Default "3m".
+	OfflineThreshold string `yaml:"offline_threshold"`
+	// PruneAfter optionally deletes lease rows not seen for this long (Go
+	// duration, e.g. "2160h"). Empty disables pruning.
+	PruneAfter string `yaml:"prune_after"`
+
+	// Router is the DHCP lease source.
+	Router DhcpRouterConfig `yaml:"router"`
+	// WiredSources enrich leases with switch port info (MAC -> switch/port).
+	WiredSources []DhcpWiredSourceConfig `yaml:"wired_sources"`
+	// WifiSources enrich leases with WiFi info (MAC -> AP/SSID/RSSI).
+	WifiSources []DhcpWifiSourceConfig `yaml:"wifi_sources"`
+	// Access controls which OIDC groups may see devices in which subnets.
+	Access DhcpAccessConfig `yaml:"access"`
+}
+
+// DhcpRouterConfig points at the device whose DHCP server is scraped for leases.
+type DhcpRouterConfig struct {
+	Kind         string `yaml:"kind"`    // e.g. "mikrotik"
+	Address      string `yaml:"address"` // host:port, e.g. "10.12.20.1:8728"
+	Username     string `yaml:"username"`
+	Password     string `yaml:"password"`
+	PasswordFile string `yaml:"password_file"`
+	UseTLS       bool   `yaml:"use_tls"` // dial the TLS API (port 8729 on MikroTik)
+}
+
+// DhcpWiredSourceConfig points at a switch whose MAC-to-port table is read to
+// determine which physical port a wired device is connected to.
+type DhcpWiredSourceConfig struct {
+	Kind         string `yaml:"kind"` // e.g. "mikrotik_bridge_host"
+	Name         string `yaml:"name"` // display name shown in the UI as the switch name
+	Address      string `yaml:"address"`
+	Username     string `yaml:"username"`
+	Password     string `yaml:"password"`
+	PasswordFile string `yaml:"password_file"`
+	UseTLS       bool   `yaml:"use_tls"`
+	// IgnoreInterfaces lists port/interface names to skip (uplink/trunk ports
+	// that carry many MACs and would otherwise mislabel devices).
+	IgnoreInterfaces []string `yaml:"ignore_interfaces"`
+}
+
+// DhcpWifiSourceConfig points at a wireless controller that reports which AP a
+// client is associated with, plus SSID and signal strength.
+type DhcpWifiSourceConfig struct {
+	Kind               string `yaml:"kind"` // e.g. "unifi"
+	Name               string `yaml:"name"`
+	URL                string `yaml:"url"`  // e.g. "https://10.12.20.5:8443"
+	Site               string `yaml:"site"` // controller site id, e.g. "default"
+	Username           string `yaml:"username"`
+	Password           string `yaml:"password"`
+	PasswordFile       string `yaml:"password_file"`
+	InsecureSkipVerify bool   `yaml:"insecure_skip_verify"` // accept self-signed TLS certs
+}
+
+// DhcpAccessConfig maps OIDC groups to the subnets (CIDRs) whose devices that
+// group may see. Authenticated users whose groups match no entry see
+// DefaultCidrs. The endpoint is never accessible anonymously.
+type DhcpAccessConfig struct {
+	// GroupCidrs maps an OIDC group name to a list of CIDRs it may view.
+	GroupCidrs map[string][]string `yaml:"group_cidrs"`
+	// DefaultCidrs are visible to authenticated users with no matching group.
+	DefaultCidrs []string `yaml:"default_cidrs"`
 }
 
 // TabletConfig controls the wall-mounted tablet/kiosk mode.

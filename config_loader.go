@@ -1,8 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"net"
 	"os"
+	"time"
 
 	"strings"
 
@@ -67,6 +70,7 @@ func validateConfig(cfg *Config, path string) {
 	loadSecret(&cfg.Oidc.ClientSecret, cfg.Oidc.ClientSecretFile)
 	loadSecret(&cfg.Oidc.ClientSecret, cfg.Oidc.ClientSecretFile)
 	loadSecret(&cfg.Phabricator.APIToken, cfg.Phabricator.APITokenFile)
+	validateDhcpConfig(cfg, path)
 
 	if cfg.Frigate.Url == "" {
 		log.Printf("warning: frigate.url is empty in %s", path)
@@ -86,6 +90,51 @@ func validateConfig(cfg *Config, path string) {
 	}
 	if len(cfg.Rooms) == 0 {
 		log.Printf("warning: No rooms defined in %s", path)
+	}
+}
+
+// validateDhcpConfig loads DHCP secrets from their _file variants and fails
+// fast on malformed durations, CIDRs, or unknown source kinds.
+func validateDhcpConfig(cfg *Config, path string) {
+	d := cfg.Dhcp
+	if d == nil {
+		return
+	}
+
+	loadSecret(&d.Router.Password, d.Router.PasswordFile)
+	for i := range d.WiredSources {
+		loadSecret(&d.WiredSources[i].Password, d.WiredSources[i].PasswordFile)
+	}
+	for i := range d.WifiSources {
+		loadSecret(&d.WifiSources[i].Password, d.WifiSources[i].PasswordFile)
+	}
+
+	mustDuration := func(field, val string) {
+		if val == "" {
+			return
+		}
+		if _, err := time.ParseDuration(val); err != nil {
+			log.Fatalf("error: dhcp.%s is not a valid duration (%q) in %s: %v", field, val, path, err)
+		}
+	}
+	mustDuration("scrape_interval", d.ScrapeInterval)
+	mustDuration("offline_threshold", d.OfflineThreshold)
+	mustDuration("prune_after", d.PruneAfter)
+
+	mustCidrs := func(field string, cidrs []string) {
+		for _, c := range cidrs {
+			if _, _, err := net.ParseCIDR(c); err != nil {
+				log.Fatalf("error: dhcp.%s contains invalid CIDR %q in %s: %v", field, c, path, err)
+			}
+		}
+	}
+	mustCidrs("access.default_cidrs", d.Access.DefaultCidrs)
+	for group, cidrs := range d.Access.GroupCidrs {
+		mustCidrs(fmt.Sprintf("access.group_cidrs[%s]", group), cidrs)
+	}
+
+	if d.Router.Kind == "" {
+		log.Printf("warning: dhcp.router.kind is empty in %s; lease scraping disabled", path)
 	}
 }
 

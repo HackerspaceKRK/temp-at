@@ -81,9 +81,34 @@ func (UsageStatsDayCache) TableName() string {
 	return "usage_stats_day_caches"
 }
 
+// DhcpLeaseModel is one tracked DHCP lease, keyed by (MAC, server). Rows are
+// updated in place on each scrape, so the table stays bounded by the number of
+// distinct devices rather than growing over time.
+type DhcpLeaseModel struct {
+	ID         uint   `gorm:"primaryKey;autoIncrement"`
+	MacAddress string `gorm:"uniqueIndex:idx_dhcp_mac_server;not null"` // normalized aa:bb:cc:dd:ee:ff
+	Server     string `gorm:"uniqueIndex:idx_dhcp_mac_server;not null"` // DHCP server name
+	IPAddress  string `gorm:"index;not null"`
+	Hostname   string
+	Comment    string
+	Dynamic    bool
+	// FirstSeen is the first scrape ever in which this MAC appeared. Immutable.
+	FirstSeen int64 `gorm:"not null"`
+	// LeaseStart marks the beginning of the current continuous online period.
+	// It resets when the device reappears after being absent (the raw DHCP
+	// lease start is useless here because the lease time is only minutes).
+	LeaseStart int64 `gorm:"not null"`
+	// LastSeen is the most recent scrape in which this MAC was bound.
+	LastSeen int64 `gorm:"not null;index"`
+}
+
+func (DhcpLeaseModel) TableName() string {
+	return "dhcp_leases"
+}
+
 // AutoMigrateModels runs GORM auto-migration for all models.
 func AutoMigrateModels(db *gorm.DB) error {
-	return db.AutoMigrate(&VirtualDeviceModel{}, &VirtualDeviceStateModel{}, &SessionModel{}, &UsageStatsDayCache{})
+	return db.AutoMigrate(&VirtualDeviceModel{}, &VirtualDeviceStateModel{}, &SessionModel{}, &UsageStatsDayCache{}, &DhcpLeaseModel{})
 }
 
 // CurrentTimestampMillis returns current time as Unix milliseconds.

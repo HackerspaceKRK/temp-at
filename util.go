@@ -10,7 +10,7 @@ import (
 // and replaces spaces with underscores.
 func NormalizeName(s string) string {
 	s = strings.ToLower(s)
-	
+
 	// Replace Polish characters
 	replacements := map[rune]rune{
 		'ą': 'a',
@@ -37,4 +37,24 @@ func NormalizeName(s string) string {
 	}
 
 	return sb.String()
+}
+
+// NormalizeMac canonicalizes a MAC address to lowercase colon-separated form
+// (aa:bb:cc:dd:ee:ff) so values from different sources can be matched. Inputs
+// with "-" separators or no separators are accepted; unparsable input is
+// lowercased and returned as-is.
+func NormalizeMac(s string) string {
+	hex := strings.ToLower(strings.NewReplacer(":", "", "-", "", ".", "").Replace(strings.TrimSpace(s)))
+	if len(hex) != 12 {
+		return strings.ToLower(strings.TrimSpace(s))
+	}
+	var b strings.Builder
+	b.Grow(17)
+	for i := 0; i < 12; i += 2 {
+		if i > 0 {
+			b.WriteByte(':')
+		}
+		b.WriteString(hex[i : i+2])
+	}
+	return b.String()
 }

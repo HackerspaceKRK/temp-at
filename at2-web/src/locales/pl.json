@@ -73,5 +73,21 @@
     "Last seen {{time}} ago": "Ostatnio {{time}} temu",
     "No recent presence": "Brak ostatniej obecności",
     "Occupied": "Zajęte",
-    "Empty": "Puste"
+    "Empty": "Puste",
+    "Loading...": "Ładowanie...",
+    "Room Status": "Status Pomieszczeń",
+    "DHCP": "DHCP",
+    "DHCP Leases": "Dzierżawy DHCP",
+    "You must be logged in to view DHCP leases.": "Musisz być zalogowany, aby zobaczyć dzierżawy DHCP.",
+    "You do not have access to any subnets.": "Nie masz dostępu do żadnych podsieci.",
+    "IP address": "Adres IP",
+    "MAC address": "Adres MAC",
+    "Vendor": "Producent",
+    "Hostname": "Nazwa hosta",
+    "Lease start": "Początek dzierżawy",
+    "First seen": "Pierwszy raz widziano",
+    "Connection": "Połączenie",
+    "Offline": "Offline",
+    "Scrape error": "Błąd pobierania",
+    "Last updated {{time}}": "Ostatnia aktualizacja: {{time}}"
 }

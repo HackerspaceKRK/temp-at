@@ -26,6 +26,7 @@ require (
 	github.com/fasthttp/websocket v1.5.8 // indirect
 	github.com/fatih/color v1.10.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
+	github.com/go-routeros/routeros/v3 v3.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect

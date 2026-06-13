@@ -63,6 +63,30 @@ MQTT Broker
 | `usage_stats.go` | Room occupancy statistics from device history |
 | `spaceapi.go` | SpaceAPI JSON endpoint |
 | `prometheus.go` | Prometheus metrics export |
+| `dhcp_service.go` | Background DHCP lease scraper: polls the router, persists lease lifecycle, enriches with connection info |
+| `dhcp_sources.go` | Vendor-neutral source interfaces (`DhcpLeaseSource`, `WiredPortSource`, `WifiClientSource`) + `kind`-keyed factories |
+| `dhcp_source_mikrotik.go` | MikroTik RouterOS lease source + bridge-host (MAC→port) source |
+| `dhcp_source_unifi.go` | UniFi controller WiFi client source (MAC→AP/SSID/RSSI) |
+| `dhcp_handlers.go` | `/api/v1/dhcp/leases` handler with per-group CIDR filtering |
+| `oui.go` / `manuf.gz` | Embedded Wireshark OUI database for MAC→vendor lookup |
+
+### Adding a New DHCP Switch/AP Vendor
+
+The DHCP scraper consumes three vendor-neutral interfaces defined in `dhcp_sources.go`.
+To support a new device, implement the relevant interface and register it by `kind`
+in the matching factory (`NewDhcpLeaseSource`, `NewWiredPortSource`, `NewWifiClientSource`):
+- `DhcpLeaseSource` — the router's DHCP lease table
+- `WiredPortSource` — MAC → switch name + port (wired devices)
+- `WifiClientSource` — MAC → AP name + SSID + signal (wireless clients)
+
+Config selects implementations via the `kind` field under `dhcp.router` /
+`dhcp.wired_sources` / `dhcp.wifi_sources`. The scraper prefers WiFi info over
+wired when a MAC appears in both (a wired hit for a wireless client is just the
+AP's uplink port).
+
+To refresh the embedded OUI database: download
+`https://www.wireshark.org/download/automated/data/manuf` and run
+`gzip -9 -c manuf > manuf.gz` in the repo root.
 
 ### Adding a New MQTT Mapper
 
@@ -90,6 +114,7 @@ Copy `at2.example.yaml` → `at2.yaml`. Key sections:
 - `oidc` — optional OIDC provider for authentication
 - `spaceapi` — hackerspace metadata
 - `branding` — logo/favicon/footer customization
+- `dhcp` — optional DHCP lease tracking (router/switch/WiFi sources + per-group CIDR access control)
 
 ### CI/CD
 

@@ -35,6 +35,7 @@ var (
 	frigateSnapshotMapper *FrigateSnapshotMapper
 	vdevHistoryRepo       *VirtualDeviceHistoryRepository
 	gormDB                *gorm.DB
+	dhcpService           *DhcpService
 )
 
 func main() {
@@ -88,6 +89,16 @@ func main() {
 	// Wire up the state provider for persistence restoration
 	vdevManager.SetStateProvider(vdevHistoryRepo)
 
+	// Optional DHCP lease tracking service.
+	if cfg.Dhcp != nil {
+		dhcpService, err = NewDhcpService(cfg, db)
+		if err != nil {
+			log.Fatalf("failed to initialize DHCP service: %v", err)
+		}
+		dhcpService.Start()
+		log.Printf("DHCP lease tracking started")
+	}
+
 	fiberCfg := fiber.Config{}
 	// When behind a trusted reverse proxy (e.g. Traefik), derive the real
 	// client IP from the X-Forwarded-For header instead of the proxy's IP.
@@ -135,6 +146,7 @@ func main() {
 	app.Get("/api/v1/device-history", handleDeviceHistory)
 	app.Get("/api/v1/stats/usage-heatmap", handleUsageHeatmap)
 	app.Get("/api/v1/debug/pprof-heap", AuthMiddleware, DebugAccessAuthMiddleware, handlePprofHeap)
+	app.Get("/api/v1/dhcp/leases", AuthMiddleware, handleDhcpLeases)
 
 	SetupFrontend(app, *devFrontend)
 

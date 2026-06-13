@@ -52,6 +52,53 @@ mqtt:
   password: "mqtt_password"
   # password_file: "/run/secrets/mqtt_password" # Alternative: Load secret from file
 
+# DHCP lease tracking (optional). When this section is omitted the feature is
+# disabled and the /dhcp page shows nothing for logged-in users.
+# The backend periodically scrapes the router's DHCP server, enriches each lease
+# with switch-port info (wired) or AP/SSID/RSSI (WiFi), and serves the result on
+# an authenticated, CIDR-filtered API.
+# dhcp:
+#   scrape_interval: 1m       # how often to poll the router's lease table
+#   offline_threshold: 3m     # absence longer than this marks a device offline
+#                             # and restarts its "lease start" on reappearance
+#   # prune_after: 2160h      # optional: delete lease rows not seen for this long
+#
+#   # The DHCP lease source. kind selects the implementation (currently "mikrotik").
+#   router:
+#     kind: mikrotik
+#     address: "10.12.20.1:8728"   # RouterOS binary API (8729 with use_tls)
+#     username: "admin"
+#     password: "secret"
+#     # password_file: "/run/secrets/router_password"
+#     # use_tls: true
+#
+#   # Switches whose MAC-to-port table is read to locate wired devices.
+#   wired_sources:
+#     - kind: mikrotik_bridge_host
+#       name: "core-switch"        # shown as the switch name in the UI
+#       address: "10.12.20.2:8728"
+#       username: "admin"
+#       password: "secret"
+#       ignore_interfaces:          # uplink/trunk ports that carry many MACs
+#         - "sfp-sfpplus1"
+#
+#   # Wireless controllers that report AP association, SSID and signal strength.
+#   wifi_sources:
+#     - kind: unifi
+#       name: "unifi"
+#       url: "https://10.12.20.5:8443"
+#       site: "default"             # controller site id
+#       username: "noc@example.com"
+#       password: "secret"
+#       insecure_skip_verify: true  # self-hosted controllers use self-signed certs
+#
+#   # Access control: which OIDC groups may see devices in which subnets.
+#   access:
+#     group_cidrs:
+#       infra: ["10.12.0.0/16"]     # the "infra" group sees the whole network
+#     default_cidrs:                # authenticated users with no matching group
+#       - "10.12.10.0/24"
+
 # Room definitions
 rooms:
   - id: "living_room"
