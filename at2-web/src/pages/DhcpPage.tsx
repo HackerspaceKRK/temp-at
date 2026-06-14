@@ -266,7 +266,12 @@ const LeaseDataTable: FC<{ leases: DhcpLease[] }> = ({ leases }) => {
         ),
         cell: ({ row }) => (
           <div>
-            <div>{row.original.hostname || "—"}</div>
+            <div className="flex items-center gap-2">
+              <span>{row.original.hostname || "—"}</span>
+              {!row.original.dynamic && (
+                <Badge variant="secondary">{t("Static")}</Badge>
+              )}
+            </div>
             {row.original.comment && (
               <div className="text-xs text-muted-foreground">
                 {row.original.comment}

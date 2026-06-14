@@ -197,23 +197,25 @@ func (s *DhcpService) updateLeases(entries []DhcpLeaseEntry) error {
 	s.mu.RUnlock()
 
 	err := s.db.Transaction(func(tx *gorm.DB) error {
-		// Load existing rows once into a map keyed by "mac|server" to avoid a
-		// per-lease SELECT (and the ErrRecordNotFound log noise that comes with
-		// it on inserts).
+		// Load existing rows once into a map keyed by MAC to avoid a per-lease
+		// SELECT (and the ErrRecordNotFound log noise that comes with it on
+		// inserts). A device is identified by its MAC alone; when it gets a
+		// lease from a different DHCP server it stays one row (server updated
+		// in place) rather than spawning a duplicate.
 		var existing []DhcpLeaseModel
 		if err := tx.Find(&existing).Error; err != nil {
 			return err
 		}
 		byKey := make(map[string]*DhcpLeaseModel, len(existing))
 		for i := range existing {
-			byKey[existing[i].MacAddress+"|"+existing[i].Server] = &existing[i]
+			byKey[existing[i].MacAddress] = &existing[i]
 		}
 
 		for _, e := range entries {
 			if e.Status != "bound" {
 				continue
 			}
-			row, ok := byKey[e.MacAddress+"|"+e.Server]
+			row, ok := byKey[e.MacAddress]
 			if !ok {
 				newRow := DhcpLeaseModel{
 					MacAddress: e.MacAddress,
@@ -229,6 +231,10 @@ func (s *DhcpService) updateLeases(entries []DhcpLeaseEntry) error {
 				if err := tx.Create(&newRow).Error; err != nil {
 					return err
 				}
+				// A MAC can appear twice in one scrape (bound on two servers at
+				// once); record the new row so the second occurrence updates it
+				// instead of hitting the unique index.
+				byKey[e.MacAddress] = &newRow
 				continue
 			}
 

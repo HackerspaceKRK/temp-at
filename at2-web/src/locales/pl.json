@@ -88,6 +88,7 @@
     "First seen": "Pierwszy raz widziano",
     "Connection": "Połączenie",
     "Offline": "Offline",
+    "Static": "Statyczny",
     "Scrape error": "Błąd pobierania",
     "Last updated {{time}}": "Ostatnia aktualizacja: {{time}}"
 }

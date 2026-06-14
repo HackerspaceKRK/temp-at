@@ -74,6 +74,12 @@ func handleDhcpLeases(c *fiber.Ctx) error {
 			continue
 		}
 
+		// Only currently-online devices are of interest; offline rows are kept
+		// in the DB for history but not surfaced to the frontend.
+		if now-row.LastSeen > offlineMs {
+			continue
+		}
+
 		wired, wifi := dhcpService.ConnectionFor(row.MacAddress)
 		var conn *dhcpConnectionResponse
 		switch {
