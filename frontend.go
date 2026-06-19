@@ -31,17 +31,6 @@ func SetupFrontend(app *fiber.App, devMode bool) {
 			log.Fatalf("Failed to start frontend: %v", err)
 		}
 
-		// Note: The previous implementation killed the process in a defer in main().
-		// Since we are moving this to a function, we might want to return a cleanup function
-		// or handle it differently. Ideally, we just let it run until the app exits.
-		// However, to mimic the main.go behavior of killing it on exit, we can rely on
-		// the OS cleaning up subprocesses or just run it.
-		// The original code had a defer which is nice.
-		// For now, let's just start it. The OS usually kills child processes when parent dies
-		// but not always cleanly.
-		// Actually, let's change Main to handle the cleanup or just accept it.
-		// A better way is to attach it to the lifecycle if possible, but keeping it simple for now.
-
 		app.All("*", func(c *fiber.Ctx) error {
 			if strings.HasPrefix(c.Path(), "/api") {
 				return c.Next()

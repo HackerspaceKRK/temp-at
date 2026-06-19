@@ -99,6 +99,21 @@ mqtt:
 #     default_cidrs:                # authenticated users with no matching group
 #       - "10.12.10.0/24"
 
+# Bambu Labs 3D printers (optional). Each printer is monitored over its own local
+# MQTT interface (TLS on port 8883, self-signed cert) and exposed as a "printer"
+# virtual device whose ID is referenced from a room's entities (see below).
+# Its live state is never persisted to the database. Web push notifications can
+# be enabled per print from the room's printer popover (finish / failure).
+# bambu_printers:
+#   - id: "bambu/lab/printer"
+#     serial_number: "00M00A0000000000"  # printer serial; topic device/<serial>/report
+#     host: "10.12.10.99"
+#     port: 8883
+#     username: "bblp"                    # always "bblp" for Bambu printers
+#     password: "ACCESSCODE"              # LAN access code from the printer screen
+#     # password_file: "/run/secrets/bambu_access_code"
+#     insecure_skip_verify: true          # printer uses a self-signed certificate
+
 # Room definitions
 rooms:
   - id: "living_room"
@@ -116,6 +131,10 @@ rooms:
           en: "Main Light"
           de: "Hauptlicht"
         representation: "light"
+      # Reference a configured Bambu printer (see bambu_printers above) to show a
+      # cube button with a live status popover on this room's card.
+      # - id: "bambu/lab/printer"
+      #   representation: "printer"
 
 # SpaceAPI configuration
 spaceapi:

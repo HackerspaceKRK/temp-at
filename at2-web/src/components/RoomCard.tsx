@@ -1,8 +1,11 @@
 import { useState, type FC } from "react";
 import { Thermometer, Droplets, SwitchCamera, Plug, VideoOff, Bubbles } from "lucide-react";
-import type { RoomState, CameraSnapshotEntity, CoEntity, GasEntity, ContactEntity } from "../schema";
+import type { RoomState, CameraSnapshotEntity, CoEntity, GasEntity, ContactEntity, PrinterEntity } from "../schema";
 import { useLocale } from "../locale";
 import RelayGroupControl from "./RelayGroupControl";
+import PrinterControl from "./PrinterControl";
+import PrinterProgressOverlay from "./PrinterProgressOverlay";
+import { activePrinters } from "@/lib/printer";
 import CameraSnapshot from "./CameraSnapshot";
 import { useAuth } from "../AuthContext";
 import { useTranslation } from "react-i18next";
@@ -38,8 +41,11 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
   const coEntity = room.entities.find((e) => e.type === "co") as CoEntity | undefined;
   const gasEntity = room.entities.find((e) => e.type === "gas") as GasEntity | undefined;
   const contactSensors = room.entities.filter((e) => e.type === "contact") as ContactEntity[];
+  const printerEntities = room.entities.filter((e) => e.type === "printer") as PrinterEntity[];
+  const printingNow = activePrinters(printerEntities);
 
   const [currentCameraIndex, setCurrentCameraIndex] = useState(0);
+  const [openPrinterId, setOpenPrinterId] = useState<string | null>(null);
 
   return (
     <Card className="gap-4 pb-0">
@@ -70,6 +76,14 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
             roomId={room.id}
             roomName={getName(room.localized_name, room.id)}
           />
+          {printerEntities.map((e) => (
+            <PrinterControl
+              key={e.id}
+              entity={e}
+              open={openPrinterId === e.id}
+              onOpenChange={(o) => setOpenPrinterId(o ? e.id : null)}
+            />
+          ))}
         </CardAction>
         <CardDescription className="col-span-full">
           <div className="flex items-center gap-x-4 gap-y-2 flex-wrap">
@@ -148,6 +162,17 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
         </CardDescription>
       </CardHeader>
       <div className="relative">
+        {printingNow.length > 0 && (
+          <div className="absolute top-0 inset-x-0 z-10 flex flex-col">
+            {printingNow.map((e) => (
+              <PrinterProgressOverlay
+                key={e.id}
+                entity={e}
+                onClick={() => setOpenPrinterId(e.id)}
+              />
+            ))}
+          </div>
+        )}
         {cameraEntities.length > 0 ? (
           user ? (
             <CameraSnapshot

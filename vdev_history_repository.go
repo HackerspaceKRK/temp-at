@@ -36,8 +36,9 @@ func NewVirtualDeviceHistoryRepository(db *gorm.DB, vdevManager *VdevManager) *V
 // It upserts the device record and inserts a new state entry.
 // Note: camera_snapshot devices are excluded from history tracking.
 func (r *VirtualDeviceHistoryRepository) OnDeviceUpdated(vdev *VirtualDevice) {
-	// Skip camera_snapshot devices
-	if vdev.Type == VdevTypeCameraSnapshot {
+	// Skip devices whose state is volatile/high-frequency and not worth persisting
+	// (camera snapshots, printer telemetry).
+	if vdev.Type == VdevTypeCameraSnapshot || vdev.Type == VdevTypePrinter {
 		return
 	}
 

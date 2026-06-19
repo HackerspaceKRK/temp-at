@@ -18,6 +18,7 @@ const (
 	VdevTypeCo             VdevType = "co"
 	VdevTypeGas            VdevType = "gas"
 	VdevTypeContact        VdevType = "contact"
+	VdevTypePrinter        VdevType = "printer"
 )
 
 // VirtualDevice represents a single controllable/readable capability broken out

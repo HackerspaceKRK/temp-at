@@ -14,6 +14,26 @@ type Config struct {
 	// Dhcp is optional. When nil, the DHCP lease tracking feature is disabled
 	// and the /api/v1/dhcp/leases endpoint returns 503.
 	Dhcp *DhcpConfig `yaml:"dhcp"`
+	// BambuPrinters optionally configures Bambu Labs 3D printers to monitor. Each
+	// printer is polled over its own TLS MQTT broker and exposed as a "printer"
+	// virtual device (whose state is never persisted to the database).
+	BambuPrinters []BambuPrinterConfig `yaml:"bambu_printers"`
+}
+
+// BambuPrinterConfig describes a single Bambu Labs printer reachable over its
+// local MQTT interface (TLS, self-signed cert). It is exposed as a virtual
+// device whose ID is referenced from a room's entities.
+type BambuPrinterConfig struct {
+	ID           string `yaml:"id"`            // vdev id, also used in room entities
+	SerialNumber string `yaml:"serial_number"` // MQTT topic: device/<serial>/report
+	Host         string `yaml:"host"`
+	Port         int    `yaml:"port"`     // default 8883
+	Username     string `yaml:"username"` // typically "bblp"
+	Password     string `yaml:"password"`
+	PasswordFile string `yaml:"password_file"`
+	// InsecureSkipVerify accepts the printer's self-signed TLS certificate
+	// (equivalent to mosquitto_sub --insecure). Usually required.
+	InsecureSkipVerify bool `yaml:"insecure_skip_verify"`
 }
 
 // DhcpConfig configures the DHCP lease tracking feature: a background scraper

@@ -13,7 +13,8 @@ export type EntityRepresentation =
   | "power"
   | "co"
   | "gas"
-  | "contact";
+  | "contact"
+  | "printer";
 
 /**
  * Relay states seen in sample: "OFF" plus null.
@@ -144,6 +145,44 @@ export interface RelayEntity {
 }
 
 /**
+ * Bambu Labs 3D printer state (mirrors the backend BambuPrinterState struct).
+ */
+export type PrinterStateValue =
+  | "idle"
+  | "printing"
+  | "paused"
+  | "finished"
+  | "failed"
+  | "offline";
+
+export interface PrinterState {
+  state: PrinterStateValue;
+  progress: number; // percent 0-100
+  remaining_time: number; // minutes
+  filename: string;
+  error_code: string;
+  task_id: string;
+  layer_num: number;
+  total_layer_num: number;
+  started_at: number; // unix millis, 0 if unknown
+  finished_at: number; // unix millis, 0 while running
+  nozzle_temp: number;
+  nozzle_target: number;
+  bed_temp: number;
+  bed_target: number;
+  chamber_temp: number;
+  online: boolean;
+}
+
+export interface PrinterEntity {
+  representation: "printer";
+  type: "printer";
+  id: string;
+  localized_name: LocalizedName | null;
+  state: PrinterState | null;
+}
+
+/**
  * Fallback for any entity that does not cleanly fit above
  * (keeps you resilient to future additions).
  */
@@ -169,6 +208,7 @@ export type Entity =
   | GasEntity
   | ContactEntity
   | RelayEntity
+  | PrinterEntity
   | UnknownEntity;
 
 export interface RoomState {

@@ -36,6 +36,8 @@ var (
 	vdevHistoryRepo       *VirtualDeviceHistoryRepository
 	gormDB                *gorm.DB
 	dhcpService           *DhcpService
+	bambuService          *BambuService
+	pushService           *PushService
 )
 
 func main() {
@@ -99,6 +101,22 @@ func main() {
 		log.Printf("DHCP lease tracking started")
 	}
 
+	// Web push service (VAPID keys persisted in the database).
+	pushService, err = NewPushService(db)
+	if err != nil {
+		log.Fatalf("failed to initialize push service: %v", err)
+	}
+
+	// Optional Bambu Labs printer monitoring.
+	if len(cfg.BambuPrinters) > 0 {
+		bambuService, err = NewBambuService(cfg, vdevManager, pushService)
+		if err != nil {
+			log.Fatalf("failed to initialize Bambu service: %v", err)
+		}
+		bambuService.Start()
+		log.Printf("Bambu printer monitoring started for %d printer(s)", len(cfg.BambuPrinters))
+	}
+
 	fiberCfg := fiber.Config{}
 	// When behind a trusted reverse proxy (e.g. Traefik), derive the real
 	// client IP from the X-Forwarded-For header instead of the proxy's IP.
@@ -147,6 +165,9 @@ func main() {
 	app.Get("/api/v1/stats/usage-heatmap", handleUsageHeatmap)
 	app.Get("/api/v1/debug/pprof-heap", AuthMiddleware, DebugAccessAuthMiddleware, handlePprofHeap)
 	app.Get("/api/v1/dhcp/leases", AuthMiddleware, handleDhcpLeases)
+	app.Get("/api/v1/push/vapid-public-key", handlePushVapidKey)
+	app.Post("/api/v1/push/subscribe", handlePushSubscribe)
+	app.Post("/api/v1/push/unsubscribe", handlePushUnsubscribe)
 
 	SetupFrontend(app, *devFrontend)
 

@@ -69,6 +69,8 @@ MQTT Broker
 | `dhcp_source_unifi.go` | UniFi controller WiFi client source (MAC→AP/SSID/RSSI) |
 | `dhcp_handlers.go` | `/api/v1/dhcp/leases` handler with per-group CIDR filtering |
 | `oui.go` / `manuf.gz` | Embedded Wireshark OUI database for MAC→vendor lookup |
+| `bambu_service.go` | Bambu Labs printer monitoring: one TLS MQTT client per printer, merges the device report into a small `BambuPrinterState` vdev (never persisted), fires push notifications on print finish/failure |
+| `push_service.go` / `push_handlers.go` | Web Push (VAPID) — keys persisted in DB (`AppSettingModel`), per-print subscriptions (`PushSubscriptionModel`), `/api/v1/push/*` endpoints |
 
 ### Adding a New DHCP Switch/AP Vendor
 
@@ -115,6 +117,7 @@ Copy `at2.example.yaml` → `at2.yaml`. Key sections:
 - `spaceapi` — hackerspace metadata
 - `branding` — logo/favicon/footer customization
 - `dhcp` — optional DHCP lease tracking (router/switch/WiFi sources + per-group CIDR access control)
+- `bambu_printers` — optional list of Bambu Labs printers monitored over their local TLS MQTT interface; reference a printer's `id` from a room entity with `representation: printer` to show a status popover + web push notifications
 
 ### CI/CD
 

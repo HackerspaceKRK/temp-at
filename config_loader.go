@@ -72,6 +72,16 @@ func validateConfig(cfg *Config, path string) {
 	loadSecret(&cfg.Phabricator.APIToken, cfg.Phabricator.APITokenFile)
 	validateDhcpConfig(cfg, path)
 
+	for i := range cfg.BambuPrinters {
+		loadSecret(&cfg.BambuPrinters[i].Password, cfg.BambuPrinters[i].PasswordFile)
+		if cfg.BambuPrinters[i].ID == "" {
+			log.Printf("warning: bambu_printers[%d] has empty id in %s", i, path)
+		}
+		if cfg.BambuPrinters[i].SerialNumber == "" {
+			log.Printf("warning: bambu_printers[%d] (%s) has empty serial_number in %s", i, cfg.BambuPrinters[i].ID, path)
+		}
+	}
+
 	if cfg.Frigate.Url == "" {
 		log.Printf("warning: frigate.url is empty in %s", path)
 	}

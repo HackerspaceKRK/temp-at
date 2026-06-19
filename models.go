@@ -106,9 +106,34 @@ func (DhcpLeaseModel) TableName() string {
 	return "dhcp_leases"
 }
 
+// AppSettingModel is a simple key/value store for server-managed settings that
+// must survive restarts (e.g. the generated VAPID keypair for web push).
+type AppSettingModel struct {
+	Key   string `gorm:"primaryKey;type:text"`
+	Value string `gorm:"type:text;not null"`
+}
+
+func (AppSettingModel) TableName() string {
+	return "app_settings"
+}
+
+type PushSubscriptionModel struct {
+	ID        uint   `gorm:"primaryKey;autoIncrement"`
+	Endpoint  string `gorm:"uniqueIndex:idx_push_endpoint_printer;not null"`
+	P256dh    string `gorm:"not null"`
+	Auth      string `gorm:"not null"`
+	PrinterID string `gorm:"uniqueIndex:idx_push_endpoint_printer;index;not null"`
+	TaskID    string
+	CreatedAt int64 `gorm:"not null"`
+}
+
+func (PushSubscriptionModel) TableName() string {
+	return "push_subscriptions"
+}
+
 // AutoMigrateModels runs GORM auto-migration for all models.
 func AutoMigrateModels(db *gorm.DB) error {
-	return db.AutoMigrate(&VirtualDeviceModel{}, &VirtualDeviceStateModel{}, &SessionModel{}, &UsageStatsDayCache{}, &DhcpLeaseModel{})
+	return db.AutoMigrate(&VirtualDeviceModel{}, &VirtualDeviceStateModel{}, &SessionModel{}, &UsageStatsDayCache{}, &DhcpLeaseModel{}, &AppSettingModel{}, &PushSubscriptionModel{})
 }
 
 // CurrentTimestampMillis returns current time as Unix milliseconds.
