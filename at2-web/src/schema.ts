@@ -161,6 +161,8 @@ export interface PrinterState {
   remaining_time: number; // minutes
   filename: string;
   error_code: string;
+  print_error: string; // 8-hex code (e.g. "0300800A"), "" when none
+  print_error_text: string; // human-readable description, "" if none/unknown
   task_id: string;
   layer_num: number;
   total_layer_num: number;

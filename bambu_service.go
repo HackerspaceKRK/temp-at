@@ -16,24 +16,30 @@ import (
 
 type BambuPrinterState struct {
 	// State is one of: idle, printing, paused, finished, failed, offline.
-	State         string  `json:"state"`
-	Progress      int     `json:"progress"`       // percent, 0-100
-	RemainingTime int     `json:"remaining_time"` // minutes
-	Filename      string  `json:"filename"`
-	ErrorCode     string  `json:"error_code"`
-	TaskID        string  `json:"task_id"`
-	LayerNum      int     `json:"layer_num"`
-	TotalLayerNum int     `json:"total_layer_num"`
+	State         string `json:"state"`
+	Progress      int    `json:"progress"`       // percent, 0-100
+	RemainingTime int    `json:"remaining_time"` // minutes
+	Filename      string `json:"filename"`
+	ErrorCode     string `json:"error_code"`
+	// PrintError is the raw print_error code formatted as Bambu's canonical
+	// 8-hex-digit uppercase code (e.g. 0300800A); "" when print_error is 0.
+	PrintError string `json:"print_error"`
+	// PrintErrorText is the human-readable description for PrintError; "" when
+	// there is no error or the code is unknown.
+	PrintErrorText string `json:"print_error_text"`
+	TaskID         string `json:"task_id"`
+	LayerNum       int    `json:"layer_num"`
+	TotalLayerNum  int    `json:"total_layer_num"`
 	// StartedAt is when the current/last print started (unix millis, 0 if unknown).
 	StartedAt int64 `json:"started_at"`
 	// FinishedAt is when the print finished or failed (unix millis, 0 while running).
-	FinishedAt int64 `json:"finished_at"`
-	NozzleTemp    float64 `json:"nozzle_temp"`
-	NozzleTarget  float64 `json:"nozzle_target"`
-	BedTemp       float64 `json:"bed_temp"`
-	BedTarget     float64 `json:"bed_target"`
-	ChamberTemp   float64 `json:"chamber_temp"`
-	Online        bool    `json:"online"`
+	FinishedAt   int64   `json:"finished_at"`
+	NozzleTemp   float64 `json:"nozzle_temp"`
+	NozzleTarget float64 `json:"nozzle_target"`
+	BedTemp      float64 `json:"bed_temp"`
+	BedTarget    float64 `json:"bed_target"`
+	ChamberTemp  float64 `json:"chamber_temp"`
+	Online       bool    `json:"online"`
 }
 
 // bambuOfflineThreshold is how long without a message before a printer is
@@ -232,7 +238,11 @@ func (s *BambuService) maybeNotify(p *bambuPrinter, prev, cur BambuPrinterState)
 			fmt.Sprintf("%q finished at %s.%s", name, now, started))
 	case "failed":
 		detail := ""
-		if cur.ErrorCode != "" && cur.ErrorCode != "0" {
+		if cur.PrintErrorText != "" {
+			detail = fmt.Sprintf(" — %s", cur.PrintErrorText)
+		} else if cur.PrintError != "" {
+			detail = fmt.Sprintf(" (error %s)", cur.PrintError)
+		} else if cur.ErrorCode != "" && cur.ErrorCode != "0" {
 			detail = fmt.Sprintf(" (error %s)", cur.ErrorCode)
 		}
 		s.push.SendPrintNotification(p.cfg.ID, prev.TaskID, s.notifyTitle("Print failed ❌"),
@@ -323,10 +333,12 @@ func deriveBambuState(full map[string]any) BambuPrinterState {
 	st.BedTemp = bambuFloat(full, "bed_temper")
 	st.BedTarget = bambuFloat(full, "bed_target_temper")
 	st.ChamberTemp = bambuFloat(full, "chamber_temper")
-
-	// A non-zero print_error while printing indicates a hard failure.
-	if st.State == "printing" && bambuInt(full, "print_error") != 0 {
-		st.State = "failed"
+	if pe := bambuInt(full, "print_error"); pe != 0 {
+		st.PrintError = formatBambuPrintError(pe)
+		st.PrintErrorText = bambuPrintErrorText(st.PrintError)
+		if st.State == "printing" {
+			st.State = "failed"
+		}
 	}
 
 	// Filename: prefer the human-readable subtask name, else the gcode file base.
@@ -340,6 +352,13 @@ func deriveBambuState(full map[string]any) BambuPrinterState {
 	st.Filename = name
 
 	return st
+}
+
+// formatBambuPrintError renders a raw print_error int as Bambu's canonical
+// 8-hex-digit uppercase code (e.g. 0300800A), matching the convention
+// print_error.toString(16).padStart(8, "0").toUpperCase().
+func formatBambuPrintError(code int) string {
+	return fmt.Sprintf("%08X", uint32(code))
 }
 
 // bambuStr reads a string value; Bambu encodes some numbers as strings.
