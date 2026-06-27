@@ -131,9 +131,26 @@ func (PushSubscriptionModel) TableName() string {
 	return "push_subscriptions"
 }
 
+// BambuThumbnailModel caches the plate-preview PNG extracted from a print's
+// .gcode.3mf, keyed by printer + task + start time so a printer is queried over
+// FTPS at most once per print. CreatedAt is retained so stale rows can be
+// cleaned up later.
+type BambuThumbnailModel struct {
+	ID             uint      `gorm:"primaryKey;autoIncrement"`
+	PrinterID      string    `gorm:"uniqueIndex:idx_bambu_thumb,priority:1;not null"`
+	TaskName       string    `gorm:"uniqueIndex:idx_bambu_thumb,priority:2;not null"`
+	GcodeStartTime int64     `gorm:"uniqueIndex:idx_bambu_thumb,priority:3;not null"`
+	PNG            []byte    `gorm:"type:blob"`
+	CreatedAt      time.Time `gorm:"index"`
+}
+
+func (BambuThumbnailModel) TableName() string {
+	return "bambu_thumbnails"
+}
+
 // AutoMigrateModels runs GORM auto-migration for all models.
 func AutoMigrateModels(db *gorm.DB) error {
-	return db.AutoMigrate(&VirtualDeviceModel{}, &VirtualDeviceStateModel{}, &SessionModel{}, &UsageStatsDayCache{}, &DhcpLeaseModel{}, &AppSettingModel{}, &PushSubscriptionModel{})
+	return db.AutoMigrate(&VirtualDeviceModel{}, &VirtualDeviceStateModel{}, &SessionModel{}, &UsageStatsDayCache{}, &DhcpLeaseModel{}, &AppSettingModel{}, &PushSubscriptionModel{}, &BambuThumbnailModel{})
 }
 
 // CurrentTimestampMillis returns current time as Unix milliseconds.

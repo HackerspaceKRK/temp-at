@@ -12,6 +12,7 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"gorm.io/gorm"
 )
 
 type BambuPrinterState struct {
@@ -40,6 +41,9 @@ type BambuPrinterState struct {
 	BedTarget    float64 `json:"bed_target"`
 	ChamberTemp  float64 `json:"chamber_temp"`
 	Online       bool    `json:"online"`
+	// HasThumbnail is true once a plate-preview PNG for the current print has
+	// been fetched and cached; the frontend uses it to load the thumbnail.
+	HasThumbnail bool `json:"has_thumbnail"`
 }
 
 // bambuOfflineThreshold is how long without a message before a printer is
@@ -67,18 +71,23 @@ type BambuService struct {
 	push     *PushService
 	printers map[string]*bambuPrinter // keyed by printer ID
 	order    []*bambuPrinter
+	// thumbs fetches & caches print-plate thumbnails over FTPS.
+	thumbs *bambuThumbnailCache
 	// footerName is the branding footer name, prefixed onto notification titles
 	// so the user knows which space/installation a print belongs to.
 	footerName string
 }
 
-func NewBambuService(cfg *Config, vdev *VdevManager, push *PushService) (*BambuService, error) {
+func NewBambuService(cfg *Config, vdev *VdevManager, push *PushService, db *gorm.DB) (*BambuService, error) {
 	s := &BambuService{
 		vdev:       vdev,
 		push:       push,
 		printers:   make(map[string]*bambuPrinter),
 		footerName: cfg.Branding.FooterName,
 	}
+	// republishState re-emits a printer's last state so a newly cached thumbnail
+	// (HasThumbnail flip) propagates to the frontend over the WebSocket.
+	s.thumbs = newBambuThumbnailCache(db, s.republishState)
 
 	for _, pc := range cfg.BambuPrinters {
 		if pc.ID == "" || pc.SerialNumber == "" || pc.Host == "" {
@@ -183,6 +192,9 @@ func (s *BambuService) handleMessage(p *bambuPrinter, payload []byte) {
 	p.lastMsg = time.Now()
 	newState := deriveBambuState(p.full)
 	newState.Online = true
+	// Raw subtask name (not the extension-trimmed Filename) doubles as the FTP
+	// filename <subtask_name>.gcode.3mf and the thumbnail cache key.
+	subtaskName := bambuStr(p.full, "subtask_name")
 	prev := p.last
 
 	// Record the finish/fail moment once, and clear it whenever a print is not
@@ -196,6 +208,13 @@ func (s *BambuService) handleMessage(p *bambuPrinter, payload []byte) {
 	}
 	newState.FinishedAt = p.finishedAt
 
+	// A thumbnail is only meaningful for an active print with a known start time.
+	active := (newState.State == "printing" || newState.State == "paused") &&
+		subtaskName != "" && newState.StartedAt > 0
+	if active {
+		newState.HasThumbnail = s.thumbs.Has(p.cfg.ID, subtaskName, newState.StartedAt)
+	}
+
 	hadState := p.hasState
 	p.last = newState
 	p.hasState = true
@@ -203,9 +222,36 @@ func (s *BambuService) handleMessage(p *bambuPrinter, payload []byte) {
 
 	s.publish(p, newState)
 
+	// Kick off a background FTPS fetch if we don't have it yet.
+	if active && !newState.HasThumbnail {
+		s.thumbs.Ensure(p.cfg, subtaskName, newState.StartedAt)
+	}
+
 	if hadState {
 		s.maybeNotify(p, prev, newState)
 	}
+}
+
+// republishState re-emits a printer's last known state, used as the
+// thumbnail-cache callback so a freshly cached thumbnail reaches the frontend.
+func (s *BambuService) republishState(printerID string) {
+	p, ok := s.printers[printerID]
+	if !ok {
+		return
+	}
+	p.mu.Lock()
+	if !p.hasState {
+		p.mu.Unlock()
+		return
+	}
+	st := p.last
+	// Reflect the freshly cached thumbnail without waiting for the next message.
+	if (st.State == "printing" || st.State == "paused") && st.StartedAt > 0 {
+		st.HasThumbnail = true
+		p.last = st
+	}
+	p.mu.Unlock()
+	s.publish(p, st)
 }
 
 // publish pushes the derived state into the vdev manager. VdevManager dedupes
@@ -298,6 +344,24 @@ func (s *BambuService) CurrentTaskID(printerID string) string {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.last.TaskID
+}
+
+// CurrentThumbnail returns the cached plate-preview PNG for the print currently
+// loaded on the given printer, or an error if none is available.
+func (s *BambuService) CurrentThumbnail(printerID string) ([]byte, error) {
+	p, ok := s.printers[printerID]
+	if !ok {
+		return nil, fmt.Errorf("unknown printer %q", printerID)
+	}
+	p.mu.Lock()
+	subtaskName := bambuStr(p.full, "subtask_name")
+	startMillis := p.last.StartedAt
+	p.mu.Unlock()
+
+	if subtaskName == "" || startMillis == 0 {
+		return nil, fmt.Errorf("no active print for printer %q", printerID)
+	}
+	return s.thumbs.Get(printerID, subtaskName, startMillis)
 }
 
 // deriveBambuState maps the merged "print" object into the small state struct.

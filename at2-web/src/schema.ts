@@ -168,6 +168,7 @@ export interface PrinterState {
   total_layer_num: number;
   started_at: number; // unix millis, 0 if unknown
   finished_at: number; // unix millis, 0 while running
+  has_thumbnail: boolean; // true once a plate-preview PNG has been cached
   nozzle_temp: number;
   nozzle_target: number;
   bed_temp: number;

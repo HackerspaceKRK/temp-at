@@ -1,15 +1,18 @@
 module github.com/alufers/temp-at
 
-go 1.25.0
+go 1.26
 
 require (
+	github.com/SherClockHolmes/webpush-go v1.4.0
 	github.com/coreos/go-oidc/v3 v3.18.0
 	github.com/eclipse/paho.mqtt.golang v1.5.1
+	github.com/go-routeros/routeros/v3 v3.0.1
 	github.com/goccy/go-yaml v1.11.3
 	github.com/gofiber/adaptor/v2 v2.2.1
 	github.com/gofiber/contrib/websocket v1.3.4
 	github.com/gofiber/fiber/v2 v2.52.13
 	github.com/gofrs/uuid/v5 v5.4.0
+	github.com/jlaffaye/ftp v0.2.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/image v0.42.0
@@ -19,7 +22,6 @@ require (
 )
 
 require (
-	github.com/SherClockHolmes/webpush-go v1.4.0 // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -27,7 +29,6 @@ require (
 	github.com/fasthttp/websocket v1.5.8 // indirect
 	github.com/fatih/color v1.10.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
-	github.com/go-routeros/routeros/v3 v3.0.1 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect

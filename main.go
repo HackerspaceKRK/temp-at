@@ -109,7 +109,7 @@ func main() {
 
 	// Optional Bambu Labs printer monitoring.
 	if len(cfg.BambuPrinters) > 0 {
-		bambuService, err = NewBambuService(cfg, vdevManager, pushService)
+		bambuService, err = NewBambuService(cfg, vdevManager, pushService, db)
 		if err != nil {
 			log.Fatalf("failed to initialize Bambu service: %v", err)
 		}
@@ -165,6 +165,7 @@ func main() {
 	app.Get("/api/v1/stats/usage-heatmap", handleUsageHeatmap)
 	app.Get("/api/v1/debug/pprof-heap", AuthMiddleware, DebugAccessAuthMiddleware, handlePprofHeap)
 	app.Get("/api/v1/dhcp/leases", AuthMiddleware, handleDhcpLeases)
+	app.Get("/api/v1/printer-thumbnail/+", handleBambuThumbnail)
 	app.Get("/api/v1/push/vapid-public-key", handlePushVapidKey)
 	app.Post("/api/v1/push/subscribe", handlePushSubscribe)
 	app.Post("/api/v1/push/unsubscribe", handlePushUnsubscribe)

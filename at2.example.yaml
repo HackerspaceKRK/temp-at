@@ -109,6 +109,7 @@ mqtt:
 #     serial_number: "00M00A0000000000"  # printer serial; topic device/<serial>/report
 #     host: "10.12.10.99"
 #     port: 8883
+#     ftp_port: 990                       # implicit FTPS, used to fetch print thumbnails (default 990)
 #     username: "bblp"                    # always "bblp" for Bambu printers
 #     password: "ACCESSCODE"              # LAN access code from the printer screen
 #     # password_file: "/run/secrets/bambu_access_code"

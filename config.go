@@ -27,7 +27,8 @@ type BambuPrinterConfig struct {
 	ID           string `yaml:"id"`            // vdev id, also used in room entities
 	SerialNumber string `yaml:"serial_number"` // MQTT topic: device/<serial>/report
 	Host         string `yaml:"host"`
-	Port         int    `yaml:"port"`     // default 8883
+	Port         int    `yaml:"port"`     // default 8883 (MQTT)
+	FtpPort      int    `yaml:"ftp_port"` // default 990 (implicit FTPS, for thumbnails)
 	Username     string `yaml:"username"` // typically "bblp"
 	Password     string `yaml:"password"`
 	PasswordFile string `yaml:"password_file"`
