@@ -6,17 +6,16 @@ import (
 	"strings"
 )
 
-// Entity representation values recognised by the exit board.
-const (
-	exitBoardReprLight  = "light"
-	exitBoardReprWindow = "contact"
-)
+// exitBoardReprLight is the entity representation treated as a light by the exit
+// board. Windows are matched by virtual-device type (any contact sensor),
+// regardless of representation.
+const exitBoardReprLight = "light"
 
 // ExitBoardService publishes a per-room status code to MQTT so an exit panel can
 // show whether each room is safe to leave (lights off, windows closed).
 //
-// For every room containing at least one light/window entity it publishes to
-// <MQTTPrefix>/<room_id>:
+// For every room containing at least one light entity or contact sensor it
+// publishes to <MQTTPrefix>/<room_id>:
 //   - 0: all windows closed and all lights off
 //   - 1: all windows closed, at least one light on
 //   - 2: at least one window open (takes priority over lights)
@@ -25,13 +24,14 @@ type ExitBoardService struct {
 	vdev *VdevManager
 	mqtt *MQTTAdapter
 
-	// rooms are the configured rooms containing at least one light or window
-	// entity (the only ones worth publishing).
+	// rooms are the configured rooms that have any entities. Whether a room is
+	// actually relevant (has a light or contact sensor) is decided dynamically at
+	// publish time, because contact vdevs are discovered from MQTT after startup.
 	rooms []RoomConfig
 }
 
-// NewExitBoardService creates the service, collecting the rooms that have at
-// least one light or window entity.
+// NewExitBoardService creates the service, collecting the rooms that have any
+// entities.
 func NewExitBoardService(cfg *Config, vdev *VdevManager, mqtt *MQTTAdapter) *ExitBoardService {
 	s := &ExitBoardService{
 		cfg:  cfg.ExitBoard,
@@ -39,7 +39,7 @@ func NewExitBoardService(cfg *Config, vdev *VdevManager, mqtt *MQTTAdapter) *Exi
 		mqtt: mqtt,
 	}
 	for _, room := range cfg.Rooms {
-		if roomHasExitBoardEntities(room) {
+		if len(room.Entities) > 0 {
 			s.rooms = append(s.rooms, room)
 		}
 	}
@@ -71,52 +71,64 @@ func (s *ExitBoardService) onDeviceUpdate(v *VirtualDevice) {
 	}
 }
 
-// publishRoom computes and publishes the current status code for a room.
+// publishRoom computes and publishes the current status code for a room. Rooms
+// with neither a light nor a contact sensor are skipped.
 func (s *ExitBoardService) publishRoom(room RoomConfig) {
-	code := s.computeCode(room)
+	code, relevant := s.computeCode(room)
+	if !relevant {
+		return
+	}
 	topic := s.cfg.MQTTPrefix + "/" + room.ID
 	if err := s.mqtt.Publish(topic, []byte(strconv.Itoa(code)), true); err != nil {
 		log.Printf("[exit_board] failed to publish %s: %v", topic, err)
 	}
 }
 
-// computeCode derives the room status code from its light and window entities.
-func (s *ExitBoardService) computeCode(room RoomConfig) int {
-	// Index current device states by ID for O(1) lookup.
+// computeCode derives the room status code from its lights and contact sensors.
+// relevant is false when the room has neither, in which case nothing is published.
+func (s *ExitBoardService) computeCode(room RoomConfig) (code int, relevant bool) {
+	// Index current devices by ID for O(1) lookup.
 	devices := s.vdev.Devices()
-	stateByID := make(map[string]any, len(devices))
+	byID := make(map[string]*VirtualDevice, len(devices))
 	for _, d := range devices {
-		stateByID[d.ID] = d.State
+		byID[d.ID] = d
 	}
 
+	windowOpen := false
 	anyLightOn := false
 	for _, e := range room.Entities {
-		state := stateByID[e.ID]
-		switch e.Representation {
-		case exitBoardReprWindow:
-			if isWindowOpen(state) {
-				return 2 // window open takes priority over everything
+		dev := byID[e.ID]
+
+		// Windows: any contact sensor, regardless of representation.
+		if dev != nil && dev.Type == VdevTypeContact {
+			relevant = true
+			if isWindowOpen(dev.State) {
+				windowOpen = true
 			}
-		case exitBoardReprLight:
+			continue
+		}
+
+		// Lights: entities represented as lights.
+		if e.Representation == exitBoardReprLight {
+			relevant = true
+			var state any
+			if dev != nil {
+				state = dev.State
+			}
 			if isLightOn(state) {
 				anyLightOn = true
 			}
 		}
 	}
-	if anyLightOn {
-		return 1
-	}
-	return 0
-}
 
-// roomHasExitBoardEntities reports whether a room has any light or window entity.
-func roomHasExitBoardEntities(room RoomConfig) bool {
-	for _, e := range room.Entities {
-		if e.Representation == exitBoardReprLight || e.Representation == exitBoardReprWindow {
-			return true
-		}
+	switch {
+	case windowOpen:
+		return 2, relevant // window open takes priority over lights
+	case anyLightOn:
+		return 1, relevant
+	default:
+		return 0, relevant
 	}
-	return false
 }
 
 // isWindowOpen interprets a contact-sensor state. Zigbee2MQTT reports

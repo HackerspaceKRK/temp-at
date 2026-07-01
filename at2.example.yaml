@@ -122,8 +122,8 @@ mqtt:
 #   0 = all windows closed and all lights off
 #   1 = all windows closed, at least one light on
 #   2 = at least one window open (takes priority over lights)
-# Lights are entities with `representation: light`; windows are entities with
-# `representation: window`.
+# Lights are entities with `representation: light`; windows are any contact
+# sensor (zigbee2mqtt binary contact) in the room, regardless of representation.
 # exit_board:
 #   mqtt_prefix: "exit_board"
 
