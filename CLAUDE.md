@@ -71,6 +71,7 @@ MQTT Broker
 | `oui.go` / `manuf.gz` | Embedded Wireshark OUI database for MAC→vendor lookup |
 | `bambu_service.go` | Bambu Labs printer monitoring: one TLS MQTT client per printer, merges the device report into a small `BambuPrinterState` vdev (never persisted), fires push notifications on print finish/failure |
 | `push_service.go` / `push_handlers.go` | Web Push (VAPID) — keys persisted in DB (`AppSettingModel`), per-print subscriptions (`PushSubscriptionModel`), `/api/v1/push/*` endpoints |
+| `exit_board_service.go` | Publishes a per-room status code (0/1/2) to `<prefix>/<room_id>` over the main MQTT connection for an exit-status light panel; reacts to vdev state changes. Lights = `representation: light` (relay `ON`/`OFF`), windows = `representation: window` (contact bool) |
 
 ### Adding a New DHCP Switch/AP Vendor
 
@@ -118,6 +119,7 @@ Copy `at2.example.yaml` → `at2.yaml`. Key sections:
 - `branding` — logo/favicon/footer customization
 - `dhcp` — optional DHCP lease tracking (router/switch/WiFi sources + per-group CIDR access control)
 - `bambu_printers` — optional list of Bambu Labs printers monitored over their local TLS MQTT interface; reference a printer's `id` from a room entity with `representation: printer` to show a status popover + web push notifications
+- `exit_board` — optional; set `mqtt_prefix` to publish a per-room status code (0/1/2) to `<mqtt_prefix>/<room_id>` for an exit light panel. Lights = entities with `representation: light`, windows = entities with `representation: window`
 
 ### CI/CD
 

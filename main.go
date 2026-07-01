@@ -38,6 +38,7 @@ var (
 	dhcpService           *DhcpService
 	bambuService          *BambuService
 	pushService           *PushService
+	exitBoardService      *ExitBoardService
 )
 
 func main() {
@@ -115,6 +116,13 @@ func main() {
 		}
 		bambuService.Start()
 		log.Printf("Bambu printer monitoring started for %d printer(s)", len(cfg.BambuPrinters))
+	}
+
+	// Optional exit-board MQTT publisher.
+	if cfg.ExitBoard != nil && cfg.ExitBoard.MQTTPrefix != "" {
+		exitBoardService = NewExitBoardService(cfg, vdevManager, mqttAdapter)
+		exitBoardService.Start()
+		log.Printf("Exit board publishing to %s/<room_id>", cfg.ExitBoard.MQTTPrefix)
 	}
 
 	fiberCfg := fiber.Config{}

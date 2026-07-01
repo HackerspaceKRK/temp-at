@@ -53,6 +53,18 @@ type MQTTAdapter struct {
 	deviceSettings map[string]EntityConfig
 }
 
+// Publish sends a raw payload to the given topic on the shared MQTT connection.
+func (a *MQTTAdapter) Publish(topic string, payload []byte, retained bool) error {
+	if a.client == nil {
+		return errors.New("mqtt client not initialised")
+	}
+	token := a.client.Publish(topic, 0, retained, payload)
+	if token.Wait() && token.Error() != nil {
+		return token.Error()
+	}
+	return nil
+}
+
 // atomicBool (simple mutex-backed boolean) avoids importing sync/atomic for minimal usage.
 type atomicBool struct {
 	mu  sync.Mutex

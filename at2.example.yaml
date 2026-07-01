@@ -115,6 +115,18 @@ mqtt:
 #     # password_file: "/run/secrets/bambu_access_code"
 #     insecure_skip_verify: true          # printer uses a self-signed certificate
 
+# Exit board (optional). Drives a panel of lights at the exit that shows, per room,
+# whether it is safe to leave. For each room containing at least one light/window
+# entity a status code is published (retained) to <mqtt_prefix>/<room_id> on the
+# broker configured under `mqtt` above:
+#   0 = all windows closed and all lights off
+#   1 = all windows closed, at least one light on
+#   2 = at least one window open (takes priority over lights)
+# Lights are entities with `representation: light`; windows are entities with
+# `representation: window`.
+# exit_board:
+#   mqtt_prefix: "exit_board"
+
 # Room definitions
 rooms:
   - id: "living_room"

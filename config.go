@@ -18,6 +18,22 @@ type Config struct {
 	// printer is polled over its own TLS MQTT broker and exposed as a "printer"
 	// virtual device (whose state is never persisted to the database).
 	BambuPrinters []BambuPrinterConfig `yaml:"bambu_printers"`
+	// ExitBoard optionally drives an MQTT-based exit status panel. When nil the
+	// feature is disabled.
+	ExitBoard *ExitBoardConfig `yaml:"exit_board"`
+}
+
+// ExitBoardConfig configures the exit-board publisher. For each room a status
+// code (0/1/2) is published to <MQTTPrefix>/<room_id>:
+//   - 0: all windows closed and all lights off
+//   - 1: all windows closed, at least one light on
+//   - 2: at least one window open (takes priority over lights)
+//
+// Lights are entities with representation "light"; windows are entities with
+// representation "window".
+type ExitBoardConfig struct {
+	// MQTTPrefix is the topic prefix, e.g. "exit_board" -> "exit_board/living_room".
+	MQTTPrefix string `yaml:"mqtt_prefix"`
 }
 
 // BambuPrinterConfig describes a single Bambu Labs printer reachable over its
