@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -137,9 +138,13 @@ type opcRelationships struct {
 // given .3mf as a zip via ranged reads, resolves the thumbnail relationship in
 // _rels/.rels and returns the referenced PNG bytes.
 //
-// candidates are remote paths tried in order (Bambu stores files in different
-// locations depending on how the job was sent); the first that exists wins.
-func fetchBambu3mfThumbnail(cfg BambuPrinterConfig, candidates []string) ([]byte, error) {
+// The candidate paths for the task name are tried in order (Bambu stores files
+// in different locations depending on how the job was sent); the first that
+// exists wins. If none exists (e.g. the task name contains characters the
+// printer's filesystem replaced), the root and /cache directories are listed
+// and fuzzy-matched.
+func fetchBambu3mfThumbnail(cfg BambuPrinterConfig, taskName string) ([]byte, error) {
+	candidates := bambu3mfCandidates(taskName)
 	port := cfg.FtpPort
 	if port == 0 {
 		port = bambuDefaultFtpPort
@@ -179,8 +184,31 @@ func fetchBambu3mfThumbnail(cfg BambuPrinterConfig, candidates []string) ([]byte
 			break
 		}
 	}
+	// Fallback: list the known locations and fuzzy-match, treating characters
+	// the printer's FAT filesystem can't store as wildcards.
 	if path == "" {
-		return nil, fmt.Errorf("3mf not found on printer (tried %v)", candidates)
+		want := taskName + ".gcode.3mf"
+		for _, dir := range []string{"/", "/cache"} {
+			entries, err := conn.List(dir)
+			if err != nil {
+				continue
+			}
+			for _, e := range entries {
+				if e.Type != ftp.EntryTypeFile || !bambu3mfNameMatches(e.Name, want) {
+					continue
+				}
+				path = strings.TrimRight(dir, "/") + "/" + e.Name
+				size = int64(e.Size)
+				log.Printf("[bambu] resolved 3mf for task %q via directory listing: %s", taskName, path)
+				break
+			}
+			if path != "" {
+				break
+			}
+		}
+	}
+	if path == "" {
+		return nil, fmt.Errorf("3mf not found on printer (tried %v and listing / and /cache)", candidates)
 	}
 
 	ra := &ftpReaderAt{conn: conn, path: path, size: size}
@@ -372,7 +400,7 @@ func (c *bambuThumbnailCache) fetch(cfg BambuPrinterConfig, taskName string, sta
 		return
 	}
 
-	png, err := fetchBambu3mfThumbnail(cfg, bambu3mfCandidates(taskName))
+	png, err := fetchBambu3mfThumbnail(cfg, taskName)
 	if err != nil {
 		log.Printf("[bambu] thumbnail fetch failed for printer %s task %q: %v", cfg.ID, taskName, err)
 		c.mu.Lock()
@@ -410,15 +438,114 @@ func (c *bambuThumbnailCache) fetch(cfg BambuPrinterConfig, taskName string, sta
 }
 
 // bambu3mfCandidates returns the FTP paths to try for a print's project file,
-// covering local-sent (root) and cached-cloud (/cache/) locations.
+// covering local-sent (root) and cached-cloud (/cache/) locations. Task names
+// with characters that are illegal in FAT filenames (e.g. "/") are stored on
+// the printer with those characters replaced, so a sanitized variant is tried
+// too.
 func bambu3mfCandidates(taskName string) []string {
-	name := taskName + ".gcode.3mf"
-	return []string{
-		name,
-		"/" + name,
-		"/cache/" + name,
-		"cache/" + name,
+	names := []string{taskName + ".gcode.3mf"}
+	if sanitized := bambuSanitizeFilename(taskName); sanitized != taskName {
+		names = append(names, sanitized+".gcode.3mf")
 	}
+	var candidates []string
+	for _, name := range names {
+		candidates = append(candidates,
+			name,
+			"/"+name,
+			"/cache/"+name,
+			"cache/"+name,
+		)
+	}
+	return candidates
+}
+
+// bambuSanitizeFilename mirrors how Bambu slicers/printers replace characters
+// that are illegal in FAT filenames with underscores.
+func bambuSanitizeFilename(name string) string {
+	return strings.Map(func(r rune) rune {
+		if isIllegalFatChar(r) {
+			return '_'
+		}
+		return r
+	}, name)
+}
+
+func isIllegalFatChar(r rune) bool {
+	switch r {
+	case '\\', '/', ':', '*', '?', '"', '<', '>', '|':
+		return true
+	}
+	return false
+}
+
+// bambu3mfNameMatches reports whether a directory entry matches the expected
+// filename, treating every illegal-FAT character in the expected name as a
+// wildcard (the printer replaced it with an unknown substitute).
+func bambu3mfNameMatches(entry, want string) bool {
+	if entry == want {
+		return true
+	}
+	if !strings.HasSuffix(strings.ToLower(entry), ".gcode.3mf") || !strings.HasSuffix(strings.ToLower(want), ".gcode.3mf") {
+		return false
+	}
+
+	// Fast path for same-length names where illegal FAT chars were replaced.
+	er, wr := []rune(entry), []rune(want)
+	if len(er) == len(wr) {
+		for i := range wr {
+			if wr[i] == er[i] || isIllegalFatChar(wr[i]) {
+				continue
+			}
+			return false
+		}
+		return true
+	}
+
+	// Fuzzy path for printer-renamed jobs (prefixes, token drops, +/- mapping).
+	entryTokens := bambuNameTokens(strings.TrimSuffix(strings.ToLower(entry), ".gcode.3mf"))
+	wantTokens := bambuNameTokens(strings.TrimSuffix(strings.ToLower(want), ".gcode.3mf"))
+	if len(entryTokens) == 0 || len(wantTokens) == 0 {
+		return false
+	}
+
+	entrySet := make(map[string]struct{}, len(entryTokens))
+	for _, tok := range entryTokens {
+		entrySet[tok] = struct{}{}
+	}
+
+	shared := 0
+	for _, tok := range wantTokens {
+		if _, ok := entrySet[tok]; ok {
+			shared++
+		}
+	}
+
+	if shared < 4 {
+		return false
+	}
+	minHalf := len(entryTokens) / 2
+	if minHalf < 3 {
+		minHalf = 3
+	}
+	if shared < minHalf {
+		return false
+	}
+	// Keep matching anchored to the same model/job family.
+	for _, tok := range wantTokens {
+		if len(tok) < 3 {
+			continue
+		}
+		_, ok := entrySet[tok]
+		return ok
+	}
+	return false
+}
+
+var nonAlnumRe = regexp.MustCompile(`[^a-z0-9]+`)
+
+func bambuNameTokens(name string) []string {
+	norm := nonAlnumRe.ReplaceAllString(strings.ToLower(name), " ")
+	return strings.Fields(norm)
 }
 
 // handleBambuThumbnail serves the cached plate-preview PNG for a printer's

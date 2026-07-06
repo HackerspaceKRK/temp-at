@@ -163,7 +163,8 @@ func (m *VdevManager) ApplyUpdates(updates []*VirtualDeviceUpdate) []string {
 }
 
 // shouldAssignState returns true if newValue should replace oldValue.
-// Comparable types are compared directly; non-comparable types always trigger assignment.
+// Comparable types are compared directly; non-comparable types (states holding
+// slices/maps) fall back to DeepEqual so identical states don't rebroadcast.
 func shouldAssignState(oldValue, newValue any) bool {
 	if oldValue == nil && newValue == nil {
 		return false
@@ -175,9 +176,8 @@ func shouldAssignState(oldValue, newValue any) bool {
 	ov := reflect.ValueOf(oldValue)
 	nv := reflect.ValueOf(newValue)
 
-	// If either is non-comparable, we treat it as a changed value.
 	if !ov.Type().Comparable() || !nv.Type().Comparable() {
-		return true
+		return !reflect.DeepEqual(oldValue, newValue)
 	}
 	return oldValue != newValue
 }

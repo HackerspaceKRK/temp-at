@@ -69,7 +69,10 @@ MQTT Broker
 | `dhcp_source_unifi.go` | UniFi controller WiFi client source (MAC→AP/SSID/RSSI) |
 | `dhcp_handlers.go` | `/api/v1/dhcp/leases` handler with per-group CIDR filtering |
 | `oui.go` / `manuf.gz` | Embedded Wireshark OUI database for MAC→vendor lookup |
-| `bambu_service.go` | Bambu Labs printer monitoring: one TLS MQTT client per printer, merges the device report into a small `BambuPrinterState` vdev (never persisted), fires push notifications on print finish/failure |
+| `bambu_service.go` | Bambu Labs printer monitoring: one TLS MQTT client per printer, merges the device report into a `BambuPrinterState` vdev (never persisted; includes AMS trays, fans, wifi, HMS errors), fires push notifications on print finish/failure |
+| `printer_stream.go` / `stream_manager.go` | Vendor-neutral printer camera streaming: `PrinterVideoSource` interface (implement per vendor) + `StreamManager` that keeps **at most one** camera connection per printer, muxes H.264 into fMP4 and fans it out to WebSocket viewers (`/api/v1/printer-stream/+`, auth-only, MSE playback) |
+| `bambu_stream.go` | Bambu `PrinterVideoSource`: RTSPS chamber camera via gortsplib (`rtsps://bblp:<access_code>@host:322/streaming/live/1`, same creds as MQTT) |
+| `printer_snapshots.go` / `snapshot_store.go` | Once a minute, grab a keyframe from each online printer via the StreamManager (reuses a running live stream), decode to JPEG by shelling out to `ffmpeg` (skipped gracefully when not installed), resize via the shared `SnapshotStore` (also used by the Frigate mapper) and publish into the printer vdev state |
 | `push_service.go` / `push_handlers.go` | Web Push (VAPID) — keys persisted in DB (`AppSettingModel`), per-print subscriptions (`PushSubscriptionModel`), `/api/v1/push/*` endpoints |
 | `exit_board_service.go` | Publishes a per-room status code (0/1/2) to `<prefix>/<room_id>` over the main MQTT connection for an exit-status light panel; reacts to vdev state changes. Lights = `representation: light` (relay `ON`/`OFF`), windows = any `contact`-type vdev in the room (regardless of representation) |
 
@@ -90,6 +93,16 @@ AP's uplink port).
 To refresh the embedded OUI database: download
 `https://www.wireshark.org/download/automated/data/manuf` and run
 `gzip -9 -c manuf > manuf.gz` in the repo root.
+
+### Adding a New Printer Type (e.g. OctoPrint)
+
+Printer live streams and snapshots are vendor-neutral. Implement
+`PrinterVideoSource` (`printer_stream.go`) for the camera and register it in a
+`PrinterStreamRegistry`; publish a state shaped like `BambuPrinterState` into a
+vdev of type `printer`, and implement `PrinterSnapshotSink`
+(`printer_snapshots.go`) for periodic snapshots. The WS endpoint, StreamManager,
+snapshotter and the whole frontend (`/printers`, popover, AMS panel) then work
+unchanged.
 
 ### Adding a New MQTT Mapper
 
@@ -118,7 +131,7 @@ Copy `at2.example.yaml` → `at2.yaml`. Key sections:
 - `spaceapi` — hackerspace metadata
 - `branding` — logo/favicon/footer customization
 - `dhcp` — optional DHCP lease tracking (router/switch/WiFi sources + per-group CIDR access control)
-- `bambu_printers` — optional list of Bambu Labs printers monitored over their local TLS MQTT interface; reference a printer's `id` from a room entity with `representation: printer` to show a status popover + web push notifications
+- `bambu_printers` — optional list of Bambu Labs printers monitored over their local TLS MQTT interface; reference a printer's `id` from a room entity with `representation: printer` to show a status popover + web push notifications. Printers also appear on the `/printers` page with AMS filament info, minute camera snapshots and a login-gated live stream (`rtsp_port`, default 322)
 - `exit_board` — optional; set `mqtt_prefix` to publish a per-room status code (0/1/2) to `<mqtt_prefix>/<room_id>` for an exit light panel. Lights = entities with `representation: light`, windows = any contact sensor in the room
 
 ### CI/CD

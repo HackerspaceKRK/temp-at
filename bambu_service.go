@@ -44,6 +44,56 @@ type BambuPrinterState struct {
 	// HasThumbnail is true once a plate-preview PNG for the current print has
 	// been fetched and cached; the frontend uses it to load the thumbnail.
 	HasThumbnail bool `json:"has_thumbnail"`
+
+	Ams []PrinterAmsUnit `json:"ams,omitempty"`
+	// VtTray is the external spool holder (Bambu tray id 254), nil when absent.
+	VtTray *PrinterTray `json:"vt_tray,omitempty"`
+	// Fan speeds in percent (Bambu reports gears 0-15).
+	FanCooling     int               `json:"fan_cooling"`
+	FanAux         int               `json:"fan_aux"`
+	FanChamber     int               `json:"fan_chamber"`
+	WifiSignal     string            `json:"wifi_signal"`
+	SpeedLevel     int               `json:"speed_level"` // 1=silent 2=standard 3=sport 4=ludicrous
+	NozzleDiameter string            `json:"nozzle_diameter"`
+	NozzleType     string            `json:"nozzle_type"`
+	Lights         []PrinterLight    `json:"lights,omitempty"`
+	Hms            []PrinterHmsError `json:"hms,omitempty"`
+
+	// SnapshotImages/LowResPreview mirror the Frigate camera snapshot pattern:
+	// auth-gated URL variants plus a tiny inline preview safe for the public WS.
+	SnapshotImages []SnapshotImage `json:"snapshot_images,omitempty"`
+	LowResPreview  string          `json:"low_res_preview,omitempty"`
+	// HasStream is true when a live video stream endpoint exists for this printer.
+	HasStream bool `json:"has_stream"`
+}
+
+// PrinterTray describes one filament slot (AMS tray or external spool).
+type PrinterTray struct {
+	ID   int    `json:"id"`
+	Type string `json:"type"` // e.g. PLA, ABS; "" when empty
+	// Color is RRGGBBAA hex as reported by the printer, "" when unknown.
+	Color    string `json:"color"`
+	Remain   int    `json:"remain"` // percent, -1 when unknown
+	SubBrand string `json:"sub_brand"`
+	Empty    bool   `json:"empty"`
+}
+
+// PrinterAmsUnit describes one AMS unit and its trays.
+type PrinterAmsUnit struct {
+	ID       int           `json:"id"`
+	Humidity int           `json:"humidity"` // Bambu humidity level 1-5 (lower is drier)
+	Temp     float64       `json:"temp"`
+	Trays    []PrinterTray `json:"trays"`
+}
+
+type PrinterLight struct {
+	Node string `json:"node"`
+	Mode string `json:"mode"`
+}
+
+type PrinterHmsError struct {
+	Attr int `json:"attr"`
+	Code int `json:"code"`
 }
 
 // bambuOfflineThreshold is how long without a message before a printer is
@@ -62,6 +112,12 @@ type bambuPrinter struct {
 	// finishedAt is the locally observed time (unix millis) the current print
 	// entered a finished/failed state; reset to 0 while not terminal.
 	finishedAt int64
+	// Camera snapshot data set by the PrinterSnapshotter; carried over into every
+	// derived state since deriveBambuState rebuilds the struct from scratch.
+	snapshotImages []SnapshotImage
+	lowResPreview  string
+	// hasStream is true when a live-stream source is registered for this printer.
+	hasStream bool
 }
 
 // BambuService maintains a TLS MQTT connection to each configured Bambu printer
@@ -78,7 +134,7 @@ type BambuService struct {
 	footerName string
 }
 
-func NewBambuService(cfg *Config, vdev *VdevManager, push *PushService, db *gorm.DB) (*BambuService, error) {
+func NewBambuService(cfg *Config, vdev *VdevManager, push *PushService, db *gorm.DB, streams *PrinterStreamRegistry) (*BambuService, error) {
 	s := &BambuService{
 		vdev:       vdev,
 		push:       push,
@@ -95,6 +151,13 @@ func NewBambuService(cfg *Config, vdev *VdevManager, push *PushService, db *gorm
 			continue
 		}
 		p := &bambuPrinter{cfg: pc, full: make(map[string]any)}
+		if streams != nil {
+			streams.Register(&bambuVideoSource{cfg: pc})
+			if mgr, ok := streams.Manager(pc.ID); ok {
+				mgr.SetAlwaysOn(true)
+			}
+			p.hasStream = true
+		}
 		s.printers[pc.ID] = p
 		s.order = append(s.order, p)
 
@@ -103,7 +166,7 @@ func NewBambuService(cfg *Config, vdev *VdevManager, push *PushService, db *gorm
 		vdev.AddDevices([]*VirtualDevice{{
 			ID:              pc.ID,
 			Type:            VdevTypePrinter,
-			State:           BambuPrinterState{State: "offline"},
+			State:           BambuPrinterState{State: "offline", HasStream: p.hasStream},
 			ProhibitControl: true,
 		}})
 	}
@@ -192,6 +255,9 @@ func (s *BambuService) handleMessage(p *bambuPrinter, payload []byte) {
 	p.lastMsg = time.Now()
 	newState := deriveBambuState(p.full)
 	newState.Online = true
+	newState.SnapshotImages = p.snapshotImages
+	newState.LowResPreview = p.lowResPreview
+	newState.HasStream = p.hasStream
 	// Raw subtask name (not the extension-trimmed Filename) doubles as the FTP
 	// filename <subtask_name>.gcode.3mf and the thumbnail cache key.
 	subtaskName := bambuStr(p.full, "subtask_name")
@@ -334,6 +400,39 @@ func (s *BambuService) watchdogLoop() {
 	}
 }
 
+// Online reports whether the given printer is currently reachable.
+func (s *BambuService) Online(printerID string) bool {
+	p, ok := s.printers[printerID]
+	if !ok {
+		return false
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.hasState && p.last.Online
+}
+
+// SetSnapshot merges freshly captured camera snapshot variants into a printer's
+// state and republishes it so the frontend picks up the new image URLs.
+func (s *BambuService) SetSnapshot(printerID string, images []SnapshotImage, lowResPreview string) {
+	p, ok := s.printers[printerID]
+	if !ok {
+		return
+	}
+	p.mu.Lock()
+	p.snapshotImages = images
+	p.lowResPreview = lowResPreview
+	if !p.hasState {
+		p.mu.Unlock()
+		return
+	}
+	st := p.last
+	st.SnapshotImages = images
+	st.LowResPreview = lowResPreview
+	p.last = st
+	p.mu.Unlock()
+	s.publish(p, st)
+}
+
 // CurrentTaskID returns the task id of the print currently active on the given
 // printer (empty if unknown). Used when recording a notification subscription.
 func (s *BambuService) CurrentTaskID(printerID string) string {
@@ -415,7 +514,116 @@ func deriveBambuState(full map[string]any) BambuPrinterState {
 	}
 	st.Filename = name
 
+	st.FanCooling = bambuFanPercent(full, "cooling_fan_speed")
+	st.FanAux = bambuFanPercent(full, "big_fan1_speed")
+	st.FanChamber = bambuFanPercent(full, "big_fan2_speed")
+	st.WifiSignal = bambuStr(full, "wifi_signal")
+	st.SpeedLevel = bambuInt(full, "spd_lvl")
+	st.NozzleDiameter = bambuStr(full, "nozzle_diameter")
+	st.NozzleType = bambuStr(full, "nozzle_type")
+	st.Lights = deriveBambuLights(full)
+	st.Hms = deriveBambuHms(full)
+	st.Ams, st.VtTray = deriveBambuAms(full)
+
 	return st
+}
+
+// bambuFanPercent converts a 0-15 fan gear value into a percentage.
+func bambuFanPercent(m map[string]any, key string) int {
+	gear := bambuInt(m, key)
+	if gear <= 0 {
+		return 0
+	}
+	if gear >= 15 {
+		return 100
+	}
+	return int(float64(gear)/15*100 + 0.5)
+}
+
+func deriveBambuLights(full map[string]any) []PrinterLight {
+	raw, _ := full["lights_report"].([]any)
+	var lights []PrinterLight
+	for _, l := range raw {
+		lm, ok := l.(map[string]any)
+		if !ok {
+			continue
+		}
+		lights = append(lights, PrinterLight{
+			Node: bambuStr(lm, "node"),
+			Mode: bambuStr(lm, "mode"),
+		})
+	}
+	return lights
+}
+
+func deriveBambuHms(full map[string]any) []PrinterHmsError {
+	raw, _ := full["hms"].([]any)
+	var errs []PrinterHmsError
+	for _, h := range raw {
+		hm, ok := h.(map[string]any)
+		if !ok {
+			continue
+		}
+		errs = append(errs, PrinterHmsError{
+			Attr: bambuInt(hm, "attr"),
+			Code: bambuInt(hm, "code"),
+		})
+	}
+	return errs
+}
+
+// deriveBambuAms maps the "ams" object into AMS units and the external
+// spool tray ("vt_tray"). A tray with no filament type is marked Empty.
+func deriveBambuAms(full map[string]any) ([]PrinterAmsUnit, *PrinterTray) {
+	var units []PrinterAmsUnit
+	if amsObj, ok := full["ams"].(map[string]any); ok {
+		unitsRaw, _ := amsObj["ams"].([]any)
+		for _, u := range unitsRaw {
+			um, ok := u.(map[string]any)
+			if !ok {
+				continue
+			}
+			unit := PrinterAmsUnit{
+				ID:       bambuInt(um, "id"),
+				Humidity: bambuInt(um, "humidity"),
+				Temp:     bambuFloat(um, "temp"),
+			}
+			traysRaw, _ := um["tray"].([]any)
+			for _, t := range traysRaw {
+				tm, ok := t.(map[string]any)
+				if !ok {
+					continue
+				}
+				unit.Trays = append(unit.Trays, deriveBambuTray(tm))
+			}
+			units = append(units, unit)
+		}
+	}
+
+	var vt *PrinterTray
+	if vtm, ok := full["vt_tray"].(map[string]any); ok {
+		tray := deriveBambuTray(vtm)
+		vt = &tray
+	}
+	return units, vt
+}
+
+func deriveBambuTray(tm map[string]any) PrinterTray {
+	tray := PrinterTray{
+		ID:       bambuInt(tm, "id"),
+		Type:     bambuStr(tm, "tray_type"),
+		SubBrand: bambuStr(tm, "tray_sub_brands"),
+		Remain:   -1,
+	}
+	if _, ok := tm["remain"]; ok {
+		tray.Remain = bambuInt(tm, "remain")
+	}
+	// An all-zero color means "not set" (empty tray reports 00000000).
+	if col := bambuStr(tm, "tray_color"); col != "" && col != "00000000" {
+		tray.Color = col
+	}
+	tray.Empty = tray.Type == ""
+	return tray
 }
 
 // formatBambuPrintError renders a raw print_error int as Bambu's canonical

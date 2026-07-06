@@ -24,8 +24,9 @@ ARG GIT_COMMIT_DATE
 RUN mkdir -p /app && CGO_ENABLED=1 GOOS=${TARGETPLATFORM%%/*} GOARCH=${TARGETPLATFORM##*/} \
     go build -ldflags="-s -w -extldflags='-static' -X 'main.GitRepoURL=${GIT_REPO_URL}' -X 'main.GitCommitHash=${GIT_COMMIT_HASH}' -X 'main.GitCommitDate=${GIT_COMMIT_DATE}'" -o /app/temp-at
 
-FROM scratch AS bin-unix
-COPY --from=alpine:latest /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+# Alpine (not scratch) because printer camera snapshots shell out to ffmpeg.
+FROM alpine:latest AS bin-unix
+RUN apk add --no-cache ffmpeg ca-certificates
 COPY --from=builder /app/temp-at /app/temp-at
 
 LABEL org.opencontainers.image.description="A docker image for the temp-at microservice."

@@ -27,6 +27,16 @@ export function liveWebsocketUrl(): string {
 }
 
 /**
+ * Live fMP4 stream websocket URL for a printer camera.
+ * Printer ids may contain slashes; the backend route uses a greedy param.
+ */
+export function printerStreamUrl(printerId: string): string {
+  const baseUrl = API_URL || window.location.origin;
+  const wsBase = baseUrl.replace(/^http/, "ws").replace(/\/+$/, "");
+  return `${wsBase}/api/v1/printer-stream/${printerId}`;
+}
+
+/**
  * Resolve image URL that may be absolute or relative.
  * If it already starts with http(s) we return it unchanged; otherwise join with API_URL.
  */

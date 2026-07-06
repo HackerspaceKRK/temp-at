@@ -62,3 +62,44 @@ func TestBambuThumbnailExtraction(t *testing.T) {
 	}
 	t.Logf("extracted %d-byte PNG thumbnail", len(png))
 }
+
+func TestBambuSanitizeFilename(t *testing.T) {
+	got := bambuSanitizeFilename(`BLV - AMS / AMS 2 Riser P2S / X2D / X1C / P1S v4`)
+	want := `BLV - AMS _ AMS 2 Riser P2S _ X2D _ X1C _ P1S v4`
+	if got != want {
+		t.Errorf("sanitize = %q, want %q", got, want)
+	}
+	if s := bambuSanitizeFilename("plain-name v2"); s != "plain-name v2" {
+		t.Errorf("legal name changed: %q", s)
+	}
+}
+
+func TestBambu3mfCandidates_WithSlashes(t *testing.T) {
+	cands := bambu3mfCandidates("a/b")
+	found := false
+	for _, c := range cands {
+		if c == "/cache/a_b.gcode.3mf" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("sanitized cache candidate missing, got %v", cands)
+	}
+}
+
+func TestBambu3mfNameMatches(t *testing.T) {
+	want := "BLV - AMS / AMS v4.gcode.3mf"
+	cases := map[string]bool{
+		"BLV - AMS _ AMS v4.gcode.3mf": true,  // underscore replacement
+		"BLV - AMS - AMS v4.gcode.3mf": true,  // any replacement char
+		"BLV - AMS / AMS v4.gcode.3mf": true,  // exact
+		"110_BLV+-+AMS+Riser+X1C+P1P+P1S+v4.gcode.3mf": true, // printer-mapped variant
+		"BLV - AMS _ AMS v5.gcode.3mf": false, // legal char differs
+		"other.gcode.3mf":              false, // different length
+	}
+	for entry, wantMatch := range cases {
+		if got := bambu3mfNameMatches(entry, want); got != wantMatch {
+			t.Errorf("match(%q) = %v, want %v", entry, got, wantMatch)
+		}
+	}
+}

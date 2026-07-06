@@ -4,6 +4,8 @@ go 1.26
 
 require (
 	github.com/SherClockHolmes/webpush-go v1.4.0
+	github.com/bluenviron/gortsplib/v5 v5.6.1
+	github.com/bluenviron/mediacommon/v2 v2.9.1
 	github.com/coreos/go-oidc/v3 v3.18.0
 	github.com/eclipse/paho.mqtt.golang v1.5.1
 	github.com/go-routeros/routeros/v3 v3.0.1
@@ -13,6 +15,7 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.13
 	github.com/gofrs/uuid/v5 v5.4.0
 	github.com/jlaffaye/ftp v0.2.1
+	github.com/pion/rtp v1.10.2
 	github.com/prometheus/client_golang v1.23.2
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/image v0.42.0
@@ -22,6 +25,7 @@ require (
 )
 
 require (
+	github.com/abema/go-mp4 v1.7.1 // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -41,6 +45,12 @@ require (
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mattn/go-sqlite3 v1.14.38 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/pion/logging v0.2.4 // indirect
+	github.com/pion/randutil v0.1.0 // indirect
+	github.com/pion/rtcp v1.2.16 // indirect
+	github.com/pion/sdp/v3 v3.0.19 // indirect
+	github.com/pion/srtp/v3 v3.0.12 // indirect
+	github.com/pion/transport/v4 v4.0.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.66.1 // indirect
@@ -51,10 +61,10 @@ require (
 	github.com/valyala/fasthttp v1.52.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
-	golang.org/x/crypto v0.42.0 // indirect
-	golang.org/x/net v0.44.0 // indirect
+	golang.org/x/crypto v0.53.0 // indirect
+	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
-	golang.org/x/sys v0.36.0 // indirect
+	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.38.0 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/protobuf v1.36.8 // indirect

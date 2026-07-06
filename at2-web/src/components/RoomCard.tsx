@@ -2,6 +2,7 @@ import { useState, type FC } from "react";
 import { Thermometer, Droplets, SwitchCamera, Plug, VideoOff, Bubbles } from "lucide-react";
 import type { RoomState, CameraSnapshotEntity, CoEntity, GasEntity, ContactEntity, PrinterEntity } from "../schema";
 import { useLocale } from "../locale";
+import { useNavigate } from "react-router-dom";
 import RelayGroupControl from "./RelayGroupControl";
 import PrinterControl from "./PrinterControl";
 import PrinterProgressOverlay from "./PrinterProgressOverlay";
@@ -28,6 +29,7 @@ import { Button } from "./ui/button";
 export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
   const { getName } = useLocale();
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   const { user, login } = useAuth();
   const cameraEntities = room.entities.filter(
@@ -168,7 +170,7 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
               <PrinterProgressOverlay
                 key={e.id}
                 entity={e}
-                onClick={() => setOpenPrinterId(e.id)}
+                onClick={() => navigate("/printers")}
               />
             ))}
           </div>

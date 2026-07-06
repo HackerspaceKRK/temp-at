@@ -2,6 +2,7 @@ import type { FC } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink } from "react-router-dom";
 import { useAppConfig } from "../AppConfigContext";
+import { useLiveRoomStates } from "../useLiveRoomStates";
 import { cn } from "../lib/utils";
 import { useTheme } from "../theme";
 import { LanguageToggle } from "./LanguageToggle";
@@ -21,6 +22,10 @@ export const AppNavbar: FC = () => {
   const { theme } = useTheme();
   const { config } = useAppConfig();
   const branding = config?.branding;
+  const roomStates = useLiveRoomStates();
+  const hasPrinters = roomStates.some((room) =>
+    room.entities.some((entity) => entity.type === "printer"),
+  );
 
   const isDarkMode =
     theme === "dark" ||
@@ -55,10 +60,15 @@ export const AppNavbar: FC = () => {
             <h1 className="text-2xl font-bold">{t("Headquarters")}</h1>
           )}
         </a>
-        <nav className="flex items-center gap-1">
+        <nav className="flex flex-wrap items-center justify-center gap-1">
           <NavLink to="/" end className={navItemClass}>
             {t("Room Status")}
           </NavLink>
+          {hasPrinters && (
+            <NavLink to="/printers" className={navItemClass}>
+              {t("Printers")}
+            </NavLink>
+          )}
           <NavLink to="/dhcp" className={navItemClass}>
             {t("DHCP")}
           </NavLink>

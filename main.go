@@ -39,6 +39,9 @@ var (
 	bambuService          *BambuService
 	pushService           *PushService
 	exitBoardService      *ExitBoardService
+	printerStreamRegistry *PrinterStreamRegistry
+	printerSnapshotter    *PrinterSnapshotter
+	snapshotStore         *SnapshotStore
 )
 
 func main() {
@@ -78,7 +81,8 @@ func main() {
 		log.Fatalf("failed to initialize MQTT adapter: %v", err)
 	}
 
-	frigateSnapshotMapper = NewFrigateSnapshotMapper(vdevManager, cfg)
+	snapshotStore = NewSnapshotStore()
+	frigateSnapshotMapper = NewFrigateSnapshotMapper(vdevManager, cfg, snapshotStore)
 	err = frigateSnapshotMapper.Start()
 	// if err != nil {
 	// 	log.Fatalf("failed to start Frigate snapshot mapper: %v", err)
@@ -110,12 +114,17 @@ func main() {
 
 	// Optional Bambu Labs printer monitoring.
 	if len(cfg.BambuPrinters) > 0 {
-		bambuService, err = NewBambuService(cfg, vdevManager, pushService, db)
+		printerStreamRegistry = NewPrinterStreamRegistry()
+		bambuService, err = NewBambuService(cfg, vdevManager, pushService, db, printerStreamRegistry)
 		if err != nil {
 			log.Fatalf("failed to initialize Bambu service: %v", err)
 		}
 		bambuService.Start()
 		log.Printf("Bambu printer monitoring started for %d printer(s)", len(cfg.BambuPrinters))
+
+		// Periodic camera snapshots (requires ffmpeg for H.264 -> JPEG decoding).
+		printerSnapshotter = NewPrinterSnapshotter(printerStreamRegistry, snapshotStore, bambuService)
+		printerSnapshotter.Start()
 	}
 
 	// Optional exit-board MQTT publisher.
@@ -157,7 +166,7 @@ func main() {
 	app.Get("/api/v1/all-devices", handleDevices)
 	app.Get("/api/v1/live-ws", websocket.New(handleLiveWs))
 	app.Get("/api/v1/room-states", handleGetRoomStates)
-	app.Get("/api/v1/camera-snapshot/:filename", AuthMiddleware, frigateSnapshotMapper.HandleSnapshot)
+	app.Get("/api/v1/camera-snapshot/:filename", AuthMiddleware, snapshotStore.HandleSnapshot)
 	app.Get("/api/v1/auth/login", handleLoginRequest)
 	app.Get("/api/v1/auth/callback", handleAuthCallback)
 	app.Get("/api/v1/auth/me", handleMe)
@@ -174,6 +183,7 @@ func main() {
 	app.Get("/api/v1/debug/pprof-heap", AuthMiddleware, DebugAccessAuthMiddleware, handlePprofHeap)
 	app.Get("/api/v1/dhcp/leases", AuthMiddleware, handleDhcpLeases)
 	app.Get("/api/v1/printer-thumbnail/+", handleBambuThumbnail)
+	app.Get("/api/v1/printer-stream/+", AuthMiddleware, requirePrinterStream, websocket.New(handlePrinterStreamWs))
 	app.Get("/api/v1/push/vapid-public-key", handlePushVapidKey)
 	app.Post("/api/v1/push/subscribe", handlePushSubscribe)
 	app.Post("/api/v1/push/unsubscribe", handlePushUnsubscribe)

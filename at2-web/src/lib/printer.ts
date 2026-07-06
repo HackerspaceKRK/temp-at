@@ -1,4 +1,5 @@
 import type { PrinterEntity, PrinterStateValue } from "../schema";
+import { snapshotImageUrl } from "../config";
 
 // formatRemaining renders a minutes value as "Xh Ym" / "Ym" (or "—" when unknown).
 export function formatRemaining(minutes: number): string {
@@ -25,4 +26,14 @@ export function isPrinterActive(state: PrinterStateValue | undefined): boolean {
 // printing or paused.
 export function activePrinters(entities: PrinterEntity[]): PrinterEntity[] {
   return entities.filter((e) => isPrinterActive(e.state?.state));
+}
+
+// printerPreviewUrl returns the best available camera preview URL for a printer.
+export function printerPreviewUrl(entity: PrinterEntity): string | undefined {
+  const images = entity.state?.snapshot_images;
+  if (images && images.length > 0) {
+    const best = images.reduce((a, b) => (b.width > a.width ? b : a));
+    return snapshotImageUrl(best);
+  }
+  return entity.state?.low_res_preview;
 }

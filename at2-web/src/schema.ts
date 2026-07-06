@@ -155,6 +155,33 @@ export type PrinterStateValue =
   | "failed"
   | "offline";
 
+/** One filament slot (AMS tray or external spool). */
+export interface PrinterTray {
+  id: number;
+  type: string; // e.g. "PLA", "ABS"; "" when empty
+  color: string; // RRGGBBAA hex, "" when unknown
+  remain: number; // percent, -1 when unknown
+  sub_brand: string;
+  empty: boolean;
+}
+
+export interface PrinterAmsUnit {
+  id: number;
+  humidity: number; // Bambu humidity level 1-5 (lower is drier)
+  temp: number;
+  trays: PrinterTray[];
+}
+
+export interface PrinterLight {
+  node: string;
+  mode: string;
+}
+
+export interface PrinterHmsError {
+  attr: number;
+  code: number;
+}
+
 export interface PrinterState {
   state: PrinterStateValue;
   progress: number; // percent 0-100
@@ -175,6 +202,20 @@ export interface PrinterState {
   bed_target: number;
   chamber_temp: number;
   online: boolean;
+  ams?: PrinterAmsUnit[];
+  vt_tray?: PrinterTray;
+  fan_cooling: number; // percent
+  fan_aux: number; // percent
+  fan_chamber: number; // percent
+  wifi_signal: string; // e.g. "-74dBm"
+  speed_level: number; // 1=silent 2=standard 3=sport 4=ludicrous
+  nozzle_diameter: string;
+  nozzle_type: string;
+  lights?: PrinterLight[];
+  hms?: PrinterHmsError[];
+  snapshot_images?: SnapshotImage[]; // camera snapshot variants (auth-gated URLs)
+  low_res_preview?: string; // tiny base64 data URL preview
+  has_stream: boolean; // live stream endpoint available
 }
 
 export interface PrinterEntity {
