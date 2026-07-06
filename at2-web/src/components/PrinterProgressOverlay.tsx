@@ -4,6 +4,7 @@ import { FileText, Pause, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { PrinterEntity } from "../schema";
 import { formatRemaining, printerPreviewUrl } from "@/lib/printer";
+import { useAuth } from "../AuthContext";
 
 /**
  * A status bar overlaid on the camera view while a print is running, so the
@@ -16,13 +17,14 @@ export const PrinterProgressOverlay: FC<{
   onClick?: () => void;
 }> = ({ entity, onClick }) => {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const state = entity.state;
   if (!state) return null;
 
   const progress = Math.min(100, Math.max(0, state.progress ?? 0));
   const paused = state.state === "paused";
   const errored = !!state.print_error && state.print_error !== "00000000";
-  const previewUrl = printerPreviewUrl(entity);
+  const previewUrl = user ? printerPreviewUrl(entity) : state.low_res_preview;
 
   return (
     <div className="relative w-full overflow-hidden bg-green-950/85 backdrop-blur-sm">
@@ -35,7 +37,7 @@ export const PrinterProgressOverlay: FC<{
         {previewUrl && (
           <Link
             to="/printers"
-            className="shrink-0 overflow-hidden rounded border border-white/30"
+            className="relative shrink-0 overflow-hidden rounded border border-white/30 bg-black/30"
             title={t("Open printers")}
             aria-label={t("Open printers")}
             onClick={(e) => e.stopPropagation()}
@@ -43,7 +45,7 @@ export const PrinterProgressOverlay: FC<{
             <img
               src={previewUrl}
               alt={t("Printer camera preview")}
-              className="h-full w-20 object-cover"
+              className={`h-full w-20 object-cover ${user ? "" : "scale-125 blur-xl"}`}
               loading="lazy"
             />
           </Link>

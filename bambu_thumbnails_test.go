@@ -90,12 +90,12 @@ func TestBambu3mfCandidates_WithSlashes(t *testing.T) {
 func TestBambu3mfNameMatches(t *testing.T) {
 	want := "BLV - AMS / AMS v4.gcode.3mf"
 	cases := map[string]bool{
-		"BLV - AMS _ AMS v4.gcode.3mf": true,  // underscore replacement
-		"BLV - AMS - AMS v4.gcode.3mf": true,  // any replacement char
-		"BLV - AMS / AMS v4.gcode.3mf": true,  // exact
-		"110_BLV+-+AMS+Riser+X1C+P1P+P1S+v4.gcode.3mf": true, // printer-mapped variant
-		"BLV - AMS _ AMS v5.gcode.3mf": false, // legal char differs
-		"other.gcode.3mf":              false, // different length
+		"BLV - AMS _ AMS v4.gcode.3mf":                 true,  // underscore replacement
+		"BLV - AMS - AMS v4.gcode.3mf":                 true,  // any replacement char
+		"BLV - AMS / AMS v4.gcode.3mf":                 true,  // exact
+		"110_BLV+-+AMS+Riser+X1C+P1P+P1S+v4.gcode.3mf": true,  // printer-mapped variant
+		"BLV - AMS _ AMS v5.gcode.3mf":                 false, // legal char differs
+		"other.gcode.3mf":                              false, // different length
 	}
 	for entry, wantMatch := range cases {
 		if got := bambu3mfNameMatches(entry, want); got != wantMatch {
