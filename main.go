@@ -299,7 +299,8 @@ func handleDevices(c *fiber.Ctx) error {
 func handleAppConfig(c *fiber.Ctx) error {
 	cfg := MustLoadConfig()
 	return c.JSON(fiber.Map{
-		"branding": cfg.Branding,
+		"branding":  cfg.Branding,
+		"nav_links": cfg.NavLinks,
 		"version": fiber.Map{
 			"git_repo_url":    GitRepoURL,
 			"git_commit_hash": GitCommitHash,

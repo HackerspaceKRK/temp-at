@@ -176,3 +176,14 @@ branding:
   favicon_url: "https://example.com/favicon.ico"
   footer_name: "My Hackerspace"
   footer_name_link_url: "https://example.com"
+
+# Optional custom navbar links. Each opens in a new tab with an external-link
+# icon. localized_name is optional; when absent, name is used for every locale.
+nav_links:
+  - name: "Wiki"
+    localized_name:
+      pl: "Wiki"
+      en: "Wiki"
+    url: "https://wiki.example.com"
+  - name: "Calendar"
+    url: "https://cal.example.com"

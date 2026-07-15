@@ -133,6 +133,7 @@ Copy `at2.example.yaml` → `at2.yaml`. Key sections:
 - `dhcp` — optional DHCP lease tracking (router/switch/WiFi sources + per-group CIDR access control)
 - `bambu_printers` — optional list of Bambu Labs printers monitored over their local TLS MQTT interface; reference a printer's `id` from a room entity with `representation: printer` to show a status popover + web push notifications. Printers also appear on the `/printers` page with AMS filament info, minute camera snapshots and a login-gated live stream (`rtsp_port`, default 322)
 - `exit_board` — optional; set `mqtt_prefix` to publish a per-room status code (0/1/2) to `<mqtt_prefix>/<room_id>` for an exit light panel. Lights = entities with `representation: light`, windows = any contact sensor in the room
+- `nav_links` — optional list of custom navbar links (`name`, optional `localized_name`, `url`); each opens in a new tab with a lucide external-link icon (main navbar only, not kiosk)
 
 ### CI/CD
 

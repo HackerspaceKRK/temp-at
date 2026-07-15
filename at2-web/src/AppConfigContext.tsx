@@ -18,8 +18,15 @@ export interface VersionInfo {
     git_commit_date: string;
 }
 
+export interface NavLinkConfig {
+    name: string;
+    localized_name?: Record<string, string> | null;
+    url: string;
+}
+
 export interface AppConfig {
     branding: BrandingConfig;
+    nav_links?: NavLinkConfig[];
     version: VersionInfo;
 }
 

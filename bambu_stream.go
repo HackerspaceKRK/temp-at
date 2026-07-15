@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"sync/atomic"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5"
@@ -14,6 +15,16 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 	"github.com/pion/rtp"
 )
+
+// streamSetupTimeout bounds the connect/DESCRIBE/SETUP/PLAY handshake. A printer
+// that reboots or drops its network mid-handshake would otherwise wedge the
+// (non-ctx-aware) RTSP calls indefinitely.
+const streamSetupTimeout = 20 * time.Second
+
+// streamDataTimeout aborts a connection that has gone silent after PLAY. A
+// half-open TCP socket left behind by a printer reboot makes c.Wait() block
+// forever; this watchdog forces it to return so the manager can reconnect.
+const streamDataTimeout = 15 * time.Second
 
 // bambuVideoSource streams the printer's chamber camera over RTSPS
 // (rtsps://bblp:<access_code>@<host>:322/streaming/live/1). The credentials
@@ -36,24 +47,55 @@ func (b *bambuVideoSource) OpenStream(ctx context.Context, sink VideoSink) error
 	u.User = url.UserPassword(b.cfg.Username, b.cfg.Password)
 
 	c := &gortsplib.Client{
-		Scheme:      u.Scheme,
-		Host:        u.Host,
-		TLSConfig:   &tls.Config{InsecureSkipVerify: b.cfg.InsecureSkipVerify},
-		ReadTimeout: 10 * time.Second,
+		Scheme:       u.Scheme,
+		Host:         u.Host,
+		TLSConfig:    &tls.Config{InsecureSkipVerify: b.cfg.InsecureSkipVerify},
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
 	}
 	if err := c.Start(); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
 	defer c.Close()
 
-	// Abort the blocking Wait() below when the manager cancels the stream.
+	// lastData tracks when the most recent access unit arrived (UnixNano);
+	// playing flips true once PLAY succeeds. Together they let one watchdog cover
+	// both phases: a bounded handshake and, afterwards, a silent-connection guard.
+	var lastData atomic.Int64
+	var playing atomic.Bool
+	start := time.Now()
+
+	// Abort the blocking RTSP calls / Wait() below when the manager cancels the
+	// stream, the handshake stalls, or the connection goes silent after PLAY.
+	// Without this an unreachable or rebooted printer parks the (non-ctx-aware)
+	// Describe/Setup/Play or Wait() calls forever.
 	watchDone := make(chan struct{})
 	defer close(watchDone)
 	go func() {
-		select {
-		case <-ctx.Done():
-			c.Close()
-		case <-watchDone:
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				c.Close()
+				return
+			case <-watchDone:
+				return
+			case <-ticker.C:
+				if !playing.Load() {
+					if time.Since(start) > streamSetupTimeout {
+						log.Printf("[stream] printer %s camera handshake timed out after %s", b.cfg.ID, streamSetupTimeout)
+						c.Close()
+						return
+					}
+					continue
+				}
+				if last := lastData.Load(); last != 0 && time.Since(time.Unix(0, last)) > streamDataTimeout {
+					log.Printf("[stream] printer %s camera silent for %s, reconnecting", b.cfg.ID, streamDataTimeout)
+					c.Close()
+					return
+				}
+			}
 		}
 	}()
 
@@ -112,12 +154,17 @@ func (b *bambuVideoSource) OpenStream(ctx context.Context, sink VideoSink) error
 			sink.SetParams(sps, pps)
 		}
 
+		lastData.Store(time.Now().UnixNano())
 		sink.WriteAccessUnit(au, pts)
 	})
 
 	if _, err := c.Play(nil); err != nil {
 		return fmt.Errorf("play: %w", err)
 	}
+	// Enter the streaming phase: the watchdog now guards against silence rather
+	// than a stalled handshake. Seed lastData so the timeout is measured from now.
+	lastData.Store(time.Now().UnixNano())
+	playing.Store(true)
 	log.Printf("[stream] printer %s camera playing (H264, SDP params: sps=%dB pps=%dB)",
 		b.cfg.ID, len(forma.SPS), len(forma.PPS))
 

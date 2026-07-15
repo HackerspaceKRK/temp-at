@@ -195,6 +195,11 @@ func (s *BambuService) connectPrinter(p *bambuPrinter) {
 		SetClientID(fmt.Sprintf("temp-at-bambu-%d", time.Now().UnixNano())).
 		SetCleanSession(true).
 		SetAutoReconnect(true).
+		// SetConnectRetry keeps retrying the *initial* connect (printer offline at
+		// startup or during a long reboot); SetAutoReconnect only covers drops
+		// after a first successful connect.
+		SetConnectRetry(true).
+		SetConnectRetryInterval(10 * time.Second).
 		SetKeepAlive(30 * time.Second).
 		SetConnectTimeout(8 * time.Second).
 		SetOrderMatters(false).

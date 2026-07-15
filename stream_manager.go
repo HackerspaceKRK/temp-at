@@ -61,6 +61,9 @@ type StreamManager struct {
 	done        chan struct{} // closed when the current runLoop exits
 	linger      *time.Timer
 	lastErr     string
+	// connected flips true on the first access unit of a connection and back to
+	// false on disconnect, so a successful reconnect can clear a stale lastErr.
+	connected bool
 
 	// Codec parameters + cached fMP4 init segment.
 	sps, pps []byte
@@ -220,8 +223,13 @@ func (m *StreamManager) runLoop(ctx context.Context, done chan struct{}) {
 		log.Printf("[stream] camera connection to printer %s failed: %s (retrying)", m.source.PrinterID(), msg)
 		m.mu.Lock()
 		m.lastErr = msg
-		m.broadcastLocked(m.statusFrameLocked(), false)
+		m.connected = false
 		m.resetMuxLocked()
+		// Re-arm existing viewers so the next connection re-delivers an init
+		// segment and only resumes media on a keyframe against the fresh
+		// timestamp base (avoids a decode freeze on reconnect).
+		m.resyncSubsLocked()
+		m.broadcastLocked(m.statusFrameLocked(), false)
 		m.mu.Unlock()
 
 		select {
@@ -239,6 +247,24 @@ func (m *StreamManager) resetMuxLocked() {
 	m.lastSample = nil
 	m.partSamples = nil
 	m.partDur = 0
+}
+
+// resyncSubsLocked re-arms every subscriber to wait for a keyframe and resends
+// the cached init segment, so viewers reset their SourceBuffer and resume
+// cleanly after a reconnect (the printer resends byte-identical SPS/PPS, so
+// SetParams alone wouldn't fire).
+func (m *StreamManager) resyncSubsLocked() {
+	if m.initSeg == nil {
+		return
+	}
+	initFrame := append([]byte{streamMsgInit}, m.initSeg...)
+	for sub := range m.subs {
+		sub.needKeyframe = true
+		select {
+		case sub.C <- initFrame:
+		default:
+		}
+	}
 }
 
 // SetParams implements VideoSink: (re)build the init segment on SPS/PPS change.
@@ -291,6 +317,16 @@ func (m *StreamManager) WriteAccessUnit(au [][]byte, pts int64) {
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	// First access unit of a (re)connection: clear any stale error and let
+	// viewers know the stream is live again.
+	if !m.connected {
+		m.connected = true
+		if m.lastErr != "" {
+			m.lastErr = ""
+			m.broadcastLocked(m.statusFrameLocked(), false)
+		}
+	}
 
 	if isIDR && len(m.snapWaiters) > 0 && m.sps != nil && m.pps != nil {
 		// Copy the NALUs: the RTP decoder may reuse its buffers after we return.

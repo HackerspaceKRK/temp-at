@@ -21,6 +21,17 @@ type Config struct {
 	// ExitBoard optionally drives an MQTT-based exit status panel. When nil the
 	// feature is disabled.
 	ExitBoard *ExitBoardConfig `yaml:"exit_board"`
+	// NavLinks are optional custom links shown in the main navbar. They open in a
+	// new tab and render with an external-link icon.
+	NavLinks []NavLinkConfig `yaml:"nav_links"`
+}
+
+// NavLinkConfig is a single custom navbar link. It is serialized to the frontend
+// via /api/v1/app-config, hence the json tags.
+type NavLinkConfig struct {
+	Name          string          `yaml:"name" json:"name"`
+	LocalizedName LocalizedString `yaml:"localized_name" json:"localized_name,omitempty"`
+	URL           string          `yaml:"url" json:"url"`
 }
 
 // ExitBoardConfig configures the exit-board publisher. For each room a status

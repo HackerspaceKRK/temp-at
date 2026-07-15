@@ -1,8 +1,10 @@
 import type { FC } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink } from "react-router-dom";
+import { ExternalLink } from "lucide-react";
 import { useAppConfig } from "../AppConfigContext";
 import { useLiveRoomStates } from "../useLiveRoomStates";
+import { useLocale } from "../locale";
 import { cn } from "../lib/utils";
 import { useTheme } from "../theme";
 import { LanguageToggle } from "./LanguageToggle";
@@ -21,6 +23,7 @@ export const AppNavbar: FC = () => {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const { config } = useAppConfig();
+  const { getName } = useLocale();
   const branding = config?.branding;
   const roomStates = useLiveRoomStates();
   const hasPrinters = roomStates.some((room) =>
@@ -72,6 +75,21 @@ export const AppNavbar: FC = () => {
           <NavLink to="/dhcp" className={navItemClass}>
             {t("DHCP")}
           </NavLink>
+          {config?.nav_links?.map((link) => (
+            <a
+              key={link.url}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                navItemClass({ isActive: false }),
+                "inline-flex items-center gap-1",
+              )}
+            >
+              {getName(link.localized_name, link.name) || link.name}
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          ))}
         </nav>
       </div>
       <div className="flex items-center gap-2 sm:gap-4 flex-wrap justify-center">
