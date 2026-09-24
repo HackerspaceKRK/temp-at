@@ -99,8 +99,8 @@ func BenchmarkUsageHeatmap60DaysWarmCache(b *testing.B) {
 	if _, err := computeUsageHeatmap(repo, rooms, "", "day", 60*24); err != nil {
 		b.Fatal(err)
 	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	
+	for b.Loop() {
 		if _, err := computeUsageHeatmap(repo, rooms, "", "day", 60*24); err != nil {
 			b.Fatal(err)
 		}

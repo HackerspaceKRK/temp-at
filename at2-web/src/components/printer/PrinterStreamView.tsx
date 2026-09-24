@@ -52,7 +52,7 @@ const PrinterLiveStream: FC<{ printerId: string; onStop: () => void }> = ({
           ) : (
             <>
               <Loader2 className="h-8 w-8 animate-spin" />
-              <p className="text-sm">{error ? error : t("Connecting to stream…")}</p>
+              <p className="text-sm">{error ? error : t("Loading...")}</p>
             </>
           )}
         </div>
@@ -67,11 +67,6 @@ const PrinterLiveStream: FC<{ printerId: string; onStop: () => void }> = ({
           <Square className="h-4 w-4" /> {t("Stop")}
         </Button>
       </div>
-      {status === "playing" && (
-        <span className="absolute left-2 top-2 flex items-center gap-1 rounded bg-red-600/90 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> {t("Live")}
-        </span>
-      )}
     </div>
   );
 };
@@ -150,11 +145,6 @@ export const PrinterStreamView: FC<{ entity: PrinterEntity; autoPlay?: boolean }
             <Play className="h-5 w-5" /> {t("Play live stream")}
           </Button>
         </div>
-      )}
-      {images.length > 0 && (
-        <span className="absolute left-2 top-2 flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
-          <Video className="h-3 w-3" /> {t("Snapshot")}
-        </span>
       )}
     </div>
   );
