@@ -1,12 +1,9 @@
 # temp-at
 
-A Go + React application for home automation and room monitoring.
+Web app used by [Hackerspace Kraków](https://hackerspace-krk.pl/)
 
 ## Features
-- **Room Monitoring**: View room states, camera feeds, and history.
-- **Device Control**: Control MQTT devices via the web interface.
-- **Authentication**: OIDC integration for secure access.
-- **Localization**: Support for multiple languages.
+- Displays snapshots
 
 ## Getting Started
 
@@ -49,9 +46,3 @@ Run the container:
 docker run -v $(pwd)/at2.yaml:/at2.yaml -v $(pwd)/data:/data -p 8080:8080 temp-at
 ```
 
-## Secrets
-Sensitive configuration (passwords, secrets) can be provided directly in `at2.yaml` or loaded from files using the `*_file` config options. This is useful for Docker Swarm or Kubernetes secrets.
-
-- `mqtt.password` / `mqtt.password_file`
-- `oidc.client_secret` / `oidc.client_secret_file`
-- `web.jwt_secret` / `web.jwt_secret_file`

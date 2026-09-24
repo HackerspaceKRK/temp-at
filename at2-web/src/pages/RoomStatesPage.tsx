@@ -1,7 +1,9 @@
 import { useMemo, type FC } from "react";
 import { useTranslation } from "react-i18next";
 import { Alerts } from "../components/Alerts";
+import { useAppConfig } from "../AppConfigContext";
 import RoomCard from "../components/RoomCard";
+import { PowerUsageChart } from "../components/PowerUsageChart";
 import { RoomUsageStats } from "../components/RoomUsageStats";
 import { scoreRoom, useLiveRoomStates } from "../useLiveRoomStates";
 
@@ -33,6 +35,11 @@ export const RoomStatesPage: FC = () => {
     .map((id) => roomsById.get(id))
     .filter((room): room is NonNullable<typeof room> => room !== undefined);
 
+  const { config } = useAppConfig();
+  const hasPowerSensors =
+    !!config?.has_extra_power_meters ||
+    rooms.some((room) => room.entities.some((e) => e.type === "power_usage"));
+
   return (
     <>
       <Alerts />
@@ -46,6 +53,7 @@ export const RoomStatesPage: FC = () => {
           <RoomCard key={room.id} room={room} />
         ))}
         <RoomUsageStats rooms={rooms} />
+        {hasPowerSensors && <PowerUsageChart />}
       </main>
     </>
   );

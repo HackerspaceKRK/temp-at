@@ -15,7 +15,7 @@ import {
 import { Switch } from "./ui/switch";
 
 import { Label } from "./ui/label";
-import { DropdownMenuSeparator } from "@radix-ui/react-dropdown-menu";
+import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 import { Badge } from "./ui/badge";
 import { useAuth } from "../AuthContext";
 import { apiPath } from "../config";
@@ -221,7 +221,7 @@ export const RelayGroupControl: FC<RelayGroupControlProps> = ({
           <DropdownMenuLabel className="font-semibold">
             {ariaLabel}
           </DropdownMenuLabel>
-          <DropdownMenuSeparator />
+          <DropdownMenuPrimitive.Separator />
           {filtered.map((entity) => (
             <DropdownMenuItem
               key={entity.id}

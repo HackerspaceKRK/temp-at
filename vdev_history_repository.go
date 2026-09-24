@@ -275,6 +275,69 @@ func (r *VirtualDeviceHistoryRepository) UpsertDayCache(cache *UsageStatsDayCach
 	}).Create(cache).Error
 }
 
+// GetNumericSeriesCaches returns cached day series keyed by series key, then date.
+func (r *VirtualDeviceHistoryRepository) GetNumericSeriesCaches(keys []string, intervalMinutes int, dates []string) (map[string]map[string]*NumericSeriesDayCache, error) {
+	result := make(map[string]map[string]*NumericSeriesDayCache)
+	if len(keys) == 0 || len(dates) == 0 {
+		return result, nil
+	}
+
+	var rows []NumericSeriesDayCache
+	if err := r.db.Where("series_key IN ? AND interval_minutes = ? AND date IN ?", keys, intervalMinutes, dates).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for i := range rows {
+		if result[rows[i].SeriesKey] == nil {
+			result[rows[i].SeriesKey] = make(map[string]*NumericSeriesDayCache)
+		}
+		result[rows[i].SeriesKey][rows[i].Date] = &rows[i]
+	}
+	return result, nil
+}
+
+func (r *VirtualDeviceHistoryRepository) UpsertNumericSeriesCache(cache *NumericSeriesDayCache) error {
+	return r.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "series_key"}, {Name: "date"}, {Name: "interval_minutes"}},
+		DoUpdates: clause.AssignmentColumns([]string{"data"}),
+	}).Create(cache).Error
+}
+
+// GetLastStatesBefore returns, per device name, the latest state recorded before ts.
+func (r *VirtualDeviceHistoryRepository) GetLastStatesBefore(deviceNames []string, ts int64) (map[string]VirtualDeviceStateModel, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	var devices []VirtualDeviceModel
+	if err := r.db.Where("name IN ?", deviceNames).Find(&devices).Error; err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]VirtualDeviceStateModel, len(devices))
+	for _, d := range devices {
+		var rows []VirtualDeviceStateModel
+		err := r.db.Where("virtual_device_id = ? AND timestamp < ?", d.ID, ts).
+			Order("timestamp DESC").Limit(1).Find(&rows).Error
+		if err != nil {
+			return nil, err
+		}
+		if len(rows) > 0 {
+			rows[0].VirtualDevice = d
+			result[d.Name] = rows[0]
+		}
+	}
+	return result, nil
+}
+
+// FilterDeviceNamesByType returns the subset of names whose recorded device type is t.
+func (r *VirtualDeviceHistoryRepository) FilterDeviceNamesByType(names []string, t VdevType) ([]string, error) {
+	var result []string
+	if len(names) == 0 {
+		return result, nil
+	}
+	err := r.db.Model(&VirtualDeviceModel{}).Where("name IN ? AND type = ?", names, string(t)).Pluck("name", &result).Error
+	return result, err
+}
+
 // GetDevicesHistory returns the state history for multiple devices within a specific duration.
 func (r *VirtualDeviceHistoryRepository) GetDevicesHistory(deviceNames []string, durationMs int64) ([]VirtualDeviceStateModel, error) {
 	if len(deviceNames) == 0 {

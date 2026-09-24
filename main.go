@@ -180,6 +180,7 @@ func main() {
 	app.Get("/health", handleHealth)
 	app.Get("/api/v1/device-history", handleDeviceHistory)
 	app.Get("/api/v1/stats/usage-heatmap", handleUsageHeatmap)
+	app.Get("/api/v1/stats/power", handlePowerStats)
 	app.Get("/api/v1/debug/pprof-heap", AuthMiddleware, DebugAccessAuthMiddleware, handlePprofHeap)
 	app.Get("/api/v1/dhcp/leases", AuthMiddleware, handleDhcpLeases)
 	app.Get("/api/v1/printer-thumbnail/+", handleBambuThumbnail)
@@ -299,8 +300,9 @@ func handleDevices(c *fiber.Ctx) error {
 func handleAppConfig(c *fiber.Ctx) error {
 	cfg := MustLoadConfig()
 	return c.JSON(fiber.Map{
-		"branding":  cfg.Branding,
-		"nav_links": cfg.NavLinks,
+		"branding":               cfg.Branding,
+		"nav_links":              cfg.NavLinks,
+		"has_extra_power_meters": len(cfg.ExtraPowerMeters) > 0,
 		"version": fiber.Map{
 			"git_repo_url":    GitRepoURL,
 			"git_commit_hash": GitCommitHash,

@@ -81,6 +81,20 @@ func (UsageStatsDayCache) TableName() string {
 	return "usage_stats_day_caches"
 }
 
+// NumericSeriesDayCache stores the bucket averages of one numeric series for a
+// complete local calendar day at a given bucket interval.
+type NumericSeriesDayCache struct {
+	ID              uint   `gorm:"primaryKey;autoIncrement"`
+	SeriesKey       string `gorm:"uniqueIndex:idx_numeric_series_day;not null"`
+	Date            string `gorm:"uniqueIndex:idx_numeric_series_day;not null"`
+	IntervalMinutes int    `gorm:"uniqueIndex:idx_numeric_series_day;not null"`
+	Data            string `gorm:"type:text;not null"` // JSON []*float64
+}
+
+func (NumericSeriesDayCache) TableName() string {
+	return "numeric_series_day_caches"
+}
+
 // DhcpLeaseModel is one tracked DHCP lease, keyed by MAC. Rows are updated in
 // place on each scrape, so the table stays bounded by the number of distinct
 // devices rather than growing over time.
@@ -150,7 +164,7 @@ func (BambuThumbnailModel) TableName() string {
 
 // AutoMigrateModels runs GORM auto-migration for all models.
 func AutoMigrateModels(db *gorm.DB) error {
-	return db.AutoMigrate(&VirtualDeviceModel{}, &VirtualDeviceStateModel{}, &SessionModel{}, &UsageStatsDayCache{}, &DhcpLeaseModel{}, &AppSettingModel{}, &PushSubscriptionModel{}, &BambuThumbnailModel{})
+	return db.AutoMigrate(&VirtualDeviceModel{}, &VirtualDeviceStateModel{}, &SessionModel{}, &UsageStatsDayCache{}, &NumericSeriesDayCache{}, &DhcpLeaseModel{}, &AppSettingModel{}, &PushSubscriptionModel{}, &BambuThumbnailModel{})
 }
 
 // CurrentTimestampMillis returns current time as Unix milliseconds.

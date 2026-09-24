@@ -1,5 +1,5 @@
 import { useRef, useState, type FC } from "react";
-import { Loader2, Play, Square, Video, VideoOff } from "lucide-react";
+import { Loader2, Play, Square, VideoOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { PrinterEntity } from "../../schema";
 import { useAuth } from "../../AuthContext";

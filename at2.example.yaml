@@ -138,6 +138,11 @@ rooms:
     localized_name:
       en: "Living Room"
       de: "Wohnzimmer"
+    # Optional CSS color for this room in charts (e.g. the power usage chart).
+    color: "#8AB8FF"
+    # Optional position in the power usage chart stack; lower values are drawn
+    # closer to the bottom (default 0).
+    # power_chart_stack_order: 0
     cameras:
       - "living_room_cam"
     entities:
@@ -150,6 +155,16 @@ rooms:
       # cube button with a live status popover on this room's card.
       # - id: "bambu/lab/printer"
       #   representation: "printer"
+
+# Optional power meters shown as their own series in the power usage chart
+# without being a room (e.g. servers, heating).
+# extra_power_meters:
+#   - id: "esphome/servers/sensor/power"
+#     localized_name:
+#       en: "Servers"
+#       pl: "Serwery"
+#     color: "#B7B7B7"
+#     power_chart_stack_order: -1  # baseline load at the bottom of the stack
 
 # SpaceAPI configuration
 spaceapi:

@@ -1,8 +1,10 @@
 import {
+  createSortedRowModel,
   flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
+  rowSortingFeature,
+  sortFns,
+  tableFeatures,
+  useTable,
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
@@ -224,20 +226,26 @@ function compareIp(a: string, b: string): number {
   return 0;
 }
 
+const leaseTableFeatures = tableFeatures({
+  rowSortingFeature,
+  sortedRowModel: createSortedRowModel(),
+  sortFns,
+});
+
 const LeaseDataTable: FC<{ leases: DhcpLease[] }> = ({ leases }) => {
   const { t } = useTranslation();
   const [sorting, setSorting] = useState<SortingState>([
     { id: "lease_start", desc: true }, // newest devices first
   ]);
 
-  const columns = useMemo<ColumnDef<DhcpLease>[]>(
+  const columns = useMemo<ColumnDef<typeof leaseTableFeatures, DhcpLease>[]>(
     () => [
       {
         accessorKey: "ip_address",
         header: ({ column }) => (
           <SortHeader column={column} label={t("IP address")} />
         ),
-        sortingFn: (a, b) =>
+        sortFn: (a, b) =>
           compareIp(a.original.ip_address, b.original.ip_address),
         cell: ({ row }) => (
           <span className="tabular-nums">{row.original.ip_address}</span>
@@ -306,13 +314,12 @@ const LeaseDataTable: FC<{ leases: DhcpLease[] }> = ({ leases }) => {
     [t],
   );
 
-  const table = useReactTable({
+  const table = useTable({
+    features: leaseTableFeatures,
     data: leases,
     columns,
     state: { sorting },
     onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
   });
 
   if (leases.length === 0) {
@@ -347,7 +354,7 @@ const LeaseDataTable: FC<{ leases: DhcpLease[] }> = ({ leases }) => {
             key={row.id}
             className={row.original.online ? "" : "text-muted-foreground"}
           >
-            {row.getVisibleCells().map((cell) => (
+            {row.getAllCells().map((cell) => (
               <TableCell key={cell.id}>
                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
               </TableCell>

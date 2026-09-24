@@ -5,6 +5,7 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { format, startOfISOWeek, differenceInCalendarWeeks, getISODay, startOfDay, differenceInCalendarDays, getHours, getMinutes, addDays } from "date-fns";
 import { enUS, pl } from "date-fns/locale";
+import { setChartCursor, useChartCursor } from "../hooks/useChartCursor";
 import {
     Tooltip,
     TooltipContent,
@@ -82,6 +83,37 @@ const Legend = memo(({ maxManHours, getColor }: { maxManHours: number; getColor:
     );
 });
 
+const HOUR_MS = 60 * 60 * 1000;
+const ROW_STRIDE = 20;
+const CELL_HEIGHT = 16;
+const DAILY_COL_STRIDE = 28;
+
+const HourlyCursorLine = memo(({ dayStart }: { dayStart: number }) => {
+    const cursor = useChartCursor();
+    if (cursor === null || cursor < dayStart || cursor >= dayStart + 24 * HOUR_MS) return null;
+    const hours = (cursor - dayStart) / HOUR_MS;
+    const top = Math.floor(hours) * ROW_STRIDE + (hours % 1) * CELL_HEIGHT;
+    return (
+        <div className="absolute left-0 right-0 h-0.5 bg-muted-foreground/70 pointer-events-none z-10" style={{ top }} />
+    );
+});
+
+const DailyCursorCell = memo(({ weekStart, numCols }: { weekStart: Date; numCols: number }) => {
+    const cursor = useChartCursor();
+    if (cursor === null) return null;
+    const idx = differenceInCalendarDays(cursor, weekStart);
+    const col = Math.floor(idx / 7);
+    if (idx < 0 || col >= numCols) return null;
+    return (
+        <div
+            className="absolute w-6 h-4 rounded-sm ring-2 ring-muted-foreground/70 pointer-events-none z-10"
+            style={{ left: col * DAILY_COL_STRIDE, top: (idx % 7) * ROW_STRIDE }}
+        />
+    );
+});
+
+const clearCursor = () => setChartCursor(null);
+
 const HeatmapChartComponent: FC<HeatmapChartProps> = ({ data, resolution }) => {
     const { t, i18n } = useTranslation();
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -139,7 +171,7 @@ const HeatmapChartComponent: FC<HeatmapChartProps> = ({ data, resolution }) => {
             if (col >= 0 && col < numCols) grid[row][col] = dp;
         });
 
-        return { days, numCols, grid };
+        return { days, numCols, grid, weekStart: firstDataMoment };
     }, [data, resolution, t]);
 
     const hourlyConfig = useMemo(() => {
@@ -194,7 +226,17 @@ const HeatmapChartComponent: FC<HeatmapChartProps> = ({ data, resolution }) => {
                                         </div>
                                     ))}
                                 </div>
-                                <div className="flex gap-1">
+                                <div
+                                    className="relative flex gap-1"
+                                    onMouseLeave={clearCursor}
+                                    onMouseMove={(e) => {
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        const col = Math.floor((e.clientX - rect.left) / DAILY_COL_STRIDE);
+                                        const row = Math.min(Math.floor((e.clientY - rect.top) / ROW_STRIDE), 6);
+                                        setChartCursor(addDays(dailyConfig.weekStart, col * 7 + row).getTime() + 12 * HOUR_MS);
+                                    }}
+                                >
+                                    <DailyCursorCell weekStart={dailyConfig.weekStart} numCols={dailyConfig.numCols} />
                                     {Array.from({ length: dailyConfig.numCols }).map((_, c) => (
                                         <div key={c} className="flex flex-col gap-1">
                                             {dailyConfig.grid.map((row, r) => (
@@ -227,7 +269,18 @@ const HeatmapChartComponent: FC<HeatmapChartProps> = ({ data, resolution }) => {
                                             <div className="text-[10px] text-muted-foreground font-medium mb-1 truncate w-10 text-center">
                                                 {hourlyConfig.dayHeaders[d]}
                                             </div>
-                                            <div className="relative flex flex-col gap-1">
+                                            <div
+                                                className="relative flex flex-col gap-1"
+                                                onMouseLeave={clearCursor}
+                                                onMouseMove={(e) => {
+                                                    const y = e.clientY - e.currentTarget.getBoundingClientRect().top;
+                                                    const hour = Math.min(Math.floor(y / ROW_STRIDE), 23);
+                                                    const frac = Math.min((y - hour * ROW_STRIDE) / CELL_HEIGHT, 1);
+                                                    const dayStart = addDays(hourlyConfig.firstDataMoment, d).getTime();
+                                                    setChartCursor(dayStart + (hour + frac) * HOUR_MS);
+                                                }}
+                                            >
+                                                <HourlyCursorLine dayStart={addDays(hourlyConfig.firstDataMoment, d).getTime()} />
                                                 {todayLine && d === todayLine.todayIdx && (
                                                     <div
                                                         className="absolute left-0 right-0 flex items-center pointer-events-none z-10"

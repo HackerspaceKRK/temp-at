@@ -1,4 +1,4 @@
-import { type FC, useEffect, useState, useMemo, memo, useRef } from "react";
+import { type FC, useEffect, useState, useMemo, memo } from "react";
 import type { RoomState, UsageHeatmapResponse } from "../schema";
 import { API_URL } from "../config";
 import { HeatmapChart } from "./HeatmapChart";
@@ -13,6 +13,7 @@ import {
     SelectValue,
 } from "./ui/select";
 import { Loader2 } from "lucide-react";
+import { useHasBeenInView } from "../hooks/useHasBeenInView";
 
 interface RoomUsageStatsProps {
     rooms: RoomState[];
@@ -26,39 +27,10 @@ const RoomUsageStatsComponent: FC<RoomUsageStatsProps> = ({ rooms }) => {
     const [data, setData] = useState<UsageHeatmapResponse | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [hasBeenInView, setHasBeenInView] = useState(false);
-    const [canInitializeObserver, setCanInitializeObserver] = useState(false);
-    const containerRef = useRef<HTMLDivElement>(null);
+    const { ref: containerRef, hasBeenInView } = useHasBeenInView<HTMLDivElement>(rooms.length > 0);
 
     const resolution = timeRange === "month" ? "day" : "hour";
     const duration = timeRange === "month" ? 60 : 168 * 2;
-
-    useEffect(() => {
-        if (canInitializeObserver || rooms.length === 0) return;
-
-        const timeout = setTimeout(() => {
-            setCanInitializeObserver(true);
-        }, 500);
-
-        return () => clearTimeout(timeout);
-    }, [rooms.length, canInitializeObserver]);
-
-    useEffect(() => {
-        if (hasBeenInView || !canInitializeObserver) return;
-
-        const observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting) {
-                setHasBeenInView(true);
-                observer.disconnect();
-            }
-        });
-
-        if (containerRef.current) {
-            observer.observe(containerRef.current);
-        }
-
-        return () => observer.disconnect();
-    }, [hasBeenInView, canInitializeObserver]);
 
     useEffect(() => {
         if (!hasBeenInView) return;

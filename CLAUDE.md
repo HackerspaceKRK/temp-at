@@ -61,6 +61,8 @@ MQTT Broker
 | `auth.go` | OIDC login/logout, session management, back-channel logout |
 | `models.go` | GORM models: sessions, virtual devices, device state history |
 | `usage_stats.go` | Room occupancy statistics from device history |
+| `numeric_series.go` | Generic time-weighted bucket averaging for numeric vdev history, with complete days cached in `NumericSeriesDayCache` |
+| `power_stats.go` | `/api/v1/stats/power?range=48h\|7d` — stacked power usage per room (sum of its power sensors) plus `extra_power_meters` (5/30 min averages) for the main page chart |
 | `spaceapi.go` | SpaceAPI JSON endpoint |
 | `prometheus.go` | Prometheus metrics export |
 | `dhcp_service.go` | Background DHCP lease scraper: polls the router, persists lease lifecycle, enriches with connection info |
@@ -126,7 +128,8 @@ Register the mapper in `mqtt_adapter.go`.
 
 Copy `at2.example.yaml` → `at2.yaml`. Key sections:
 - `mqtt` — broker address + credentials (supports `password_file`)
-- `rooms` — room definitions with `entities` (devices) and `cameras`
+- `rooms` — room definitions with `entities` (devices), `cameras`, an optional chart `color` and `power_chart_stack_order`
+- `extra_power_meters` — optional power sensors (`id`, `localized_name`, `color`, `power_chart_stack_order`) shown as their own series in the power usage chart without being a room
 - `oidc` — optional OIDC provider for authentication
 - `spaceapi` — hackerspace metadata
 - `branding` — logo/favicon/footer customization

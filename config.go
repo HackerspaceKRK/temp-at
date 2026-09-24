@@ -24,6 +24,10 @@ type Config struct {
 	// NavLinks are optional custom links shown in the main navbar. They open in a
 	// new tab and render with an external-link icon.
 	NavLinks []NavLinkConfig `yaml:"nav_links"`
+
+	// ExtraPowerMeters are power sensors shown as their own series in the power
+	// usage chart without belonging to a room (e.g. servers, heating).
+	ExtraPowerMeters []ExtraPowerMeterConfig `yaml:"extra_power_meters"`
 }
 
 // NavLinkConfig is a single custom navbar link. It is serialized to the frontend
@@ -259,6 +263,20 @@ type RoomConfig struct {
 	// Optional; rooms without it are not shown on the tablet phone page.
 	VoipPhoneNumber string `yaml:"voip_phone_number"`
 
+	// Color is a CSS color used for the room in charts.
+	Color string `yaml:"color"`
+
+	// PowerChartStackOrder positions the room in the power chart stack; lower is closer to the bottom.
+	PowerChartStackOrder int `yaml:"power_chart_stack_order"`
+
 	Cameras  []string       `yaml:"cameras"`
 	Entities []EntityConfig `yaml:"entities"`
+}
+
+type ExtraPowerMeterConfig struct {
+	ID            string          `yaml:"id"` // vdev id of the power sensor
+	LocalizedName LocalizedString `yaml:"localized_name"`
+	Color         string          `yaml:"color"`
+
+	PowerChartStackOrder int `yaml:"power_chart_stack_order"`
 }

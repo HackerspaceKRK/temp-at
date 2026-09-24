@@ -279,3 +279,15 @@ export interface UsageHeatmapResponse {
 }
 
 
+
+export interface NumericSeries {
+  id: string;
+  localized_name: LocalizedName | null;
+  color?: string;
+  values: (number | null)[];
+}
+
+export interface PowerStatsResponse {
+  timestamps: number[];
+  series: NumericSeries[];
+}
