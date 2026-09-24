@@ -32,6 +32,9 @@ const VENDOR_LOGOS: Array<[keyword: string, file: string]> = [
   ["nortel", "nortel.png"],
   ["sennheiser", "sennheiser.png"],
   ["zyxel", "zyxel.png"],
+  ["audinate", "audinate.png"],
+  ["rauland", "rauland.png"],
+   ["redpine signals", "redpine_signals.png"],
 ];
 
 /** Returns a logo URL for the given vendor name, or null if none matches. */
