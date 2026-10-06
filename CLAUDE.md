@@ -57,6 +57,7 @@ MQTT Broker
 | `mqtt_mapper_zigbee2mqtt.go` | Zigbee2MQTT device discovery + state parsing |
 | `mqtt_mapper_frigate.go` | Frigate NVR person detection events |
 | `mqtt_esphome_mapper.go` | ESPHome sensors and relays |
+| `mqtt_mapper_zamkonator.go` | Zamkonator door controllers: `zamkonator/<name>/{door,lock}/state` → contact vdevs `zamkonator/<name>/door` / `.../lock` (true = CLOSED/LOCKED) |
 | `live_ws.go` | WebSocket handler for frontend real-time updates |
 | `auth.go` | OIDC login/logout, session management, back-channel logout |
 | `models.go` | GORM models: sessions, virtual devices, device state history |

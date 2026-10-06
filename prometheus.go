@@ -62,6 +62,13 @@ func (pc *PrometheusCollector) Collect(ch chan<- prometheus.Metric) {
 
 		// Determine numeric value
 		switch v := dev.State.(type) {
+		case nil:
+			// Contact sensors only report on state change; nil means no update yet.
+			// Emit 0 (open/unknown) so the device still appears in prometheus.
+			if dev.Type == VdevTypeContact {
+				val = 0.0
+				isValid = true
+			}
 		case bool:
 			if v {
 				val = 1.0
@@ -80,10 +87,10 @@ func (pc *PrometheusCollector) Collect(ch chan<- prometheus.Metric) {
 			isValid = true
 		case string:
 			lower := strings.ToLower(v)
-			if lower == "on" {
+			if lower == "on" || lower == "true" {
 				val = 1.0
 				isValid = true
-			} else if lower == "off" {
+			} else if lower == "off" || lower == "false" {
 				val = 0.0
 				isValid = true
 			} else {

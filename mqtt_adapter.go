@@ -113,6 +113,7 @@ func NewMQTTAdapter(cfg *Config, vdevMgr *VdevManager) (*MQTTAdapter, error) {
 		NewZigbee2MQTTMapper("zigbee2mqtt/"),
 		NewFrigateMapper("frigate/"),
 		NewESPHomeMapper(a.deviceSettings),
+		NewZamkonatorMapper("zamkonator/"),
 	}
 
 	opts.OnConnect = func(c mqtt.Client) {
