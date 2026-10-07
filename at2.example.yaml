@@ -129,6 +129,29 @@ mqtt:
 # exit_board:
 #   mqtt_prefix: "exit_board"
 
+# Emergency entry (optional). Adds an "Emergency entry" page (user menu) with a
+# button per door. Clicking it makes the backend fire the door's HTTP request,
+# after re-validating the user's session with the OIDC provider. Access requires:
+#   - connecting from one of allowed_subnets (checked against the real client IP,
+#     see web.trusted_proxies),
+#   - membership in at least one of required_groups (empty = any logged-in user),
+#   - a non-expired membership (oidc.membership_expiration_timestamp_claim).
+# emergency_entry:
+#   allowed_subnets:
+#     - "10.12.20.0/24"
+#   required_groups:
+#     - "members"
+#   doors:
+#     - id: "front"
+#       name: "Front door"
+#       localized_name:
+#         en: "Front door"
+#         pl: "Drzwi wejściowe"
+#       method: POST                  # any HTTP method, default POST
+#       # text/template; .Username is the logged-in user. Use {{urlquery .Username}}
+#       # to escape it inside query strings.
+#       url: "http://10.12.20.50/open?user={{urlquery .Username}}"
+
 # Room definitions
 rooms:
   - id: "living_room"

@@ -28,6 +28,7 @@ export interface AppConfig {
     branding: BrandingConfig;
     nav_links?: NavLinkConfig[];
     has_extra_power_meters?: boolean;
+    has_emergency_entry?: boolean;
     version: VersionInfo;
 }
 

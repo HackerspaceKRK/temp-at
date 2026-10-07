@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -263,6 +264,41 @@ func handleMe(c *fiber.Ctx) error {
 		// If unmarshal fails, we fall through to the slow path
 	}
 
+	claims, err := refreshSessionClaims(&session)
+	if errors.Is(err, errTokenRefresh) {
+		// Invalidate the session and return 401
+		db.Delete(&SessionModel{}, "id = ?", cookie)
+		c.ClearCookie(CookieName)
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
+	}
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	// Extend the session cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     CookieName,
+		Value:    session.ID,
+		Expires:  time.Now().Add(31 * 24 * time.Hour),
+		HTTPOnly: true,
+		Secure:   false, // set to true if using HTTPS
+		SameSite: "Lax",
+	})
+
+	return c.JSON(extractUserInfo(claims))
+}
+
+// errTokenRefresh is returned by refreshSessionClaims when the IdP refused to
+// refresh the session's token, i.e. the session is no longer valid.
+var errTokenRefresh = errors.New("failed to refresh token")
+
+// refreshSessionClaims refreshes the session's OAuth2 token if needed, fetches
+// fresh UserInfo claims from the IdP and persists both into the session.
+func refreshSessionClaims(session *SessionModel) (map[string]interface{}, error) {
+	if oauth2Config == nil {
+		return nil, errors.New("OIDC not configured")
+	}
+
 	// Reconstruct the token
 	token := &oauth2.Token{
 		AccessToken:  session.AccessToken,
@@ -277,10 +313,7 @@ func handleMe(c *fiber.Ctx) error {
 	// Get a fresh token (this will refresh if needed)
 	newToken, err := tokenSource.Token()
 	if err != nil {
-		// Invalidate the session and return 401
-		db.Delete(&SessionModel{}, "id = ?", cookie)
-		c.ClearCookie(CookieName)
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Failed to refresh token: " + err.Error()})
+		return nil, fmt.Errorf("%w: %v", errTokenRefresh, err)
 	}
 
 	// Update session if token changed
@@ -296,38 +329,23 @@ func handleMe(c *fiber.Ctx) error {
 
 	userInfo, err := oidcProvider.UserInfo(ctx, tokenSource)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to get user info: " + err.Error()})
+		return nil, fmt.Errorf("failed to get user info: %w", err)
 	}
 
 	var claims map[string]interface{}
 	if err := userInfo.Claims(&claims); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse user info claims: " + err.Error()})
+		return nil, fmt.Errorf("failed to parse user info claims: %w", err)
 	}
 
 	// Update cached claims
 	if claimsJSON, err := json.Marshal(claims); err == nil {
 		session.CachedClaims = string(claimsJSON)
-		if err := db.Save(&session).Error; err != nil {
-			log.Printf("Failed to update session with new token: %v", err)
-		}
-	} else {
-		// Just save the token update if we couldn't marshal claims for some reason
-		if err := db.Save(&session).Error; err != nil {
-			log.Printf("Failed to update session with new token: %v", err)
-		}
+	}
+	if err := gormDB.Save(session).Error; err != nil {
+		log.Printf("Failed to update session with new token: %v", err)
 	}
 
-	// Extend the session cookie
-	c.Cookie(&fiber.Cookie{
-		Name:     CookieName,
-		Value:    session.ID,
-		Expires:  time.Now().Add(31 * 24 * time.Hour),
-		HTTPOnly: true,
-		Secure:   false, // set to true if using HTTPS
-		SameSite: "Lax",
-	})
-
-	return c.JSON(extractUserInfo(claims))
+	return claims, nil
 }
 
 func extractUserInfo(claims map[string]interface{}) fiber.Map {
@@ -402,17 +420,17 @@ func getUserGroups(c *fiber.Ctx) ([]string, error) {
 		return nil, err
 	}
 
+	return groupsFromClaims(claims), nil
+}
+
+// groupsFromClaims extracts the configured groups claim as a string slice.
+func groupsFromClaims(claims map[string]interface{}) []string {
 	groupsClaim := ConfigInstance.Oidc.GroupsClaim
 	if groupsClaim == "" {
 		groupsClaim = "groups"
 	}
 
-	userGroupsInterface, ok := claims[groupsClaim]
-	if !ok {
-		return nil, nil
-	}
-
-	switch v := userGroupsInterface.(type) {
+	switch v := claims[groupsClaim].(type) {
 	case []interface{}:
 		groups := make([]string, 0, len(v))
 		for _, g := range v {
@@ -420,11 +438,11 @@ func getUserGroups(c *fiber.Ctx) ([]string, error) {
 				groups = append(groups, s)
 			}
 		}
-		return groups, nil
+		return groups
 	case []string:
-		return v, nil
+		return v
 	default:
-		return nil, nil
+		return nil
 	}
 }
 

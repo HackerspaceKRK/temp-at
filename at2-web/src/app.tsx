@@ -38,6 +38,10 @@ const PrinterDetailPage = lazy(() =>
   import("./pages/PrinterDetailPage").then((m) => ({ default: m.PrinterDetailPage })),
 );
 
+const EmergencyEntryPage = lazy(() =>
+  import("./pages/EmergencyEntryPage").then((m) => ({ default: m.EmergencyEntryPage })),
+);
+
 const PageFallback: FC = () => (
   <div className="flex items-center justify-center py-24">
     <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
@@ -56,6 +60,7 @@ export function App() {
             <Route path="/printers" element={<PrintersPage />} />
             {/* Splat route: printer ids may contain slashes */}
             <Route path="/printers/*" element={<PrinterDetailPage />} />
+            <Route path="/emergency-entry" element={<EmergencyEntryPage />} />
           </Route>
           <Route element={<TabletLayout />}>
             <Route path="/tablet/overview" element={<OverviewTabletPage />} />

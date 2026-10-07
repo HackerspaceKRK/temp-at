@@ -188,6 +188,8 @@ func main() {
 	app.Get("/api/v1/push/vapid-public-key", handlePushVapidKey)
 	app.Post("/api/v1/push/subscribe", handlePushSubscribe)
 	app.Post("/api/v1/push/unsubscribe", handlePushUnsubscribe)
+	app.Get("/api/v1/emergency-entry", handleEmergencyEntryStatus)
+	app.Post("/api/v1/emergency-entry/open", handleEmergencyEntryOpen)
 
 	SetupFrontend(app, *devFrontend)
 
@@ -303,6 +305,7 @@ func handleAppConfig(c *fiber.Ctx) error {
 		"branding":               cfg.Branding,
 		"nav_links":              cfg.NavLinks,
 		"has_extra_power_meters": len(cfg.ExtraPowerMeters) > 0,
+		"has_emergency_entry":    cfg.EmergencyEntry != nil,
 		"version": fiber.Map{
 			"git_repo_url":    GitRepoURL,
 			"git_commit_hash": GitCommitHash,

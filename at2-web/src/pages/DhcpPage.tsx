@@ -204,7 +204,7 @@ const LoginRequired: FC<{ onLogin: () => void }> = ({ onLogin }) => {
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-4">
           <p className="text-muted-foreground">
-            {t("You must be logged in to view DHCP leases.")}
+            {t("You must be logged in to use this feature.")}
           </p>
           <Button onClick={onLogin}>{t("Log In")}</Button>
         </CardContent>

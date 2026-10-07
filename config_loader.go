@@ -71,6 +71,7 @@ func validateConfig(cfg *Config, path string) {
 	loadSecret(&cfg.Oidc.ClientSecret, cfg.Oidc.ClientSecretFile)
 	loadSecret(&cfg.Phabricator.APIToken, cfg.Phabricator.APITokenFile)
 	validateDhcpConfig(cfg, path)
+	validateEmergencyEntryConfig(cfg, path)
 
 	for i := range cfg.BambuPrinters {
 		loadSecret(&cfg.BambuPrinters[i].Password, cfg.BambuPrinters[i].PasswordFile)

@@ -28,6 +28,32 @@ type Config struct {
 	// ExtraPowerMeters are power sensors shown as their own series in the power
 	// usage chart without belonging to a room (e.g. servers, heating).
 	ExtraPowerMeters []ExtraPowerMeterConfig `yaml:"extra_power_meters"`
+
+	// EmergencyEntry optionally enables the /emergency-entry page, which lets
+	// members open doors from the hackerspace network. When nil it is disabled.
+	EmergencyEntry *EmergencyEntryConfig `yaml:"emergency_entry"`
+}
+
+// EmergencyEntryConfig configures the emergency door-opening feature. A user
+// may open a door only when connecting from one of AllowedSubnets, belonging
+// to one of RequiredGroups and holding a non-expired membership.
+type EmergencyEntryConfig struct {
+	// AllowedSubnets are CIDRs from which the feature may be used.
+	AllowedSubnets []string `yaml:"allowed_subnets"`
+	// RequiredGroups are OIDC groups; the user must belong to at least one.
+	// Empty means any logged-in (non-tablet) user.
+	RequiredGroups []string             `yaml:"required_groups"`
+	Doors          []EmergencyEntryDoor `yaml:"doors"`
+}
+
+// EmergencyEntryDoor is a door that is opened by firing an HTTP request from
+// the backend. URL is a text/template with a .Username field.
+type EmergencyEntryDoor struct {
+	ID            string          `yaml:"id"`
+	Name          string          `yaml:"name"`
+	LocalizedName LocalizedString `yaml:"localized_name"`
+	Method        string          `yaml:"method"` // default POST
+	URL           string          `yaml:"url"`
 }
 
 // NavLinkConfig is a single custom navbar link. It is serialized to the frontend
@@ -61,7 +87,7 @@ type BambuPrinterConfig struct {
 	Port         int    `yaml:"port"`      // default 8883 (MQTT)
 	FtpPort      int    `yaml:"ftp_port"`  // default 990 (implicit FTPS, for thumbnails)
 	RtspPort     int    `yaml:"rtsp_port"` // default 322 (RTSPS camera stream)
-	Username     string `yaml:"username"` // typically "bblp"
+	Username     string `yaml:"username"`  // typically "bblp"
 	Password     string `yaml:"password"`
 	PasswordFile string `yaml:"password_file"`
 	// InsecureSkipVerify accepts the printer's self-signed TLS certificate
