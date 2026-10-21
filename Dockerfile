@@ -26,7 +26,7 @@ RUN mkdir -p /app && CGO_ENABLED=1 GOOS=${TARGETPLATFORM%%/*} GOARCH=${TARGETPLA
 
 # Alpine (not scratch) because printer camera snapshots shell out to ffmpeg.
 FROM alpine:latest AS bin-unix
-RUN pk update && apk add --no-cache ffmpeg ca-certificates
+RUN apk update && apk add --no-cache ffmpeg ca-certificates
 COPY --from=builder /app/temp-at /app/temp-at
 
 LABEL org.opencontainers.image.description="A docker image for the temp-at microservice."
