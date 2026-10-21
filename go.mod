@@ -1,6 +1,6 @@
 module github.com/alufers/temp-at
 
-go 1.26
+go 1.27
 
 require (
 	github.com/SherClockHolmes/webpush-go v1.4.0
