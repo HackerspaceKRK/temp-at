@@ -32,6 +32,10 @@ type Config struct {
 	// EmergencyEntry optionally enables the /emergency-entry page, which lets
 	// members open doors from the hackerspace network. When nil it is disabled.
 	EmergencyEntry *EmergencyEntryConfig `yaml:"emergency_entry"`
+
+	// AudioSystem optionally configures the Amdusias audio system WebSocket
+	// endpoint shown on the Sound System page.
+	AudioSystem *AudioSystemConfig `yaml:"audio_system"`
 }
 
 // EmergencyEntryConfig configures the emergency door-opening feature. A user
@@ -295,6 +299,15 @@ type RoomConfig struct {
 	// PowerChartStackOrder positions the room in the power chart stack; lower is closer to the bottom.
 	PowerChartStackOrder int `yaml:"power_chart_stack_order"`
 
+	// SlugName is a short ASCII identifier used in the audio system WebSocket
+	// protocol (e.g. "audytorium", "cnc").
+	SlugName string `yaml:"slug_name"`
+
+	// MapSquares defines the floor-plan tiles occupied by this room as [col, row]
+	// pairs (1-indexed). Used by the Sound System page. Rooms without map squares
+	// are excluded from the sound system map.
+	MapSquares [][2]int `yaml:"map_squares"`
+
 	Cameras  []string       `yaml:"cameras"`
 	Entities []EntityConfig `yaml:"entities"`
 }
@@ -305,4 +318,10 @@ type ExtraPowerMeterConfig struct {
 	Color         string          `yaml:"color"`
 
 	PowerChartStackOrder int `yaml:"power_chart_stack_order"`
+}
+
+// AudioSystemConfig configures the Amdusias audio system integration.
+type AudioSystemConfig struct {
+	AmdusiasWsURL    string          `yaml:"amdusias_ws_url"`
+	LocalizedHelpURL LocalizedString `yaml:"localized_help_url"`
 }

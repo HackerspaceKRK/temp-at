@@ -299,13 +299,41 @@ func handleDevices(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(devices)
 }
 
+type roomMapEntry struct {
+	SlugName   string          `json:"slug_name"`
+	Name       LocalizedString `json:"name"`
+	MapSquares [][2]int        `json:"map_squares"`
+}
+
 func handleAppConfig(c *fiber.Ctx) error {
 	cfg := MustLoadConfig()
+
+	audioURL := ""
+	var audioHelpURL LocalizedString
+	if cfg.AudioSystem != nil {
+		audioURL = cfg.AudioSystem.AmdusiasWsURL
+		audioHelpURL = cfg.AudioSystem.LocalizedHelpURL
+	}
+
+	var roomsMap []roomMapEntry
+	for _, r := range cfg.Rooms {
+		if len(r.MapSquares) > 0 {
+			roomsMap = append(roomsMap, roomMapEntry{
+				SlugName:   r.SlugName,
+				Name:       r.LocalizedName,
+				MapSquares: r.MapSquares,
+			})
+		}
+	}
+
 	return c.JSON(fiber.Map{
 		"branding":               cfg.Branding,
 		"nav_links":              cfg.NavLinks,
 		"has_extra_power_meters": len(cfg.ExtraPowerMeters) > 0,
 		"has_emergency_entry":    cfg.EmergencyEntry != nil,
+		"audio_system_ws_url":    audioURL,
+		"audio_system_help_url":  audioHelpURL,
+		"rooms_map":              roomsMap,
 		"version": fiber.Map{
 			"git_repo_url":    GitRepoURL,
 			"git_commit_hash": GitCommitHash,
