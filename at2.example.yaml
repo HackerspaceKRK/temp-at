@@ -158,6 +158,12 @@ rooms:
     exclude_from_entrance_tablet: false
     # SIP extension/number to dial to reach this room from the tablet phone page.
     voip_phone_number: "21"
+    slug_name: "living_room"  # Identifier name used in URLs
+    map_squares:  # List of map squares occupied by this room
+      - [1, 1]
+      - [2, 1]
+      - [1, 2]
+      - [2, 2]
     localized_name:
       en: "Living Room"
       de: "Wohnzimmer"
@@ -225,3 +231,10 @@ nav_links:
     url: "https://wiki.example.com"
   - name: "Calendar"
     url: "https://cal.example.com"
+
+# Audio sound system settings
+audio_system:
+  amdusias_ws_url: "wss://amdusias.example.com/ws"  # URL for AMDUSIAS WebSocket
+  localized_help_url:  # Optional URL for the help page, displayed on the audio system page
+    pl: "https://wiki.example.com/system-audio-pl/"
+    en: "https://wiki.example.com/system-audio-en/"

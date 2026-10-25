@@ -42,6 +42,10 @@ const EmergencyEntryPage = lazy(() =>
   import("./pages/EmergencyEntryPage").then((m) => ({ default: m.EmergencyEntryPage })),
 );
 
+const SoundSystemPage = lazy(() =>
+  import("./pages/SoundSystemPage").then((m) => ({ default: m.SoundSystemPage })),
+);
+
 const PageFallback: FC = () => (
   <div className="flex items-center justify-center py-24">
     <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
@@ -61,6 +65,7 @@ export function App() {
             {/* Splat route: printer ids may contain slashes */}
             <Route path="/printers/*" element={<PrinterDetailPage />} />
             <Route path="/emergency-entry" element={<EmergencyEntryPage />} />
+            <Route path="/sound-system" element={<SoundSystemPage />} />
           </Route>
           <Route element={<TabletLayout />}>
             <Route path="/tablet/overview" element={<OverviewTabletPage />} />

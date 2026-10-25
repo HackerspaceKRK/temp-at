@@ -24,11 +24,20 @@ export interface NavLinkConfig {
     url: string;
 }
 
+export interface RoomMapEntry {
+    slug_name: string;
+    name: Record<string, string>;
+    map_squares: [number, number][];
+}
+
 export interface AppConfig {
     branding: BrandingConfig;
     nav_links?: NavLinkConfig[];
     has_extra_power_meters?: boolean;
     has_emergency_entry?: boolean;
+    audio_system_ws_url?: string;
+    audio_system_help_url?: Record<string, string> | null;
+    rooms_map?: RoomMapEntry[];
     version: VersionInfo;
 }
 

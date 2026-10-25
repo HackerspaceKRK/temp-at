@@ -101,6 +101,11 @@ const NavItems: FC<{ vertical?: boolean; onNavigate?: () => void }> = ({
       <NavLink to="/dhcp" className={navItemClass} onClick={onNavigate}>
         {t("DHCP")}
       </NavLink>
+      {config?.audio_system_ws_url && (
+        <NavLink to="/sound-system" className={navItemClass} onClick={onNavigate}>
+          {t("Sound System")}
+        </NavLink>
+      )}
       {config?.nav_links?.map((link) => (
         <a
           key={link.url}
