@@ -15,10 +15,19 @@ import {
   Wifi,
   Gauge,
   Lightbulb,
+  Timer,
+  Droplet,
+  Cpu,
   type LucideIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { PrinterEntity, PrinterState, PrinterStateValue } from "../../schema";
+import type {
+  AnycubicPrinterState,
+  BambuPrinterState,
+  PrinterEntity,
+  PrinterState,
+  PrinterStateValue,
+} from "../../schema";
 import { resolveImageUrl } from "../../config";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -58,11 +67,13 @@ export const PrinterStateBadge: FC<{ state: PrinterStateValue }> = ({ state }) =
 
 // PrinterThumbnail renders the cached plate preview for the current print, with a
 // graceful placeholder while it is unavailable or fails to load.
-export const PrinterThumbnail: FC<{ entityId: string; cacheBust: number; show: boolean }> = ({
-  entityId,
-  cacheBust,
-  show,
-}) => {
+export const PrinterThumbnail: FC<{
+  entityId: string;
+  cacheBust: number;
+  show: boolean;
+  /** Bambu plate previews are square; Anycubic slicer previews are 4:3. */
+  wide?: boolean;
+}> = ({ entityId, cacheBust, show, wide = false }) => {
   const { t } = useTranslation();
   const [errored, setErrored] = useState(false);
   // entityId can contain slashes (e.g. "bambu/cnc/printer"); the backend route
@@ -71,7 +82,9 @@ export const PrinterThumbnail: FC<{ entityId: string; cacheBust: number; show: b
 
   if (!show || errored) {
     return (
-      <div className="flex aspect-square w-[250px] max-w-full items-center justify-center rounded-md bg-muted text-muted-foreground">
+      <div
+        className={`flex ${wide ? "aspect-[4/3]" : "aspect-square"} w-[250px] max-w-full items-center justify-center rounded-md bg-muted text-muted-foreground`}
+      >
         <ImageOff className="h-7 w-7" aria-label={t("No thumbnail")} />
       </div>
     );
@@ -84,7 +97,7 @@ export const PrinterThumbnail: FC<{ entityId: string; cacheBust: number; show: b
       loading="lazy"
       decoding="async"
       onError={() => setErrored(true)}
-      className="aspect-square w-[250px] max-w-full rounded-md bg-muted object-cover"
+      className={`${wide ? "aspect-[4/3] object-contain" : "aspect-square object-cover"} w-[250px] max-w-full rounded-md bg-muted`}
     />
   );
 };
@@ -204,9 +217,47 @@ export function hmsCode(attr: number, code: number): string {
   return `HMS_${a.slice(0, 4)}_${a.slice(4)}_${c.slice(0, 4)}_${c.slice(4)}`;
 }
 
-// PrinterExtendedStats shows the detail-page-only stats: fans, WiFi, speed
-// level, nozzle and lights.
-export const PrinterExtendedStats: FC<{ state: PrinterState }> = ({ state }) => {
+// PrinterExtendedStats shows the detail-page-only, vendor-specific stats.
+export const PrinterExtendedStats: FC<{ state: PrinterState }> = ({ state }) =>
+  state.type === "anycubic" ? (
+    <AnycubicExtendedStats state={state} />
+  ) : (
+    <BambuExtendedStats state={state} />
+  );
+
+// AnycubicExtendedStats shows the printer identity and the current print's
+// slicing parameters reported by an Anycubic resin printer.
+const AnycubicExtendedStats: FC<{ state: AnycubicPrinterState }> = ({ state }) => {
+  const { t } = useTranslation();
+  return (
+    <dl className="grid grid-cols-1 gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
+      {state.model && (
+        <StatRow icon={Cpu} label={t("Model")}>
+          {state.model}
+        </StatRow>
+      )}
+      {state.firmware && <StatRow label={t("Firmware")}>{state.firmware}</StatRow>}
+      {state.wifi_network && (
+        <StatRow icon={Wifi} label={t("WiFi network")}>
+          {state.wifi_network}
+        </StatRow>
+      )}
+      {state.layer_height > 0 && (
+        <StatRow icon={Layers} label={t("Layer height")}>
+          {state.layer_height} mm
+        </StatRow>
+      )}
+      {state.serial_number && (
+        <StatRow label={t("Serial number")}>
+          <span className="font-mono text-xs">{state.serial_number}</span>
+        </StatRow>
+      )}
+    </dl>
+  );
+};
+
+// BambuExtendedStats shows fans, WiFi, speed level, nozzle and lights.
+const BambuExtendedStats: FC<{ state: BambuPrinterState }> = ({ state }) => {
   const { t } = useTranslation();
   const lightsOn = (state.lights ?? []).filter((l) => l.mode !== "off");
   return (
@@ -247,7 +298,7 @@ export const PrinterExtendedStats: FC<{ state: PrinterState }> = ({ state }) => 
 // PrinterHmsList renders active HMS (health management system) error codes.
 export const PrinterHmsList: FC<{ state: PrinterState }> = ({ state }) => {
   const { t } = useTranslation();
-  if (!state.hms || state.hms.length === 0) return null;
+  if (state.type !== "bambu" || !state.hms || state.hms.length === 0) return null;
   return (
     <Alert>
       <AlertTriangle />
@@ -299,6 +350,7 @@ export const PrinterStatusSummary: FC<{
               entityId={entity.id}
               cacheBust={state.started_at}
               show={!!state.has_thumbnail}
+              wide={state.type === "anycubic"}
             />
             {state.filename && (
               <div className="flex items-start gap-1.5 text-xs">
@@ -335,14 +387,32 @@ export const PrinterStatusSummary: FC<{
               {state.layer_num}/{state.total_layer_num}
             </StatRow>
           )}
-          <StatRow icon={Thermometer} label={t("Nozzle")}>
-            {Math.round(state.nozzle_temp)}/{Math.round(state.nozzle_target)}°C
-          </StatRow>
-          <StatRow label={t("Bed")}>
-            {Math.round(state.bed_temp)}/{Math.round(state.bed_target)}°C
-          </StatRow>
-          {state.chamber_temp > 0 && (
-            <StatRow label={t("Chamber")}>{Math.round(state.chamber_temp)}°C</StatRow>
+          {state.type === "bambu" && (
+            <>
+              <StatRow icon={Thermometer} label={t("Nozzle")}>
+                {Math.round(state.nozzle_temp)}/{Math.round(state.nozzle_target)}°C
+              </StatRow>
+              <StatRow label={t("Bed")}>
+                {Math.round(state.bed_temp)}/{Math.round(state.bed_target)}°C
+              </StatRow>
+              {state.chamber_temp > 0 && (
+                <StatRow label={t("Chamber")}>{Math.round(state.chamber_temp)}°C</StatRow>
+              )}
+            </>
+          )}
+          {state.type === "anycubic" && (
+            <>
+              {isActive && state.elapsed_time > 0 && (
+                <StatRow icon={Timer} label={t("Elapsed")}>
+                  {formatRemaining(state.elapsed_time)}
+                </StatRow>
+              )}
+              {state.resin_volume > 0 && (
+                <StatRow icon={Droplet} label={t("Resin")}>
+                  {state.resin_volume.toFixed(1)} mL
+                </StatRow>
+              )}
+            </>
           )}
           {stateValue === "finished" && state.finished_at > 0 && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -357,6 +427,7 @@ export const PrinterStatusSummary: FC<{
               <XCircle className="h-3.5 w-3.5 shrink-0" />
               <span>
                 {t("Failed")}: {formatTimestamp(state.finished_at)}
+                {!state.print_error && state.print_error_text && ` · ${state.print_error_text}`}
               </span>
             </div>
           )}

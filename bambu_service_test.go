@@ -179,8 +179,8 @@ func TestDeriveBambuState_Details(t *testing.T) {
 }
 
 func TestShouldAssignState_NonComparableDeepEqual(t *testing.T) {
-	a := BambuPrinterState{State: "idle", Ams: []PrinterAmsUnit{{ID: 0, Humidity: 4}}}
-	b := BambuPrinterState{State: "idle", Ams: []PrinterAmsUnit{{ID: 0, Humidity: 4}}}
+	a := BambuPrinterState{PrinterBaseState: PrinterBaseState{State: "idle"}, Ams: []PrinterAmsUnit{{ID: 0, Humidity: 4}}}
+	b := BambuPrinterState{PrinterBaseState: PrinterBaseState{State: "idle"}, Ams: []PrinterAmsUnit{{ID: 0, Humidity: 4}}}
 	if shouldAssignState(a, b) {
 		t.Error("identical states with slices should not be treated as changed")
 	}

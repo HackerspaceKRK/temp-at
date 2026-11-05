@@ -119,7 +119,7 @@ func (s *PushService) SendPrintNotification(printerID, taskID, title, body strin
 	payload, _ := json.Marshal(map[string]string{
 		"title": title,
 		"body":  body,
-		"tag":   "bambu-" + printerID,
+		"tag":   "printer-" + printerID,
 	})
 
 	for _, sub := range subs {

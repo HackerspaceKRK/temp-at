@@ -37,6 +37,7 @@ var (
 	gormDB                *gorm.DB
 	dhcpService           *DhcpService
 	bambuService          *BambuService
+	anycubicService       *AnycubicService
 	pushService           *PushService
 	exitBoardService      *ExitBoardService
 	printerStreamRegistry *PrinterStreamRegistry
@@ -127,6 +128,13 @@ func main() {
 		printerSnapshotter.Start()
 	}
 
+	// Optional Anycubic resin printer monitoring (TCP polling).
+	if len(cfg.AnycubicPrinters) > 0 {
+		anycubicService = NewAnycubicService(cfg, vdevManager, pushService, db)
+		anycubicService.Start()
+		log.Printf("Anycubic printer monitoring started for %d printer(s)", len(cfg.AnycubicPrinters))
+	}
+
 	// Optional exit-board MQTT publisher.
 	if cfg.ExitBoard != nil && cfg.ExitBoard.MQTTPrefix != "" {
 		exitBoardService = NewExitBoardService(cfg, vdevManager, mqttAdapter)
@@ -183,7 +191,7 @@ func main() {
 	app.Get("/api/v1/stats/power", handlePowerStats)
 	app.Get("/api/v1/debug/pprof-heap", AuthMiddleware, DebugAccessAuthMiddleware, handlePprofHeap)
 	app.Get("/api/v1/dhcp/leases", AuthMiddleware, handleDhcpLeases)
-	app.Get("/api/v1/printer-thumbnail/+", handleBambuThumbnail)
+	app.Get("/api/v1/printer-thumbnail/+", handlePrinterThumbnail)
 	app.Get("/api/v1/printer-stream/+", AuthMiddleware, requirePrinterStream, websocket.New(handlePrinterStreamWs))
 	app.Get("/api/v1/push/vapid-public-key", handlePushVapidKey)
 	app.Post("/api/v1/push/subscribe", handlePushSubscribe)

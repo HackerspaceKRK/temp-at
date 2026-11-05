@@ -18,6 +18,10 @@ type Config struct {
 	// printer is polled over its own TLS MQTT broker and exposed as a "printer"
 	// virtual device (whose state is never persisted to the database).
 	BambuPrinters []BambuPrinterConfig `yaml:"bambu_printers"`
+	// AnycubicPrinters optionally configures Anycubic resin printers (Photon Mono
+	// X etc.) polled over their plain-TCP "uart-wifi" protocol. Each is exposed
+	// as a "printer" vdev referenced from a room entity.
+	AnycubicPrinters []AnycubicPrinterConfig `yaml:"anycubic_printers"`
 	// ExitBoard optionally drives an MQTT-based exit status panel. When nil the
 	// feature is disabled.
 	ExitBoard *ExitBoardConfig `yaml:"exit_board"`
@@ -93,6 +97,14 @@ type BambuPrinterConfig struct {
 	// InsecureSkipVerify accepts the printer's self-signed TLS certificate
 	// (equivalent to mosquitto_sub --insecure). Usually required.
 	InsecureSkipVerify bool `yaml:"insecure_skip_verify"`
+}
+
+// AnycubicPrinterConfig describes an Anycubic printer reachable over its LAN
+// TCP interface (port 6000 by default, no authentication).
+type AnycubicPrinterConfig struct {
+	ID   string `yaml:"id"` // vdev id, also used in room entities
+	Host string `yaml:"host"`
+	Port int    `yaml:"port"` // default 6000
 }
 
 // DhcpConfig configures the DHCP lease tracking feature: a background scraper

@@ -160,5 +160,12 @@
   "person-hours": "osobogodziny",
   "the room": "pomieszczeniu",
   "{{count}} open": "{{count}} otwarte",
-  "{{time}} ago": "{{time}} temu"
+  "{{time}} ago": "{{time}} temu",
+  "Model": "Model",
+  "Firmware": "Oprogramowanie",
+  "WiFi network": "Sieć WiFi",
+  "Layer height": "Wysokość warstwy",
+  "Serial number": "Numer seryjny",
+  "Elapsed": "Upłynęło",
+  "Resin": "Żywica"
 }

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { FileText, Pause, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { PrinterEntity } from "../schema";
-import { formatRemaining, printerPreviewUrl } from "@/lib/printer";
+import { formatRemaining, printerPreviewUrl, printerThumbnailUrl } from "@/lib/printer";
 import { useAuth } from "../AuthContext";
 
 /**
@@ -11,11 +11,14 @@ import { useAuth } from "../AuthContext";
  * filename / progress / time-left (and any active error) are visible without
  * opening the popover. The bar itself doubles as a progress indicator: the
  * completed portion is bright green and the remaining portion is darkened.
+ * In compact mode (several printers sharing the bar) the preview and icon
+ * shrink so the filename gets as much room as possible before truncating.
  */
 export const PrinterProgressOverlay: FC<{
   entity: PrinterEntity;
+  compact?: boolean;
   onClick?: () => void;
-}> = ({ entity, onClick }) => {
+}> = ({ entity, compact = false, onClick }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const state = entity.state;
@@ -24,7 +27,11 @@ export const PrinterProgressOverlay: FC<{
   const progress = Math.min(100, Math.max(0, state.progress ?? 0));
   const paused = state.state === "paused";
   const errored = !!state.print_error && state.print_error !== "00000000";
-  const previewUrl = user ? printerPreviewUrl(entity) : state.low_res_preview;
+  // Printers without a camera (e.g. Anycubic) show the print preview instead;
+  // unlike camera frames it is public, so it is never blurred.
+  const thumbnailUrl = state.has_stream ? undefined : printerThumbnailUrl(entity);
+  const previewUrl = thumbnailUrl ?? (user ? printerPreviewUrl(entity) : state.low_res_preview);
+  const blur = !user && !thumbnailUrl;
 
   return (
     <div className="relative w-full overflow-hidden bg-green-950/85 backdrop-blur-sm">
@@ -33,7 +40,9 @@ export const PrinterProgressOverlay: FC<{
         className={`absolute inset-y-0 left-0 ${paused ? "bg-amber-500/70" : "bg-green-500/75"} transition-all`}
         style={{ width: `${progress}%` }}
       />
-      <div className="relative flex min-h-16 items-stretch gap-2 p-2 text-white drop-shadow-sm">
+      <div
+        className={`relative flex min-h-16 items-stretch text-white drop-shadow-sm ${compact ? "gap-1.5 p-1.5" : "gap-2 p-2"}`}
+      >
         {previewUrl && (
           <Link
             to="/printers"
@@ -45,7 +54,7 @@ export const PrinterProgressOverlay: FC<{
             <img
               src={previewUrl}
               alt={t("Printer camera preview")}
-              className={`h-full w-20 object-cover ${user ? "" : "scale-125 blur-xl"}`}
+              className={`h-full ${compact ? "w-12" : "w-20"} object-cover ${blur ? "scale-125 blur-xl" : ""}`}
               loading="lazy"
             />
           </Link>
@@ -54,7 +63,7 @@ export const PrinterProgressOverlay: FC<{
           type="button"
           onClick={onClick}
           aria-label={t("Show printer status")}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left hover:brightness-110 transition-[filter]"
+          className={`flex min-w-0 flex-1 items-center text-left hover:brightness-110 transition-[filter] ${compact ? "gap-1.5" : "gap-2"}`}
         >
         {/* Single icon spanning both rows: a warning when errored, otherwise the
             file/pause state of the print. */}

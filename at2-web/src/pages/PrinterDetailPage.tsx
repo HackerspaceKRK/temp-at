@@ -63,10 +63,14 @@ export const PrinterDetailPage: FC = () => {
                 {t("Details")}
               </h2>
               <PrinterExtendedStats state={printer.entity.state} />
-              <h2 className="mt-2 text-sm font-semibold text-muted-foreground">
-                {t("Filament")}
-              </h2>
-              <AmsPanel state={printer.entity.state} />
+              {printer.entity.state.type === "bambu" && (
+                <>
+                  <h2 className="mt-2 text-sm font-semibold text-muted-foreground">
+                    {t("Filament")}
+                  </h2>
+                  <AmsPanel state={printer.entity.state} />
+                </>
+              )}
             </>
           )}
           <PrinterNotifyButton entity={printer.entity} />

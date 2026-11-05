@@ -73,6 +73,8 @@ MQTT Broker
 | `dhcp_handlers.go` | `/api/v1/dhcp/leases` handler with per-group CIDR filtering |
 | `oui.go` / `manuf.gz` | Embedded Wireshark OUI database for MAC→vendor lookup |
 | `bambu_service.go` | Bambu Labs printer monitoring: one TLS MQTT client per printer, merges the device report into a `BambuPrinterState` vdev (never persisted; includes AMS trays, fans, wifi, HMS errors), fires push notifications on print finish/failure |
+| `printer_common.go` | Vendor-neutral `PrinterBaseState` (embedded by every printer vdev state; `type` field tells the frontend the vendor), shared print-finished push notification, `/api/v1/printer-thumbnail/+` handler and push task-id lookup |
+| `anycubic_client.go` / `anycubic_service.go` | Anycubic resin printers (Photon Mono X): polls `sysinfo` + `getstatus` over TCP :6000 every 30 s. Previews can't be fetched mid-print, so every 5th poll of an idle printer it lists files (`getfile`) and caches missing RGB565 slicer previews (`getPreview1`/`getPreview2`, ~20 s budget per sync) in `PrinterThumbnailModel` (task name = `<external>/<internal>` entry, start time 0; rows for deleted files pruned). Infers finished vs. stopped when the printer returns to `stop`. `AnycubicPrinterState` vdev |
 | `printer_stream.go` / `stream_manager.go` | Vendor-neutral printer camera streaming: `PrinterVideoSource` interface (implement per vendor) + `StreamManager` that keeps **at most one** camera connection per printer, muxes H.264 into fMP4 and fans it out to WebSocket viewers (`/api/v1/printer-stream/+`, auth-only, MSE playback) |
 | `bambu_stream.go` | Bambu `PrinterVideoSource`: RTSPS chamber camera via gortsplib (`rtsps://bblp:<access_code>@host:322/streaming/live/1`, same creds as MQTT) |
 | `printer_snapshots.go` / `snapshot_store.go` | Once a minute, grab a keyframe from each online printer via the StreamManager (reuses a running live stream), decode to JPEG by shelling out to `ffmpeg` (skipped gracefully when not installed), resize via the shared `SnapshotStore` (also used by the Frigate mapper) and publish into the printer vdev state |
@@ -102,8 +104,9 @@ To refresh the embedded OUI database: download
 
 Printer live streams and snapshots are vendor-neutral. Implement
 `PrinterVideoSource` (`printer_stream.go`) for the camera and register it in a
-`PrinterStreamRegistry`; publish a state shaped like `BambuPrinterState` into a
-vdev of type `printer`, and implement `PrinterSnapshotSink`
+`PrinterStreamRegistry`; publish a state embedding `PrinterBaseState` (with a new
+`PrinterType`) into a vdev of type `printer` — vendor-specific fields go in the
+outer struct and get a matching member of the `PrinterState` union in `schema.ts` — and implement `PrinterSnapshotSink`
 (`printer_snapshots.go`) for periodic snapshots. The WS endpoint, StreamManager,
 snapshotter and the whole frontend (`/printers`, popover, AMS panel) then work
 unchanged.
@@ -137,6 +140,7 @@ Copy `at2.example.yaml` → `at2.yaml`. Key sections:
 - `branding` — logo/favicon/footer customization
 - `dhcp` — optional DHCP lease tracking (router/switch/WiFi sources + per-group CIDR access control)
 - `bambu_printers` — optional list of Bambu Labs printers monitored over their local TLS MQTT interface; reference a printer's `id` from a room entity with `representation: printer` to show a status popover + web push notifications. Printers also appear on the `/printers` page with AMS filament info, minute camera snapshots and a login-gated live stream (`rtsp_port`, default 322)
+- `anycubic_printers` — optional list of Anycubic resin printers (`id`, `host`, `port` default 6000) polled over TCP; referenced from room entities with `representation: printer` like Bambu printers (no camera)
 - `exit_board` — optional; set `mqtt_prefix` to publish a per-room status code (0/1/2) to `<mqtt_prefix>/<room_id>` for an exit light panel. Lights = entities with `representation: light`, windows = any contact sensor in the room
 - `emergency_entry` — optional; `allowed_subnets`, `required_groups` and `doors` (`id`, `name`, `localized_name`, `method`, `url` template). Enables the `/emergency-entry` page linked from the user menu
 - `nav_links` — optional list of custom navbar links (`name`, optional `localized_name`, `url`); each opens in a new tab with a lucide external-link icon (main navbar only, not kiosk)

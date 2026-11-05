@@ -1,5 +1,5 @@
 import type { PrinterEntity, PrinterStateValue } from "../schema";
-import { snapshotImageUrl } from "../config";
+import { resolveImageUrl, snapshotImageUrl } from "../config";
 
 // formatRemaining renders a minutes value as "Xh Ym" / "Ym" (or "—" when unknown).
 export function formatRemaining(minutes: number): string {
@@ -36,4 +36,12 @@ export function printerPreviewUrl(entity: PrinterEntity): string | undefined {
     return snapshotImageUrl(best);
   }
   return entity.state?.low_res_preview;
+}
+
+// printerThumbnailUrl returns the print preview (slicer thumbnail) URL for the
+// current print, or undefined when none has been cached.
+export function printerThumbnailUrl(entity: PrinterEntity): string | undefined {
+  const state = entity.state;
+  if (!state?.has_thumbnail) return undefined;
+  return resolveImageUrl(`/api/v1/printer-thumbnail/${entity.id}?t=${state.started_at}`);
 }

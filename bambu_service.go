@@ -15,35 +15,17 @@ import (
 	"gorm.io/gorm"
 )
 
+// BambuPrinterState is the vdev state of a Bambu Labs printer: the shared
+// PrinterBaseState plus Bambu-specific telemetry.
 type BambuPrinterState struct {
-	// State is one of: idle, printing, paused, finished, failed, offline.
-	State         string `json:"state"`
-	Progress      int    `json:"progress"`       // percent, 0-100
-	RemainingTime int    `json:"remaining_time"` // minutes
-	Filename      string `json:"filename"`
-	ErrorCode     string `json:"error_code"`
-	// PrintError is the raw print_error code formatted as Bambu's canonical
-	// 8-hex-digit uppercase code (e.g. 0300800A); "" when print_error is 0.
-	PrintError string `json:"print_error"`
-	// PrintErrorText is the human-readable description for PrintError; "" when
-	// there is no error or the code is unknown.
-	PrintErrorText string `json:"print_error_text"`
-	TaskID         string `json:"task_id"`
-	LayerNum       int    `json:"layer_num"`
-	TotalLayerNum  int    `json:"total_layer_num"`
-	// StartedAt is when the current/last print started (unix millis, 0 if unknown).
-	StartedAt int64 `json:"started_at"`
-	// FinishedAt is when the print finished or failed (unix millis, 0 while running).
-	FinishedAt   int64   `json:"finished_at"`
+	PrinterBaseState
+	// ErrorCode is the raw mc_print_error_code.
+	ErrorCode    string  `json:"error_code"`
 	NozzleTemp   float64 `json:"nozzle_temp"`
 	NozzleTarget float64 `json:"nozzle_target"`
 	BedTemp      float64 `json:"bed_temp"`
 	BedTarget    float64 `json:"bed_target"`
 	ChamberTemp  float64 `json:"chamber_temp"`
-	Online       bool    `json:"online"`
-	// HasThumbnail is true once a plate-preview PNG for the current print has
-	// been fetched and cached; the frontend uses it to load the thumbnail.
-	HasThumbnail bool `json:"has_thumbnail"`
 
 	Ams []PrinterAmsUnit `json:"ams,omitempty"`
 	// VtTray is the external spool holder (Bambu tray id 254), nil when absent.
@@ -58,13 +40,6 @@ type BambuPrinterState struct {
 	NozzleType     string            `json:"nozzle_type"`
 	Lights         []PrinterLight    `json:"lights,omitempty"`
 	Hms            []PrinterHmsError `json:"hms,omitempty"`
-
-	// SnapshotImages/LowResPreview mirror the Frigate camera snapshot pattern:
-	// auth-gated URL variants plus a tiny inline preview safe for the public WS.
-	SnapshotImages []SnapshotImage `json:"snapshot_images,omitempty"`
-	LowResPreview  string          `json:"low_res_preview,omitempty"`
-	// HasStream is true when a live video stream endpoint exists for this printer.
-	HasStream bool `json:"has_stream"`
 }
 
 // PrinterTray describes one filament slot (AMS tray or external spool).
@@ -164,9 +139,11 @@ func NewBambuService(cfg *Config, vdev *VdevManager, push *PushService, db *gorm
 		// Register the vdev once; printer state is never persisted, so it always
 		// starts in an unknown/offline state until the first message arrives.
 		vdev.AddDevices([]*VirtualDevice{{
-			ID:              pc.ID,
-			Type:            VdevTypePrinter,
-			State:           BambuPrinterState{State: "offline", HasStream: p.hasStream},
+			ID:   pc.ID,
+			Type: VdevTypePrinter,
+			State: BambuPrinterState{PrinterBaseState: PrinterBaseState{
+				Type: PrinterTypeBambu, State: "offline", HasStream: p.hasStream,
+			}},
 			ProhibitControl: true,
 		}})
 	}
@@ -332,54 +309,15 @@ func (s *BambuService) publish(p *bambuPrinter, st BambuPrinterState) {
 }
 
 func (s *BambuService) maybeNotify(p *bambuPrinter, prev, cur BambuPrinterState) {
-	if s.push == nil {
-		return
+	detail := ""
+	if cur.PrintErrorText != "" {
+		detail = fmt.Sprintf(" — %s", cur.PrintErrorText)
+	} else if cur.PrintError != "" {
+		detail = fmt.Sprintf(" (error %s)", cur.PrintError)
+	} else if cur.ErrorCode != "" && cur.ErrorCode != "0" {
+		detail = fmt.Sprintf(" (error %s)", cur.ErrorCode)
 	}
-	wasActive := prev.State == "printing" || prev.State == "paused"
-	if !wasActive {
-		return
-	}
-
-	name := cur.Filename
-	if name == "" {
-		name = "print"
-	}
-	started := ""
-	if cur.StartedAt > 0 {
-		started = " Started " + formatBambuTime(cur.StartedAt) + "."
-	}
-	now := formatBambuTime(time.Now().UnixMilli())
-	switch cur.State {
-	case "finished":
-		s.push.SendPrintNotification(p.cfg.ID, prev.TaskID, s.notifyTitle("Print finished ✅"),
-			fmt.Sprintf("%q finished at %s.%s", name, now, started))
-	case "failed":
-		detail := ""
-		if cur.PrintErrorText != "" {
-			detail = fmt.Sprintf(" — %s", cur.PrintErrorText)
-		} else if cur.PrintError != "" {
-			detail = fmt.Sprintf(" (error %s)", cur.PrintError)
-		} else if cur.ErrorCode != "" && cur.ErrorCode != "0" {
-			detail = fmt.Sprintf(" (error %s)", cur.ErrorCode)
-		}
-		s.push.SendPrintNotification(p.cfg.ID, prev.TaskID, s.notifyTitle("Print failed ❌"),
-			fmt.Sprintf("%q failed%s at %s.%s", name, detail, now, started))
-	}
-}
-
-// formatBambuTime renders a unix-millis timestamp as a short local datetime.
-func formatBambuTime(ms int64) string {
-	if ms <= 0 {
-		return ""
-	}
-	return time.UnixMilli(ms).Format("2006-01-02 15:04")
-}
-
-func (s *BambuService) notifyTitle(base string) string {
-	if s.footerName != "" {
-		return s.footerName + " · " + base
-	}
-	return base
+	sendPrintFinishedNotification(s.push, s.footerName, p.cfg.ID, prev.PrinterBaseState, cur.PrinterBaseState, detail)
 }
 
 // watchdogLoop marks printers offline when no message has arrived recently.
@@ -471,6 +409,7 @@ func (s *BambuService) CurrentThumbnail(printerID string) ([]byte, error) {
 // deriveBambuState maps the merged "print" object into the small state struct.
 func deriveBambuState(full map[string]any) BambuPrinterState {
 	st := BambuPrinterState{}
+	st.Type = PrinterTypeBambu
 
 	gs := strings.ToUpper(bambuStr(full, "gcode_state"))
 	switch gs {

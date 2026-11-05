@@ -47,7 +47,7 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
   const printingNow = activePrinters(printerEntities);
 
   const [currentCameraIndex, setCurrentCameraIndex] = useState(0);
-  const [openPrinterId, setOpenPrinterId] = useState<string | null>(null);
+  const [printersOpen, setPrintersOpen] = useState(false);
 
   return (
     <Card className="gap-4 pb-0">
@@ -78,14 +78,11 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
             roomId={room.id}
             roomName={getName(room.localized_name, room.id)}
           />
-          {printerEntities.map((e) => (
-            <PrinterControl
-              key={e.id}
-              entity={e}
-              open={openPrinterId === e.id}
-              onOpenChange={(o) => setOpenPrinterId(o ? e.id : null)}
-            />
-          ))}
+          <PrinterControl
+            entities={printerEntities}
+            open={printersOpen}
+            onOpenChange={setPrintersOpen}
+          />
         </CardAction>
         <CardDescription className="col-span-full">
           <div className="flex items-center gap-x-4 gap-y-2 flex-wrap">
@@ -165,13 +162,16 @@ export const RoomCard: FC<{ room: RoomState }> = ({ room }) => {
       </CardHeader>
       <div className="relative">
         {printingNow.length > 0 && (
-          <div className="absolute top-0 inset-x-0 z-10 flex flex-col">
+          // Several active printers share the bar side by side.
+          <div className="absolute top-0 inset-x-0 z-10 flex divide-x divide-white/25">
             {printingNow.map((e) => (
-              <PrinterProgressOverlay
-                key={e.id}
-                entity={e}
-                onClick={() => navigate("/printers")}
-              />
+              <div key={e.id} className="min-w-0 flex-1">
+                <PrinterProgressOverlay
+                  entity={e}
+                  compact={printingNow.length > 1}
+                  onClick={() => navigate("/printers")}
+                />
+              </div>
             ))}
           </div>
         )}

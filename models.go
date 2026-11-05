@@ -145,26 +145,28 @@ func (PushSubscriptionModel) TableName() string {
 	return "push_subscriptions"
 }
 
-// BambuThumbnailModel caches the plate-preview PNG extracted from a print's
-// .gcode.3mf, keyed by printer + task + start time so a printer is queried over
-// FTPS at most once per print. CreatedAt is retained so stale rows can be
-// cleaned up later.
-type BambuThumbnailModel struct {
+// PrinterThumbnailModel caches print preview PNGs, keyed by printer + task +
+// start time. Bambu stores the plate preview extracted from a print's
+// .gcode.3mf (fetched over FTPS at most once per print). Anycubic stores the
+// slicer preview of every file on the printer, keyed by its "<name>/<internal
+// name>" listing entry with GcodeStartTime 0, since previews cannot be fetched
+// while printing. CreatedAt is retained so stale rows can be cleaned up later.
+type PrinterThumbnailModel struct {
 	ID             uint      `gorm:"primaryKey;autoIncrement"`
-	PrinterID      string    `gorm:"uniqueIndex:idx_bambu_thumb,priority:1;not null"`
-	TaskName       string    `gorm:"uniqueIndex:idx_bambu_thumb,priority:2;not null"`
-	GcodeStartTime int64     `gorm:"uniqueIndex:idx_bambu_thumb,priority:3;not null"`
+	PrinterID      string    `gorm:"uniqueIndex:idx_printer_thumb,priority:1;not null"`
+	TaskName       string    `gorm:"uniqueIndex:idx_printer_thumb,priority:2;not null"`
+	GcodeStartTime int64     `gorm:"uniqueIndex:idx_printer_thumb,priority:3;not null"`
 	PNG            []byte    `gorm:"type:blob"`
 	CreatedAt      time.Time `gorm:"index"`
 }
 
-func (BambuThumbnailModel) TableName() string {
-	return "bambu_thumbnails"
+func (PrinterThumbnailModel) TableName() string {
+	return "printer_thumbnails"
 }
 
 // AutoMigrateModels runs GORM auto-migration for all models.
 func AutoMigrateModels(db *gorm.DB) error {
-	return db.AutoMigrate(&VirtualDeviceModel{}, &VirtualDeviceStateModel{}, &SessionModel{}, &UsageStatsDayCache{}, &NumericSeriesDayCache{}, &DhcpLeaseModel{}, &AppSettingModel{}, &PushSubscriptionModel{}, &BambuThumbnailModel{})
+	return db.AutoMigrate(&VirtualDeviceModel{}, &VirtualDeviceStateModel{}, &SessionModel{}, &UsageStatsDayCache{}, &NumericSeriesDayCache{}, &DhcpLeaseModel{}, &AppSettingModel{}, &PushSubscriptionModel{}, &PrinterThumbnailModel{})
 }
 
 // CurrentTimestampMillis returns current time as Unix milliseconds.

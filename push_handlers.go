@@ -39,10 +39,7 @@ func handlePushSubscribe(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).SendString("missing printer_id or subscription fields")
 	}
 
-	taskID := ""
-	if bambuService != nil {
-		taskID = bambuService.CurrentTaskID(req.PrinterID)
-	}
+	taskID := currentPrintTaskID(req.PrinterID)
 
 	if err := pushService.Subscribe(req.PrinterID, taskID,
 		req.Subscription.Endpoint, req.Subscription.Keys.P256dh, req.Subscription.Keys.Auth); err != nil {

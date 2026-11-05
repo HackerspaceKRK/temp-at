@@ -51,7 +51,7 @@ const PrinterCard: FC<PrinterWithRoom> = ({ room, entity }) => {
       <CardContent className="flex flex-col gap-4">
         <PrinterStreamView entity={entity} />
         <PrinterStatusSummary entity={entity} />
-        {entity.state && <AmsPanel state={entity.state} />}
+        {entity.state?.type === "bambu" && <AmsPanel state={entity.state} />}
         <PrinterNotifyButton entity={entity} />
       </CardContent>
     </Card>

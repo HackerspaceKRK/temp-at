@@ -83,6 +83,12 @@ func validateConfig(cfg *Config, path string) {
 		}
 	}
 
+	for i, pc := range cfg.AnycubicPrinters {
+		if pc.ID == "" || pc.Host == "" {
+			log.Printf("warning: anycubic_printers[%d] (%s) has empty id or host in %s", i, pc.ID, path)
+		}
+	}
+
 	if cfg.Frigate.Url == "" {
 		log.Printf("warning: frigate.url is empty in %s", path)
 	}

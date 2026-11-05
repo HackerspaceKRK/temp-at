@@ -144,9 +144,7 @@ export interface RelayEntity {
   prohibit_control?: boolean;
 }
 
-/**
- * Bambu Labs 3D printer state (mirrors the backend BambuPrinterState struct).
- */
+/** Printer state value shared by all printer vendors. */
 export type PrinterStateValue =
   | "idle"
   | "printing"
@@ -154,6 +152,9 @@ export type PrinterStateValue =
   | "finished"
   | "failed"
   | "offline";
+
+/** Which vendor-specific fields a printer state carries. */
+export type PrinterType = "bambu" | "anycubic";
 
 /** One filament slot (AMS tray or external spool). */
 export interface PrinterTray {
@@ -182,26 +183,36 @@ export interface PrinterHmsError {
   code: number;
 }
 
-export interface PrinterState {
+/** Vendor-neutral printer state (mirrors the backend PrinterBaseState struct). */
+export interface PrinterBaseState {
+  type: PrinterType;
   state: PrinterStateValue;
   progress: number; // percent 0-100
   remaining_time: number; // minutes
   filename: string;
-  error_code: string;
-  print_error: string; // 8-hex code (e.g. "0300800A"), "" when none
+  print_error: string; // vendor error code, "" when none
   print_error_text: string; // human-readable description, "" if none/unknown
   task_id: string;
   layer_num: number;
   total_layer_num: number;
   started_at: number; // unix millis, 0 if unknown
   finished_at: number; // unix millis, 0 while running
-  has_thumbnail: boolean; // true once a plate-preview PNG has been cached
+  has_thumbnail: boolean; // true once a print preview PNG has been cached
+  online: boolean;
+  snapshot_images?: SnapshotImage[]; // camera snapshot variants (auth-gated URLs)
+  low_res_preview?: string; // tiny base64 data URL preview
+  has_stream: boolean; // live stream endpoint available
+}
+
+/** Bambu Labs printer state (mirrors the backend BambuPrinterState struct). */
+export interface BambuPrinterState extends PrinterBaseState {
+  type: "bambu";
+  error_code: string;
   nozzle_temp: number;
   nozzle_target: number;
   bed_temp: number;
   bed_target: number;
   chamber_temp: number;
-  online: boolean;
   ams?: PrinterAmsUnit[];
   vt_tray?: PrinterTray;
   fan_cooling: number; // percent
@@ -213,10 +224,23 @@ export interface PrinterState {
   nozzle_type: string;
   lights?: PrinterLight[];
   hms?: PrinterHmsError[];
-  snapshot_images?: SnapshotImage[]; // camera snapshot variants (auth-gated URLs)
-  low_res_preview?: string; // tiny base64 data URL preview
-  has_stream: boolean; // live stream endpoint available
 }
+
+/** Anycubic resin printer state (mirrors the backend AnycubicPrinterState struct). */
+export interface AnycubicPrinterState extends PrinterBaseState {
+  type: "anycubic";
+  model: string;
+  firmware: string;
+  serial_number: string;
+  wifi_network: string; // SSID the printer is connected to
+  raw_status: string; // printer's own status word (print, pause, stop, ...)
+  elapsed_time: number; // minutes
+  resin_volume: number; // mL needed for the whole print
+  layer_height: number; // mm
+  exposure_mode: string; // e.g. "UV"
+}
+
+export type PrinterState = BambuPrinterState | AnycubicPrinterState;
 
 export interface PrinterEntity {
   representation: "printer";

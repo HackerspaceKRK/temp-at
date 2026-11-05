@@ -15,7 +15,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/jlaffaye/ftp"
 	"gorm.io/gorm"
 )
@@ -319,7 +318,7 @@ func (c *bambuThumbnailCache) Has(printerID, taskName string, startMillis int64)
 	c.mu.Unlock()
 
 	var count int64
-	c.db.Model(&BambuThumbnailModel{}).
+	c.db.Model(&PrinterThumbnailModel{}).
 		Where("printer_id = ? AND task_name = ? AND gcode_start_time = ?", printerID, taskName, startMillis).
 		Count(&count)
 	if count > 0 {
@@ -340,7 +339,7 @@ func (c *bambuThumbnailCache) Get(printerID, taskName string, startMillis int64)
 	if c == nil {
 		return nil, fmt.Errorf("no thumbnail cache")
 	}
-	var row BambuThumbnailModel
+	var row PrinterThumbnailModel
 	err := c.db.
 		Where("printer_id = ? AND task_name = ? AND gcode_start_time = ?", printerID, taskName, startMillis).
 		First(&row).Error
@@ -389,7 +388,7 @@ func (c *bambuThumbnailCache) Ensure(cfg BambuPrinterConfig, taskName string, st
 func (c *bambuThumbnailCache) fetch(cfg BambuPrinterConfig, taskName string, startMillis int64, key string) {
 	// Another process/run may already have stored it.
 	var count int64
-	c.db.Model(&BambuThumbnailModel{}).
+	c.db.Model(&PrinterThumbnailModel{}).
 		Where("printer_id = ? AND task_name = ? AND gcode_start_time = ?", cfg.ID, taskName, startMillis).
 		Count(&count)
 	if count > 0 {
@@ -412,7 +411,7 @@ func (c *bambuThumbnailCache) fetch(cfg BambuPrinterConfig, taskName string, sta
 		return
 	}
 
-	row := BambuThumbnailModel{
+	row := PrinterThumbnailModel{
 		PrinterID:      cfg.ID,
 		TaskName:       taskName,
 		GcodeStartTime: startMillis,
@@ -546,24 +545,6 @@ var nonAlnumRe = regexp.MustCompile(`[^a-z0-9]+`)
 func bambuNameTokens(name string) []string {
 	norm := nonAlnumRe.ReplaceAllString(strings.ToLower(name), " ")
 	return strings.Fields(norm)
-}
-
-// handleBambuThumbnail serves the cached plate-preview PNG for a printer's
-// current print. Public (like /api/v1/room-states, which already exposes printer
-// filename/state) so it works on the kiosk dashboard.
-func handleBambuThumbnail(c *fiber.Ctx) error {
-	if bambuService == nil {
-		return fiber.ErrNotFound
-	}
-	// "+" is a greedy param so printer IDs containing slashes (e.g.
-	// "bambu/cnc/printer") are captured whole.
-	png, err := bambuService.CurrentThumbnail(c.Params("+"))
-	if err != nil || len(png) == 0 {
-		return fiber.ErrNotFound
-	}
-	c.Set("Content-Type", "image/png")
-	c.Set("Cache-Control", "no-cache")
-	return c.Status(fiber.StatusOK).Send(png)
 }
 
 // pngMagic is the 8-byte PNG signature, used by tests to sanity-check output.

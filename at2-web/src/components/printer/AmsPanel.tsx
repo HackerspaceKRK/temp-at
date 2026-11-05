@@ -1,7 +1,7 @@
 import type { FC } from "react";
 import { Droplets, Thermometer } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { PrinterState, PrinterTray } from "../../schema";
+import type { BambuPrinterState, PrinterTray } from "../../schema";
 import {
   Tooltip,
   TooltipContent,
@@ -81,7 +81,7 @@ const FilamentSlot: FC<{ tray: PrinterTray; label: string }> = ({ tray, label })
 
 // AmsPanel shows every AMS unit (humidity, temperature, four filament slots)
 // plus the external spool holder when present.
-export const AmsPanel: FC<{ state: PrinterState }> = ({ state }) => {
+export const AmsPanel: FC<{ state: BambuPrinterState }> = ({ state }) => {
   const { t } = useTranslation();
   const units = state.ams ?? [];
   const vt = state.vt_tray;
