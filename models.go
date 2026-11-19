@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"log"
 	"time"
 
 	"github.com/gofrs/uuid/v5"
@@ -23,7 +25,6 @@ func (VirtualDeviceModel) TableName() string {
 
 // VirtualDeviceStateModel records a state change for a virtual device (timeseries data).
 type VirtualDeviceStateModel struct {
-	ID              string             `gorm:"primaryKey;type:text"` // UUIDv7 as string
 	Timestamp       int64              `gorm:"index:idx_device_timestamp;not null"`
 	VirtualDeviceID uint               `gorm:"index:idx_device_timestamp;not null"`
 	VirtualDevice   VirtualDeviceModel `gorm:"foreignKey:VirtualDeviceID"`
@@ -56,7 +57,7 @@ func (SessionModel) TableName() string {
 	return "sessions"
 }
 
-// GenerateUUIDv7 generates a new UUIDv7 string for state record IDs.
+// GenerateUUIDv7 generates a new UUIDv7 string (used for session IDs).
 func GenerateUUIDv7() string {
 	id, err := uuid.NewV7()
 	if err != nil {
@@ -168,10 +169,63 @@ func (PrinterThumbnailModel) TableName() string {
 
 // AutoMigrateModels runs GORM auto-migration for all models.
 func AutoMigrateModels(db *gorm.DB) error {
+	if err := migrateDropStateModelID(db); err != nil {
+		return fmt.Errorf("dropping virtual_device_state_models.id: %w", err)
+	}
 	return db.AutoMigrate(&VirtualDeviceModel{}, &VirtualDeviceStateModel{}, &SessionModel{}, &UsageStatsDayCache{}, &NumericSeriesDayCache{}, &DhcpLeaseModel{}, &AppSettingModel{}, &PushSubscriptionModel{}, &PrinterThumbnailModel{})
 }
 
 // CurrentTimestampMillis returns current time as Unix milliseconds.
 func CurrentTimestampMillis() int64 {
 	return time.Now().UnixMilli()
+}
+
+// Delete the old id uuidv7 column from state model
+func migrateDropStateModelID(db *gorm.DB) error {
+	// Not Migrator().HasColumn: the SQLite driver implements it with a LIKE on the
+	// CREATE statement, which would also match "virtual_device_id".
+	var hasID int64
+	if err := db.Raw("SELECT count(*) FROM pragma_table_info('virtual_device_state_models') WHERE name = 'id'").
+		Scan(&hasID).Error; err != nil {
+		return err
+	}
+	if hasID == 0 {
+		return nil
+	}
+	const oldTable = "virtual_device_state_models_old"
+	log.Printf("Migration: rebuilding virtual_device_state_models without the id column, this may take a while...")
+	start := time.Now()
+	err := db.Transaction(func(tx *gorm.DB) error {
+		// Index names are global in SQLite, so drop it before the new table recreates it.
+		if err := tx.Exec("DROP INDEX IF EXISTS idx_device_timestamp").Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DROP TABLE IF EXISTS " + oldTable).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("ALTER TABLE virtual_device_state_models RENAME TO " + oldTable).Error; err != nil {
+			return err
+		}
+		if err := tx.Migrator().CreateTable(&VirtualDeviceStateModel{}); err != nil {
+			return err
+		}
+		// UUIDv7 IDs sort by creation time, so ordering by id preserves insertion order.
+		res := tx.Exec("INSERT INTO virtual_device_state_models (timestamp, virtual_device_id, state) " +
+			"SELECT timestamp, virtual_device_id, state FROM " + oldTable + " ORDER BY id")
+		if res.Error != nil {
+			return res.Error
+		}
+		log.Printf("Migration: copied %d state rows", res.RowsAffected)
+		return tx.Exec("DROP TABLE " + oldTable).Error
+	})
+	if err != nil {
+		return err
+	}
+	log.Printf("Migration: table rebuilt in %s, running VACUUM...", time.Since(start).Round(time.Millisecond))
+	start = time.Now()
+	if err := db.Exec("VACUUM").Error; err != nil {
+		return fmt.Errorf("vacuum: %w", err)
+	}
+	log.Printf("Migration: VACUUM finished in %s", time.Since(start).Round(time.Millisecond))
+	return nil
 }

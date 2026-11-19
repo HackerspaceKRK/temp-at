@@ -71,7 +71,6 @@ func (r *VirtualDeviceHistoryRepository) OnDeviceUpdated(vdev *VirtualDevice) {
 
 	// Create state record
 	stateRecord := VirtualDeviceStateModel{
-		ID:              GenerateUUIDv7(),
 		Timestamp:       CurrentTimestampMillis(),
 		VirtualDeviceID: dbDevice.ID,
 		State:           string(stateJSON),

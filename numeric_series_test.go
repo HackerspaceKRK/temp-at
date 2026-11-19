@@ -49,7 +49,7 @@ func TestComputeAveragedSeriesCaches(t *testing.T) {
 		{yesterday.Add(12 * time.Hour), "200"},
 	} {
 		require.NoError(t, db.Create(&VirtualDeviceStateModel{
-			ID: GenerateUUIDv7(), Timestamp: s.at.UnixMilli(), VirtualDeviceID: dev.ID, State: s.state,
+			Timestamp: s.at.UnixMilli(), VirtualDeviceID: dev.ID, State: s.state,
 		}).Error)
 	}
 

@@ -51,7 +51,6 @@ func setupBenchDB(b *testing.B) (*VirtualDeviceHistoryRepository, []RoomConfig) 
 		for _, e := range entries {
 			ts := time.Date(y, m, d, e.hour, 0, 0, 0, loc).UnixMilli()
 			db.Create(&VirtualDeviceStateModel{
-				ID:              GenerateUUIDv7(),
 				Timestamp:       ts,
 				VirtualDeviceID: e.deviceID,
 				State:           e.count,
