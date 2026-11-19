@@ -186,7 +186,8 @@ func (a *MQTTAdapter) subscribeAllMapperTopics() {
 			topic := topic // capture loop variable
 			log.Printf("[mqtt] subscribing to %s", topic)
 			token := a.client.Subscribe(topic, 0, func(_ mqtt.Client, msg mqtt.Message) {
-				a.handleMapperMessage(mapper, msg.Topic(), msg.Payload())
+
+				a.handleMapperMessage(mapper, msg.Topic(), msg.Payload(), msg.Retained())
 			})
 			if !token.WaitTimeout(5 * time.Second) {
 				log.Printf("[mqtt] subscription timeout for %s", topic)
@@ -198,7 +199,7 @@ func (a *MQTTAdapter) subscribeAllMapperTopics() {
 }
 
 // handleMapperMessage invokes discovery and update logic on a mapper and mutates virtual devices accordingly.
-func (a *MQTTAdapter) handleMapperMessage(mapper MQTTMapper, topic string, payload []byte) {
+func (a *MQTTAdapter) handleMapperMessage(mapper MQTTMapper, topic string, payload []byte, retained bool) {
 	// Discovery
 	discovered, derr := mapper.DiscoverDevicesFromMessage(topic, payload)
 	if derr != nil {
@@ -222,6 +223,10 @@ func (a *MQTTAdapter) handleMapperMessage(mapper MQTTMapper, topic string, paylo
 	if len(updates) > 0 {
 		// VdevManager handles callback invocation.
 		a.vdevMgr.ApplyUpdates(updates)
+
+		if !retained {
+			a.vdevMgr.MarkDevicesSeen(updates)
+		}
 	}
 }
 

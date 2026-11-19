@@ -51,15 +51,16 @@ type VirtualDeviceUpdate struct {
 	State any    `json:"state,omitempty"`
 }
 
-// VdevManager owns the in-memory collection of VirtualDevice objects and
-// provides concurrency-safe mutation and snapshot retrieval APIs.
-// Responsibility previously held inside MQTTAdapter has been extracted here.
 type VdevManager struct {
 	mu      sync.RWMutex
 	devices []*VirtualDevice
 
 	// OnVirtualDeviceUpdated callbacks are invoked for each device whose state changed.
 	OnVirtualDeviceUpdated []func(vdev *VirtualDevice)
+
+	// OnVirtualDeviceSeen callabcks are invoked when a device sends a message indicating that
+	// it works, but it's state has not neccesarily changed.
+	OnVirtualDeviceSeen []func(vdev *VirtualDevice)
 
 	stateProvider DeviceStateProvider
 }
@@ -160,6 +161,33 @@ func (m *VdevManager) ApplyUpdates(updates []*VirtualDeviceUpdate) []string {
 	}
 
 	return changed
+}
+
+// NotifyDeviceContact invokes OnVirtualDeviceSeen callbacks
+func (m *VdevManager) MarkDevicesSeen(updates []*VirtualDeviceUpdate) {
+	index := make(map[string]*VirtualDevice, len(m.devices))
+	for _, d := range m.devices {
+		index[d.ID] = d
+	}
+
+	seenDevices := make([]*VirtualDevice, 0, len(updates))
+	for _, upd := range updates {
+		if upd == nil || upd.Name == "" {
+			continue
+		}
+		if dev, ok := index[upd.Name]; ok {
+			clone := *dev
+			seenDevices = append(seenDevices, &clone)
+		}
+	}
+	callbacks := append([]func(vdev *VirtualDevice){}, m.OnVirtualDeviceSeen...) // copy slice
+	go func(devices []*VirtualDevice, cbs []func(vdev *VirtualDevice)) {
+		for _, dev := range devices {
+			for _, cb := range cbs {
+				cb(dev)
+			}
+		}
+	}(seenDevices, callbacks)
 }
 
 // shouldAssignState returns true if newValue should replace oldValue.

@@ -4,23 +4,32 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
+	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
+// VdevHistoryTypeBlocklist defines device types whose history is not persisted
+var VdevHistoryTypeBlocklist = map[VdevType]any{
+	VdevTypeCameraSnapshot: true,
+	VdevTypePrinter:        true,
+}
+
+const DeviceLastSeenAtUpdateInterval = 5 * time.Minute
+
 // VirtualDeviceHistoryRepository stores virtual device state changes to the database.
 type VirtualDeviceHistoryRepository struct {
-	db        *gorm.DB
-	deviceIDs map[string]uint // cache: device name -> DB ID
-	mu        sync.Mutex
+	db             *gorm.DB
+	dbDevicesCache map[string]*VirtualDeviceModel
+	mu             sync.Mutex
 }
 
 // NewVirtualDeviceHistoryRepository creates a new repository and registers as listener.
 func NewVirtualDeviceHistoryRepository(db *gorm.DB, vdevManager *VdevManager) *VirtualDeviceHistoryRepository {
 	repo := &VirtualDeviceHistoryRepository{
-		db:        db,
-		deviceIDs: make(map[string]uint),
+		db:             db,
+		dbDevicesCache: make(map[string]*VirtualDeviceModel),
 	}
 
 	// Register as listener for state changes
@@ -29,24 +38,25 @@ func NewVirtualDeviceHistoryRepository(db *gorm.DB, vdevManager *VdevManager) *V
 		repo.OnDeviceUpdated,
 	)
 
+	vdevManager.OnVirtualDeviceSeen = append(
+		vdevManager.OnVirtualDeviceSeen,
+		repo.OnDeviceSeen,
+	)
 	return repo
 }
 
 // OnDeviceUpdated is called when a virtual device state changes.
 // It upserts the device record and inserts a new state entry.
-// Note: camera_snapshot devices are excluded from history tracking.
 func (r *VirtualDeviceHistoryRepository) OnDeviceUpdated(vdev *VirtualDevice) {
-	// Skip devices whose state is volatile/high-frequency and not worth persisting
-	// (camera snapshots, printer telemetry).
-	if vdev.Type == VdevTypeCameraSnapshot || vdev.Type == VdevTypePrinter {
+	if _, ok := VdevHistoryTypeBlocklist[vdev.Type]; ok {
 		return
 	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// Get or create device ID
-	deviceID, err := r.getOrCreateDeviceID(vdev.ID, string(vdev.Type))
+	// Get or create the device in the DB
+	dbDevice, err := r.getOrCreateDbDevice(vdev.ID, string(vdev.Type))
 	if err != nil {
 		log.Printf("VirtualDeviceHistoryRepository: failed to get/create device %s: %v", vdev.ID, err)
 		return
@@ -63,7 +73,7 @@ func (r *VirtualDeviceHistoryRepository) OnDeviceUpdated(vdev *VirtualDevice) {
 	stateRecord := VirtualDeviceStateModel{
 		ID:              GenerateUUIDv7(),
 		Timestamp:       CurrentTimestampMillis(),
-		VirtualDeviceID: deviceID,
+		VirtualDeviceID: dbDevice.ID,
 		State:           string(stateJSON),
 	}
 
@@ -73,11 +83,36 @@ func (r *VirtualDeviceHistoryRepository) OnDeviceUpdated(vdev *VirtualDevice) {
 	}
 }
 
-// getOrCreateDeviceID returns the database ID for a device, creating it if necessary.
-func (r *VirtualDeviceHistoryRepository) getOrCreateDeviceID(name string, deviceType string) (uint, error) {
+// OnDeviceSeen sets LastSeenAt for the device
+func (r *VirtualDeviceHistoryRepository) OnDeviceSeen(vdev *VirtualDevice) {
+	if _, ok := VdevHistoryTypeBlocklist[vdev.Type]; ok {
+		return
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	devModel, err := r.getOrCreateDbDevice(vdev.ID, string(vdev.Type))
+	if err != nil {
+		log.Printf("VirtualDeviceHistoryRepository: failed to get/create device %s: %v", vdev.ID, err)
+		return
+	}
+
+	if devModel.LastSeenAt == nil || time.Since(*devModel.LastSeenAt) >= DeviceLastSeenAtUpdateInterval {
+		now := time.Now()
+		devModel.LastSeenAt = &now
+
+		if err := r.db.Save(devModel).Error; err != nil {
+			log.Printf("VirtualDeviceHistoryRepository: failed to update LastSeenAt for %s: %v", vdev.ID, err)
+		}
+	}
+}
+
+// getOrCreateDbDevice returns the database ID for a device, creating it if necessary.
+func (r *VirtualDeviceHistoryRepository) getOrCreateDbDevice(name string, deviceType string) (*VirtualDeviceModel, error) {
 	// Check cache first
-	if id, ok := r.deviceIDs[name]; ok {
-		return id, nil
+	if dev, ok := r.dbDevicesCache[name]; ok {
+		return dev, nil
 	}
 
 	// Use FirstOrCreate to upsert without "record not found" errors
@@ -88,11 +123,11 @@ func (r *VirtualDeviceHistoryRepository) getOrCreateDeviceID(name string, device
 	})
 
 	if result.Error != nil {
-		return 0, result.Error
+		return nil, result.Error
 	}
 
-	r.deviceIDs[name] = device.ID
-	return device.ID, nil
+	r.dbDevicesCache[name] = &device
+	return r.dbDevicesCache[name], nil
 }
 
 // GetLatestPersonDetectionTime returns the timestamp (in milliseconds) when a person was last detected

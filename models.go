@@ -12,6 +12,8 @@ type VirtualDeviceModel struct {
 	ID   uint   `gorm:"primaryKey;autoIncrement"`
 	Name string `gorm:"uniqueIndex;not null"`
 	Type string `gorm:"not null;index"`
+	// Records the last time we have seen any indication that this device is working
+	LastSeenAt *time.Time `gorm:"index"`
 }
 
 // TableName overrides the default table name.
