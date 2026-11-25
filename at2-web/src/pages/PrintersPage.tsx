@@ -1,5 +1,5 @@
 import type { FC } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation, Trans } from "react-i18next";
 import { Link, Navigate } from "react-router-dom";
 import { ArrowRight, Box } from "lucide-react";
 import { useLiveRoomStates } from "../useLiveRoomStates";
@@ -68,7 +68,29 @@ export const PrintersPage: FC = () => {
   }
 
   return (
-    <main className="grid grid-cols-1 gap-6 px-4 pb-10 md:grid-cols-2 xl:grid-cols-3">
+    <main className="grid grid-cols-1 gap-6 px-4 pt-6 pb-10 md:grid-cols-2 xl:grid-cols-3">
+      {printers.length > 0 && (
+        <div className="col-span-full rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+            {t("Reservation")}
+          </p>
+          <p>
+            <Trans
+              i18nKey="Reserve the printer before use! Reservations require a Phabricator login. <nielink>Reservation form ↗</nielink>"
+              components={{
+                nielink: (
+                  <a
+                    href="https://phabricator.hskrk.pl/calendar/event/edit/form/13/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline underline-offset-2 hover:text-primary/80"
+                  />
+                ),
+              }}
+            />
+          </p>
+        </div>
+      )}
       {printers.length === 0 && (
         <div className="col-span-full flex flex-col items-center py-16 text-muted-foreground">
           <Box className="mb-3 h-10 w-10 opacity-30" />

@@ -60,6 +60,8 @@
   "Idle": "Bezczynny",
   "If you are using a VPN, disable it temporarily.": "Jeżeli korzystasz z VPN wyłącz go tymczasowo.",
   "Instructions": "Instrukcja",
+  "Reservation": "Rezerwacja",
+  "Reserve the printer before use! Reservations require a Phabricator login. <nielink>Reservation form ↗</nielink>": "Przed użyciem zarezerwuj drukarkę! Rezerwacja wymaga logowania do Phabricatora. <nielink>Formularz rezerwacji ↗</nielink>",
   "Last 14 Days": "Ostatnie 14 dni",
   "Last 48 Hours": "Ostatnie 48 godzin",
   "Last 60 Days": "Ostatnie 60 dni",
