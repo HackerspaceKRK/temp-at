@@ -1,5 +1,5 @@
 import type { FC } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation, Trans } from "react-i18next";
 import { Link, Navigate } from "react-router-dom";
 import { ArrowRight, Box } from "lucide-react";
 import { useLiveRoomStates } from "../useLiveRoomStates";
@@ -75,15 +75,19 @@ export const PrintersPage: FC = () => {
             {t("Reservation")}
           </p>
           <p>
-            {t("Reserve the printer before use! Reservations require a Phabricator login.")}{" "}
-            <a
-              href="https://phabricator.hskrk.pl/calendar/event/edit/form/13/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary underline underline-offset-2 hover:text-primary/80"
-            >
-              {t("Reservation form")} ↗
-            </a>
+            <Trans
+              i18nKey="Reserve the printer before use! Reservations require a Phabricator login. <nielink>Reservation form ↗</nielink>"
+              components={{
+                nielink: (
+                  <a
+                    href="https://phabricator.hskrk.pl/calendar/event/edit/form/13/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline underline-offset-2 hover:text-primary/80"
+                  />
+                ),
+              }}
+            />
           </p>
         </div>
       )}
