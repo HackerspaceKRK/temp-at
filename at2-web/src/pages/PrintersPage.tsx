@@ -68,7 +68,25 @@ export const PrintersPage: FC = () => {
   }
 
   return (
-    <main className="grid grid-cols-1 gap-6 px-4 pb-10 md:grid-cols-2 xl:grid-cols-3">
+    <main className="grid grid-cols-1 gap-6 px-4 pt-6 pb-10 md:grid-cols-2 xl:grid-cols-3">
+      {printers.length > 0 && (
+        <div className="col-span-full rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+            {t("Reservation")}
+          </p>
+          <p>
+            {t("Reserve the printer before use! Reservations require a Phabricator login.")}{" "}
+            <a
+              href="https://phabricator.hskrk.pl/calendar/event/edit/form/13/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline underline-offset-2 hover:text-primary/80"
+            >
+              {t("Reservation form")} ↗
+            </a>
+          </p>
+        </div>
+      )}
       {printers.length === 0 && (
         <div className="col-span-full flex flex-col items-center py-16 text-muted-foreground">
           <Box className="mb-3 h-10 w-10 opacity-30" />
